@@ -8,4 +8,8 @@ auto-*.d.ts
 .idea
 .history
 output/
+!src/api/rd/production/output/
+!src/api/rd/production/output/**
+!src/views/rd/production/output/
+!src/views/rd/production/output/**
 .playwright-cli/
