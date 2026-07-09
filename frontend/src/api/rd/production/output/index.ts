@@ -35,6 +35,9 @@ export const RdProductionOutputApi = {
   cancel: async (id: number) => {
     return await request.put({ url: '/rd/production-output/cancel', params: { id } })
   },
+  inbound: async (id: number) => {
+    return await request.put({ url: '/rd/production-output/inbound', params: { id } })
+  },
   exportExcel: async (params: any) => {
     return await request.download({ url: '/rd/production-output/export-excel', params })
   }

@@ -66,6 +66,15 @@ public class RdProductionOutputController {
         return success(true);
     }
 
+    @PutMapping("/inbound")
+    @Operation(summary = "生产炉层产量转入库")
+    @Parameter(name = "id", description = "编号", required = true)
+    @PreAuthorize("@ss.hasPermission('rd:production-output:inbound')")
+    public CommonResult<Boolean> inboundProductionOutput(@RequestParam("id") Long id) {
+        productionOutputService.inboundProductionOutput(id);
+        return success(true);
+    }
+
     @GetMapping("/get")
     @Operation(summary = "获得生产炉层产量")
     @Parameter(name = "id", description = "编号", required = true, example = "1")

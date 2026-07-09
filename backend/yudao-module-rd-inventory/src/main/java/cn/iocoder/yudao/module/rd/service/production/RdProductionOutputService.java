@@ -18,6 +18,8 @@ public interface RdProductionOutputService {
 
     void cancelProductionOutput(Long id);
 
+    void inboundProductionOutput(Long id);
+
     RdProductionOutputDO getProductionOutput(Long id);
 
     PageResult<RdProductionOutputDO> getProductionOutputPage(RdProductionOutputPageReqVO pageReqVO);

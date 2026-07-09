@@ -113,7 +113,7 @@
         :formatter="dateFormatter"
         width="180"
       />
-      <el-table-column label="操作" align="center" fixed="right" width="180">
+      <el-table-column label="操作" align="center" fixed="right" width="230">
         <template #default="scope">
           <el-button
             link
@@ -123,6 +123,19 @@
             v-hasPermi="['rd:production-output:update']"
           >
             编辑
+          </el-button>
+          <el-button
+            link
+            type="success"
+            @click="handleInbound(scope.row)"
+            :disabled="
+              scope.row.status === 'INBOUNDED' ||
+              scope.row.status === 'CANCELLED' ||
+              !scope.row.locationCode
+            "
+            v-hasPermi="['rd:production-output:inbound']"
+          >
+            转入库
           </el-button>
           <el-button
             link
@@ -216,6 +229,15 @@ const handleCancel = async (id: number) => {
     await message.confirm('确认作废该生产炉层产量吗？作废后不会删除历史记录。')
     await RdProductionOutputApi.cancel(id)
     message.success('作废成功')
+    await getList()
+  } catch {}
+}
+
+const handleInbound = async (row: RdProductionOutputVO) => {
+  try {
+    await message.confirm('确认将该生产炉层产量转入库存吗？入库后会生成库存批次和入库流水。')
+    await RdProductionOutputApi.inbound(row.id)
+    message.success('入库成功')
     await getList()
   } catch {}
 }

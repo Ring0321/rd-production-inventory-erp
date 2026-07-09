@@ -8,7 +8,9 @@ import cn.iocoder.yudao.module.rd.controller.admin.production.vo.RdProductionOut
 import cn.iocoder.yudao.module.rd.dal.dataobject.production.RdProductionOutputDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.production.RdProductionOutputMapper;
 import cn.iocoder.yudao.module.rd.enums.RdProductionOutputStatusEnum;
+import cn.iocoder.yudao.module.rd.service.stock.RdStockLotService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import javax.annotation.Resource;
@@ -17,6 +19,9 @@ import java.math.BigDecimal;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_CANCEL_FAIL_CANCELLED;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_CANCEL_FAIL_INBOUNDED;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_INBOUND_FAIL_CANCELLED;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_INBOUND_FAIL_INBOUNDED;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_INBOUND_FAIL_LOCATION_EMPTY;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_STATUS_INVALID;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_UPDATE_FAIL_INBOUNDED;
@@ -30,6 +35,8 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
 
     @Resource
     private RdProductionOutputMapper productionOutputMapper;
+    @Resource
+    private RdStockLotService stockLotService;
 
     @Override
     public Long createProductionOutput(RdProductionOutputSaveReqVO createReqVO) {
@@ -65,6 +72,26 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
         productionOutputMapper.updateById(new RdProductionOutputDO()
                 .setId(id)
                 .setStatus(RdProductionOutputStatusEnum.CANCELLED.getStatus()));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void inboundProductionOutput(Long id) {
+        RdProductionOutputDO productionOutput = validateProductionOutputExists(id);
+        if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(productionOutput.getStatus())) {
+            throw exception(PRODUCTION_OUTPUT_INBOUND_FAIL_INBOUNDED);
+        }
+        if (RdProductionOutputStatusEnum.CANCELLED.getStatus().equals(productionOutput.getStatus())) {
+            throw exception(PRODUCTION_OUTPUT_INBOUND_FAIL_CANCELLED);
+        }
+        if (StrUtil.isBlank(productionOutput.getLocationCode())) {
+            throw exception(PRODUCTION_OUTPUT_INBOUND_FAIL_LOCATION_EMPTY);
+        }
+        stockLotService.createProductionInbound(productionOutput);
+        productionOutputMapper.updateById(new RdProductionOutputDO()
+                .setId(id)
+                .setInboundQty(productionOutput.getOutputQty())
+                .setStatus(RdProductionOutputStatusEnum.INBOUNDED.getStatus()));
     }
 
     private RdProductionOutputDO validateProductionOutputExists(Long id) {
