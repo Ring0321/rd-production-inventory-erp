@@ -256,7 +256,11 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_error` (
 INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
 (600000, '瑞鼎库存', '', 1, 35, 0, '/rd', 'ep:box', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600100, '生产管理', '', 1, 10, 600000, 'production', 'ep:cpu', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
-(600101, '生产炉层产量', 'rd:production-output:list', 2, 10, 600100, 'output', 'ep:list', 'rd/production/output/index', 'RdProductionOutput', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600101, '生产炉层产量', 'rd:production-output:query', 2, 10, 600100, 'output', 'ep:list', 'rd/production/output/index', 'RdProductionOutput', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600102, '生产炉层产量新增', 'rd:production-output:create', 3, 10, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600103, '生产炉层产量编辑', 'rd:production-output:update', 3, 20, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600104, '生产炉层产量作废', 'rd:production-output:cancel', 3, 30, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600105, '生产炉层产量导出', 'rd:production-output:export', 3, 40, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600200, '仓库管理', '', 1, 20, 600000, 'stock', 'ep:house', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600201, '库存台账', 'rd:stock-lot:list', 2, 10, 600200, 'lot', 'ep:collection', 'rd/stock/lot/index', 'RdStockLot', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
