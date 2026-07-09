@@ -1,0 +1,49 @@
+# Build outputs
+target/
+dist/
+build/
+.output/
+.vite/
+.cache/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+
+# Business data files must not be uploaded
+*.xlsx
+*.xls
+*.zip
+*.rar
+
+# Runtime uploads and generated files
+uploads/
+temp/
+tmp/
+export/
+import/
+
+# Java coverage
+coverage/
+jacoco.exec
+
+# Node coverage
+frontend/coverage/
