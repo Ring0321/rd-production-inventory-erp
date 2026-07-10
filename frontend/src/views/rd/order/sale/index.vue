@@ -108,8 +108,16 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="230">
+      <el-table-column label="操作" align="center" fixed="right" width="280">
         <template #default="scope">
+          <el-button
+            link
+            type="primary"
+            @click="openDetail(scope.row.id)"
+            v-hasPermi="['rd:sale-order:query']"
+          >
+            详情
+          </el-button>
           <el-button
             link
             type="primary"
@@ -149,6 +157,7 @@
   </ContentWrap>
 
   <SaleOrderForm ref="formRef" @success="getList" />
+  <SaleOrderDetailDrawer ref="detailDrawerRef" />
 </template>
 
 <script setup lang="ts">
@@ -158,6 +167,7 @@ import { useMessage } from '@/hooks/web/useMessage'
 import { RdSaleOrderApi } from '@/api/rd/order/sale'
 import type { RdSaleOrderVO } from '@/api/rd/order/sale'
 import SaleOrderForm from './SaleOrderForm.vue'
+import SaleOrderDetailDrawer from './SaleOrderDetailDrawer.vue'
 
 defineOptions({ name: 'RdSaleOrder' })
 
@@ -212,6 +222,11 @@ const resetQuery = () => {
 
 const openForm = (type: 'create' | 'update', id?: number) => {
   formRef.value?.open(type, id)
+}
+
+const detailDrawerRef = ref()
+const openDetail = (id: number) => {
+  detailDrawerRef.value?.open(id)
 }
 
 const isEditable = (order: RdSaleOrderVO) => {
