@@ -12,13 +12,22 @@ import org.springframework.validation.annotation.Validated;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertMap;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_NOT_EXISTS;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_ALLOCATION_EXCEEDS_DIFFERENCE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_ALLOCATION_NEGATIVE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_NO_EXISTS;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_STATUS_CANNOT_CHANGE;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_TRANSFER_EXCEEDS_DIFFERENCE;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_TRANSFER_NEGATIVE;
 
 /**
  * RD sales order Service implementation.
@@ -102,6 +111,44 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeTransferQty(Long fromOrderId, Long toOrderId, BigDecimal deltaQty) {
+        RdSaleOrderDO fromOrder = null;
+        RdSaleOrderDO toOrder;
+        if (fromOrderId == null) {
+            toOrder = getSaleOrderForUpdate(toOrderId);
+        } else if (fromOrderId < toOrderId) {
+            fromOrder = getSaleOrderForUpdate(fromOrderId);
+            toOrder = getSaleOrderForUpdate(toOrderId);
+        } else {
+            toOrder = getSaleOrderForUpdate(toOrderId);
+            fromOrder = getSaleOrderForUpdate(fromOrderId);
+        }
+
+        if (fromOrder != null) {
+            BigDecimal transferOutQty = zeroIfNull(fromOrder.getTransferOutQty()).add(deltaQty);
+            if (transferOutQty.signum() < 0) {
+                throw exception(SALE_ORDER_TRANSFER_NEGATIVE);
+            }
+            fromOrder.setTransferOutQty(transferOutQty);
+            recalculateMetrics(fromOrder);
+            saleOrderMapper.updateById(fromOrder);
+        }
+
+        if (deltaQty.signum() > 0
+                && deltaQty.compareTo(zeroIfNull(toOrder.getAdjustedDifferenceQty())) > 0) {
+            throw exception(SALE_ORDER_TRANSFER_EXCEEDS_DIFFERENCE);
+        }
+        BigDecimal transferInQty = zeroIfNull(toOrder.getTransferInQty()).add(deltaQty);
+        if (transferInQty.signum() < 0) {
+            throw exception(SALE_ORDER_TRANSFER_NEGATIVE);
+        }
+        toOrder.setTransferInQty(transferInQty);
+        recalculateMetrics(toOrder);
+        saleOrderMapper.updateById(toOrder);
+    }
+
+    @Override
     public RdSaleOrderDO getSaleOrder(Long id) {
         RdSaleOrderDO saleOrder = saleOrderMapper.selectById(id);
         if (saleOrder == null) {
@@ -111,12 +158,33 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     }
 
     @Override
+    public Map<Long, RdSaleOrderDO> getSaleOrderMap(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Set<Long> validIds = ids.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        if (validIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return convertMap(saleOrderMapper.selectByIds(validIds), RdSaleOrderDO::getId);
+    }
+
+    @Override
     public PageResult<RdSaleOrderDO> getSaleOrderPage(RdSaleOrderPageReqVO pageReqVO) {
         return saleOrderMapper.selectPage(pageReqVO);
     }
 
     private RdSaleOrderDO validateSaleOrderEditable(Long id) {
         RdSaleOrderDO saleOrder = getSaleOrder(id);
+        validateSaleOrderEditable(saleOrder);
+        return saleOrder;
+    }
+
+    private RdSaleOrderDO getSaleOrderForUpdate(Long id) {
+        RdSaleOrderDO saleOrder = saleOrderMapper.selectByIdForUpdate(id);
+        if (saleOrder == null) {
+            throw exception(SALE_ORDER_NOT_EXISTS);
+        }
         validateSaleOrderEditable(saleOrder);
         return saleOrder;
     }

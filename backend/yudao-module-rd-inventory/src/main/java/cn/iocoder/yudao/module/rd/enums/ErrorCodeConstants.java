@@ -35,6 +35,8 @@ public interface ErrorCodeConstants {
     ErrorCode SALE_ORDER_STATUS_CANNOT_CHANGE = new ErrorCode(1_080_300_002, "当前销售订单状态不允许修改");
     ErrorCode SALE_ORDER_ALLOCATION_EXCEEDS_DIFFERENCE = new ErrorCode(1_080_300_003, "匹配数量不能超过订单剩余差额");
     ErrorCode SALE_ORDER_ALLOCATION_NEGATIVE = new ErrorCode(1_080_300_004, "订单已分配数量不能小于 0");
+    ErrorCode SALE_ORDER_TRANSFER_NEGATIVE = new ErrorCode(1_080_300_005, "订单调入或调出数量不能小于 0");
+    ErrorCode SALE_ORDER_TRANSFER_EXCEEDS_DIFFERENCE = new ErrorCode(1_080_300_006, "调入数量不能超过订单剩余差额");
 
     // ========== RD order fulfillment 1-080-310-000 ==========
     ErrorCode ORDER_FULFILLMENT_NOT_EXISTS = new ErrorCode(1_080_310_000, "订单库存匹配记录不存在");
@@ -42,5 +44,16 @@ public interface ErrorCodeConstants {
     ErrorCode ORDER_FULFILLMENT_STATUS_CANNOT_CANCEL = new ErrorCode(1_080_310_002, "当前匹配状态不能取消");
     ErrorCode ORDER_MATCH_STOCK_INSUFFICIENT = new ErrorCode(1_080_310_003, "库存批次可用数量不足");
     ErrorCode ORDER_MATCH_STOCK_DIMENSION_MISMATCH = new ErrorCode(1_080_310_004, "直接匹配必须使用相同客户和型号的库存");
+
+    // ========== RD transfer order 1-080-400-000 ==========
+    ErrorCode TRANSFER_ORDER_NOT_EXISTS = new ErrorCode(1_080_400_000, "调拨单不存在");
+    ErrorCode TRANSFER_ORDER_NO_EXISTS = new ErrorCode(1_080_400_001, "调拨单号已存在");
+    ErrorCode TRANSFER_ORDER_STATUS_NOT_DRAFT = new ErrorCode(1_080_400_002, "只有草稿调拨单可以修改或确认");
+    ErrorCode TRANSFER_ORDER_STATUS_CANNOT_CANCEL = new ErrorCode(1_080_400_003, "当前调拨单状态不能撤销");
+    ErrorCode TRANSFER_ORDER_STOCK_INSUFFICIENT = new ErrorCode(1_080_400_004, "调出库存可用数量不足");
+    ErrorCode TRANSFER_ORDER_MODEL_MISMATCH = new ErrorCode(1_080_400_005, "调出库存与调入订单型号不一致");
+    ErrorCode TRANSFER_ORDER_SAME_CUSTOMER = new ErrorCode(1_080_400_006, "相同客户库存请使用订单匹配，无需调拨");
+    ErrorCode TRANSFER_ORDER_FROM_ORDER_MISMATCH = new ErrorCode(1_080_400_007, "调出订单与调出库存客户或型号不一致");
+    ErrorCode TRANSFER_ORDER_REVERSE_INSUFFICIENT = new ErrorCode(1_080_400_008, "调入库存已被占用或数量不足，无法撤销调拨");
 
 }

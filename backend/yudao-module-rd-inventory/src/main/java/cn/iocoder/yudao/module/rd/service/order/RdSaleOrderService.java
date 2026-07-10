@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.order.RdSaleOrderDO;
 
 import javax.validation.Valid;
 import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * RD sales order Service.
@@ -23,7 +25,11 @@ public interface RdSaleOrderService {
 
     RdSaleOrderDO changeAllocatedQty(Long id, BigDecimal deltaQty);
 
+    void changeTransferQty(Long fromOrderId, Long toOrderId, BigDecimal deltaQty);
+
     RdSaleOrderDO getSaleOrder(Long id);
+
+    Map<Long, RdSaleOrderDO> getSaleOrderMap(Collection<Long> ids);
 
     PageResult<RdSaleOrderDO> getSaleOrderPage(RdSaleOrderPageReqVO pageReqVO);
 

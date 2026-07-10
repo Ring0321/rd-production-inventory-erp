@@ -199,7 +199,8 @@ CREATE TABLE IF NOT EXISTS `rd_transfer_order` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_transfer_no` (`transfer_no`, `deleted`),
-  KEY `idx_rd_transfer_date_status` (`transfer_date`, `status`)
+  KEY `idx_rd_transfer_date_status` (`transfer_date`, `status`),
+  KEY `idx_rd_transfer_link` (`to_order_id`, `from_stock_lot_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD order transfer';
 
 CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
@@ -287,6 +288,12 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600312, '订单自动匹配', 'rd:order-fulfillment:auto', 3, 20, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600313, '订单取消匹配', 'rd:order-fulfillment:cancel', 3, 30, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600400, '调拨管理', '', 1, 40, 600000, 'transfer', 'ep:sort', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600401, '调拨单', 'rd:transfer-order:query', 2, 10, 600400, 'list', 'ep:switch', 'rd/transfer/index', 'RdTransferOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600402, '调拨单新增', 'rd:transfer-order:create', 3, 10, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600403, '调拨单编辑', 'rd:transfer-order:update', 3, 20, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600404, '调拨单确认', 'rd:transfer-order:confirm', 3, 30, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600405, '调拨单撤销', 'rd:transfer-order:cancel', 3, 40, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600406, '调拨单导出', 'rd:transfer-order:export', 3, 50, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600500, '报表中心', '', 1, 50, 600000, 'report', 'ep:trend-charts', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
