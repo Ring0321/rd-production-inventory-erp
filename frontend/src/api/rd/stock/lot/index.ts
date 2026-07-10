@@ -35,6 +35,14 @@ export interface RdStockOpeningCreateReqVO {
   remark?: string
 }
 
+export interface RdStockAdjustmentCreateReqVO {
+  stockLotId: number
+  bizDate: string
+  adjustmentType: 'ADJUST_IN' | 'ADJUST_OUT'
+  quantity: number
+  remark: string
+}
+
 export const RdStockLotApi = {
   getPage: async (params: any) => {
     return await request.get({ url: '/rd/stock-lot/page', params })
@@ -44,6 +52,9 @@ export const RdStockLotApi = {
   },
   createOpening: async (data: RdStockOpeningCreateReqVO) => {
     return await request.post({ url: '/rd/stock-lot/opening/create', data })
+  },
+  createAdjustment: async (data: RdStockAdjustmentCreateReqVO) => {
+    return await request.post({ url: '/rd/stock-lot/adjustment/create', data })
   },
   exportExcel: async (params: any) => {
     return await request.download({ url: '/rd/stock-lot/export-excel', params })

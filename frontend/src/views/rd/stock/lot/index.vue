@@ -130,7 +130,15 @@
           >
             流水
           </el-button>
-          <el-button link type="primary" disabled>调拨</el-button>
+          <el-button
+            link
+            type="primary"
+            :disabled="scope.row.status === 'CLOSED'"
+            @click="openAdjustmentForm(scope.row)"
+            v-hasPermi="['rd:stock-lot:adjust']"
+          >
+            调整
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -144,6 +152,7 @@
 
   <StockTransactionDrawer ref="transactionDrawerRef" />
   <OpeningForm ref="openingFormRef" @success="getList" />
+  <AdjustmentForm ref="adjustmentFormRef" @success="getList" />
 </template>
 
 <script setup lang="ts">
@@ -154,6 +163,7 @@ import { RdStockLotApi } from '@/api/rd/stock/lot'
 import type { RdStockLotVO } from '@/api/rd/stock/lot'
 import StockTransactionDrawer from './StockTransactionDrawer.vue'
 import OpeningForm from './OpeningForm.vue'
+import AdjustmentForm from './AdjustmentForm.vue'
 
 defineOptions({ name: 'RdStockLot' })
 
@@ -226,6 +236,11 @@ const openTransactionDrawer = (stockLot: RdStockLotVO) => {
 const openingFormRef = ref()
 const openOpeningForm = () => {
   openingFormRef.value?.open()
+}
+
+const adjustmentFormRef = ref()
+const openAdjustmentForm = (stockLot: RdStockLotVO) => {
+  adjustmentFormRef.value?.open(stockLot)
 }
 
 onMounted(() => {

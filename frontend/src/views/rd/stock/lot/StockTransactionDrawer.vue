@@ -86,6 +86,8 @@ const transactionTypeMap = transactionTypeOptions.reduce(
 )
 const sourceTypeMap: Record<string, string> = {
   PRODUCTION_OUTPUT: '生产炉层产量',
+  STOCK_OPENING: '期初库存',
+  STOCK_ADJUSTMENT: '库存调整',
   STOCK_IN: '入库单',
   STOCK_OUT: '出库单',
   TRANSFER: '调拨单',
