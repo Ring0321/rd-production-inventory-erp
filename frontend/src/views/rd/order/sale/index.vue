@@ -108,7 +108,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="420">
+      <el-table-column label="操作" align="center" fixed="right" width="500">
         <template #default="scope">
           <el-button
             link
@@ -135,6 +135,15 @@
             v-hasPermi="['rd:transfer-order:create']"
           >
             调拨补足
+          </el-button>
+          <el-button
+            link
+            type="success"
+            :disabled="!canOutbound(scope.row)"
+            @click="openOutbound(scope.row.id)"
+            v-hasPermi="['rd:outbound-order:create']"
+          >
+            出库上线
           </el-button>
           <el-button
             link
@@ -257,12 +266,20 @@ const openTransfer = (toOrderId: number) => {
   router.push({ name: 'RdTransferOrder', query: { toOrderId } })
 }
 
+const openOutbound = (orderId: number) => {
+  router.push({ name: 'RdOutboundOrder', query: { orderId } })
+}
+
 const isEditable = (order: RdSaleOrderVO) => {
   return order.status !== 'CLOSED' && order.status !== 'CANCELLED'
 }
 
 const canTransfer = (order: RdSaleOrderVO) => {
   return isEditable(order) && Number(order.adjustedDifferenceQty) > 0
+}
+
+const canOutbound = (order: RdSaleOrderVO) => {
+  return isEditable(order) && Number(order.allocatedQty) > 0
 }
 
 const differenceClass = (value: number) => {
