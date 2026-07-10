@@ -108,7 +108,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="280">
+      <el-table-column label="操作" align="center" fixed="right" width="350">
         <template #default="scope">
           <el-button
             link
@@ -117,6 +117,15 @@
             v-hasPermi="['rd:sale-order:query']"
           >
             详情
+          </el-button>
+          <el-button
+            link
+            type="primary"
+            :disabled="!isEditable(scope.row)"
+            @click="openFulfillment(scope.row.id)"
+            v-hasPermi="['rd:order-fulfillment:query']"
+          >
+            匹配库存
           </el-button>
           <el-button
             link
@@ -162,6 +171,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import download from '@/utils/download'
 import { useMessage } from '@/hooks/web/useMessage'
 import { RdSaleOrderApi } from '@/api/rd/order/sale'
@@ -172,6 +182,7 @@ import SaleOrderDetailDrawer from './SaleOrderDetailDrawer.vue'
 defineOptions({ name: 'RdSaleOrder' })
 
 const message = useMessage()
+const router = useRouter()
 const loading = ref(true)
 const list = ref<RdSaleOrderVO[]>([])
 const total = ref(0)
@@ -227,6 +238,10 @@ const openForm = (type: 'create' | 'update', id?: number) => {
 const detailDrawerRef = ref()
 const openDetail = (id: number) => {
   detailDrawerRef.value?.open(id)
+}
+
+const openFulfillment = (orderId: number) => {
+  router.push({ name: 'RdOrderFulfillment', query: { orderId } })
 }
 
 const isEditable = (order: RdSaleOrderVO) => {
