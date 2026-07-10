@@ -62,8 +62,8 @@ CREATE TABLE IF NOT EXISTS `rd_production_output` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  KEY `idx_rd_output_date` (`production_date`),
-  KEY `idx_rd_output_core` (`customer_name`, `product_model`, `furnace_no`, `furnace_layer`, `location_code`)
+  KEY `idx_rd_output_date` (`tenant_id`, `deleted`, `production_date`, `id`),
+  KEY `idx_rd_output_core` (`tenant_id`, `customer_name`, `product_model`, `furnace_no`, `furnace_layer`, `location_code`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD furnace-layer production output';
 
 CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
@@ -94,10 +94,13 @@ CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  KEY `idx_rd_stock_lot_core` (`customer_name`, `product_model`, `furnace_no`, `furnace_layer`, `location_code`),
-  KEY `idx_rd_stock_lot_match` (`customer_name`, `product_model`, `status`, `last_biz_date`),
-  KEY `idx_rd_stock_lot_location` (`location_id`, `status`),
-  KEY `idx_rd_stock_lot_status_qty` (`status`, `warehouse_qty`)
+  KEY `idx_rd_stock_lot_core` (`tenant_id`, `customer_name`, `product_model`, `furnace_no`, `furnace_layer`, `location_code`, `deleted`),
+  KEY `idx_rd_stock_lot_match` (`tenant_id`, `product_model`, `status`, `deleted`, `last_biz_date`, `id`),
+  KEY `idx_rd_stock_lot_customer_match` (`tenant_id`, `customer_name`, `product_model`, `status`, `deleted`, `last_biz_date`, `id`),
+  KEY `idx_rd_stock_lot_location` (`tenant_id`, `location_id`, `status`, `deleted`),
+  KEY `idx_rd_stock_lot_status_date` (`tenant_id`, `deleted`, `status`, `last_biz_date`, `id`),
+  KEY `idx_rd_stock_lot_timeline` (`tenant_id`, `deleted`, `last_biz_date`, `id`, `status`),
+  KEY `idx_rd_stock_lot_status_qty` (`tenant_id`, `status`, `deleted`, `warehouse_qty`, `locked_qty`, `stock_weight`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inventory lot ledger';
 
 CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
@@ -130,9 +133,10 @@ CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  KEY `idx_rd_stock_txn_date_type` (`biz_date`, `transaction_type`),
-  KEY `idx_rd_stock_txn_lot_time` (`stock_lot_id`, `create_time`),
-  KEY `idx_rd_stock_txn_source` (`source_type`, `source_no`)
+  KEY `idx_rd_stock_txn_date_type` (`tenant_id`, `biz_date`, `transaction_type`, `deleted`, `id`),
+  KEY `idx_rd_stock_txn_lot_time` (`tenant_id`, `stock_lot_id`, `deleted`, `create_time`, `id`),
+  KEY `idx_rd_stock_txn_source` (`tenant_id`, `source_type`, `source_no`, `deleted`),
+  KEY `idx_rd_stock_txn_order` (`tenant_id`, `related_order_id`, `deleted`, `biz_date`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inventory movement ledger';
 
 CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
@@ -161,9 +165,9 @@ CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_sale_order_no` (`tenant_id`, `order_no`, `deleted`),
-  KEY `idx_rd_sale_order_date_status` (`order_date`, `status`),
-  KEY `idx_rd_sale_order_customer_status` (`customer_name`, `product_model`, `status`),
-  KEY `idx_rd_sale_order_status_date` (`status`, `order_date`, `id`)
+  KEY `idx_rd_sale_order_date_status` (`tenant_id`, `deleted`, `order_date`, `id`, `status`),
+  KEY `idx_rd_sale_order_customer_status` (`tenant_id`, `customer_name`, `product_model`, `status`, `deleted`, `order_date`, `id`),
+  KEY `idx_rd_sale_order_status_date` (`tenant_id`, `status`, `deleted`, `order_date`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD sales order fulfillment extension';
 
 CREATE TABLE IF NOT EXISTS `rd_order_fulfillment` (
@@ -184,8 +188,9 @@ CREATE TABLE IF NOT EXISTS `rd_order_fulfillment` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  KEY `idx_rd_fulfillment_order_lot` (`order_id`, `stock_lot_id`),
-  KEY `idx_rd_fulfillment_status` (`status`)
+  KEY `idx_rd_fulfillment_order_lot` (`tenant_id`, `order_id`, `stock_lot_id`, `status`, `deleted`),
+  KEY `idx_rd_fulfillment_status` (`tenant_id`, `status`, `deleted`),
+  KEY `idx_rd_fulfillment_lot_status` (`tenant_id`, `stock_lot_id`, `status`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD order to stock lot fulfillment';
 
 CREATE TABLE IF NOT EXISTS `rd_transfer_order` (
@@ -209,8 +214,8 @@ CREATE TABLE IF NOT EXISTS `rd_transfer_order` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_transfer_no` (`tenant_id`, `transfer_no`, `deleted`),
-  KEY `idx_rd_transfer_date_status` (`transfer_date`, `status`),
-  KEY `idx_rd_transfer_link` (`to_order_id`, `from_stock_lot_id`, `status`)
+  KEY `idx_rd_transfer_date_status` (`tenant_id`, `deleted`, `transfer_date`, `id`, `status`),
+  KEY `idx_rd_transfer_link` (`tenant_id`, `to_order_id`, `from_stock_lot_id`, `status`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD order transfer';
 
 CREATE TABLE IF NOT EXISTS `rd_outbound_order` (
@@ -233,8 +238,9 @@ CREATE TABLE IF NOT EXISTS `rd_outbound_order` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_outbound_no` (`tenant_id`, `outbound_no`, `deleted`),
-  KEY `idx_rd_outbound_date_status` (`outbound_date`, `status`),
-  KEY `idx_rd_outbound_order_fulfillment` (`order_id`, `fulfillment_id`, `status`)
+  KEY `idx_rd_outbound_date_status` (`tenant_id`, `deleted`, `outbound_date`, `id`, `status`),
+  KEY `idx_rd_outbound_order_fulfillment` (`tenant_id`, `order_id`, `fulfillment_id`, `status`, `deleted`),
+  KEY `idx_rd_outbound_fulfillment_status` (`tenant_id`, `fulfillment_id`, `status`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD outbound order';
 
 CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
@@ -262,8 +268,8 @@ CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_daily_summary` (`tenant_id`, `biz_date`, `stock_lot_id`, `deleted`),
-  KEY `idx_rd_daily_summary_query` (`biz_date`, `customer_name`, `product_model`, `location_code`)
+  UNIQUE KEY `uk_rd_daily_summary` (`tenant_id`, `deleted`, `biz_date`, `stock_lot_id`),
+  KEY `idx_rd_daily_summary_query` (`tenant_id`, `deleted`, `biz_date`, `customer_name`, `product_model`, `location_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD daily stock summary';
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_task` (
@@ -286,7 +292,7 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_task` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  KEY `idx_rd_import_task_status` (`status`, `create_time`)
+  KEY `idx_rd_import_task_status` (`tenant_id`, `status`, `deleted`, `create_time`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD Excel import task';
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_row` (
@@ -313,7 +319,7 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_row` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_import_row` (`tenant_id`, `task_id`, `row_no`, `deleted`),
-  KEY `idx_rd_import_row_task_status` (`task_id`, `status`, `row_no`)
+  KEY `idx_rd_import_row_task_status` (`tenant_id`, `task_id`, `status`, `deleted`, `row_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD Excel import staging row';
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_error` (
@@ -330,7 +336,7 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_error` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  KEY `idx_rd_import_error_task` (`task_id`, `row_no`)
+  KEY `idx_rd_import_error_task` (`tenant_id`, `task_id`, `deleted`, `row_no`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD Excel import error';
 
 INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES

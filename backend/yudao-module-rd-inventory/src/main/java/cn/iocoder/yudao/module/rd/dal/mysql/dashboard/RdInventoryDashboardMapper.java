@@ -21,7 +21,8 @@ public interface RdInventoryDashboardMapper {
             + "COALESCE(SUM(locked_qty), 0) AS locked_qty, "
             + "COALESCE(SUM(GREATEST(warehouse_qty - COALESCE(locked_qty, 0), 0)), 0) AS available_qty, "
             + "COALESCE(SUM(stock_weight), 0) AS stock_weight "
-            + "FROM rd_stock_lot WHERE deleted = b'0' AND status IN ('AVAILABLE', 'LOCKED') "
+            + "FROM rd_stock_lot FORCE INDEX (idx_rd_stock_lot_status_qty) "
+            + "WHERE deleted = b'0' AND status IN ('AVAILABLE', 'LOCKED') "
             + "AND warehouse_qty > 0")
     StockMetric selectStockMetric();
 
@@ -37,6 +38,7 @@ public interface RdInventoryDashboardMapper {
             + "COALESCE(SUM(transfer_out_qty), 0) AS transfer_out_qty, "
             + "COALESCE(SUM(return_qty), 0) AS return_qty, "
             + "COALESCE(SUM(net_change_qty), 0) AS net_change_qty FROM rd_daily_stock_summary "
+            + "FORCE INDEX (idx_rd_daily_summary_query) "
             + "WHERE deleted = b'0' AND biz_date = #{bizDate}")
     MovementMetric selectMovementMetric(@Param("bizDate") LocalDate bizDate);
 
@@ -44,6 +46,7 @@ public interface RdInventoryDashboardMapper {
             + "SUM(outbound_qty) AS outbound_qty, SUM(transfer_in_qty) AS transfer_in_qty, "
             + "SUM(transfer_out_qty) AS transfer_out_qty, SUM(return_qty) AS return_qty, "
             + "SUM(net_change_qty) AS net_change_qty FROM rd_daily_stock_summary "
+            + "FORCE INDEX (idx_rd_daily_summary_query) "
             + "WHERE deleted = b'0' AND biz_date BETWEEN #{startDate} AND #{endDate} "
             + "GROUP BY biz_date ORDER BY biz_date")
     List<TrendItem> selectTrend(@Param("startDate") LocalDate startDate,
