@@ -108,7 +108,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="350">
+      <el-table-column label="操作" align="center" fixed="right" width="420">
         <template #default="scope">
           <el-button
             link
@@ -126,6 +126,15 @@
             v-hasPermi="['rd:order-fulfillment:query']"
           >
             匹配库存
+          </el-button>
+          <el-button
+            link
+            type="primary"
+            :disabled="!canTransfer(scope.row)"
+            @click="openTransfer(scope.row.id)"
+            v-hasPermi="['rd:transfer-order:create']"
+          >
+            调拨补足
           </el-button>
           <el-button
             link
@@ -244,8 +253,16 @@ const openFulfillment = (orderId: number) => {
   router.push({ name: 'RdOrderFulfillment', query: { orderId } })
 }
 
+const openTransfer = (toOrderId: number) => {
+  router.push({ name: 'RdTransferOrder', query: { toOrderId } })
+}
+
 const isEditable = (order: RdSaleOrderVO) => {
   return order.status !== 'CLOSED' && order.status !== 'CANCELLED'
+}
+
+const canTransfer = (order: RdSaleOrderVO) => {
+  return isEditable(order) && Number(order.adjustedDifferenceQty) > 0
 }
 
 const differenceClass = (value: number) => {
