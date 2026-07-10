@@ -130,13 +130,16 @@ CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
 CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'RD sales order ID',
   `order_no` varchar(64) NOT NULL COMMENT 'Sales order number',
+  `order_date` date NOT NULL COMMENT 'Sales order date',
   `customer_name` varchar(128) NOT NULL COMMENT 'Customer',
   `product_model` varchar(128) NOT NULL COMMENT 'Product model',
   `required_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Required order quantity',
   `actual_output_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Actual production output quantity',
   `difference_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'required_qty - actual_output_qty',
-  `allocated_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Allocated quantity from stock or transfer',
-  `adjusted_difference_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'required_qty - actual_output_qty - allocated_qty',
+  `allocated_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Allocated quantity from stock matching',
+  `transfer_in_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Transfer inbound quantity',
+  `transfer_out_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Transfer outbound quantity',
+  `adjusted_difference_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'required_qty - actual_output_qty - allocated_qty - transfer_in_qty + transfer_out_qty',
   `fulfilled_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Fulfilled quantity',
   `status` varchar(32) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/PARTIAL/FULFILLED/CLOSED/CANCELLED',
   `close_time` datetime DEFAULT NULL COMMENT 'Close time',
@@ -149,6 +152,7 @@ CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_sale_order_no` (`order_no`, `deleted`),
+  KEY `idx_rd_sale_order_date_status` (`order_date`, `status`),
   KEY `idx_rd_sale_order_customer_status` (`customer_name`, `product_model`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD sales order fulfillment extension';
 
@@ -270,6 +274,12 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600203, '库存流水', 'rd:stock-transaction:query', 2, 20, 600200, 'transaction', 'ep:list', 'rd/stock/transaction/index', 'RdStockTransaction', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600204, '库存流水导出', 'rd:stock-transaction:export', 3, 10, 600203, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600301, '销售订单', 'rd:sale-order:query', 2, 10, 600300, 'sale', 'ep:document', 'rd/order/sale/index', 'RdSaleOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600302, '销售订单新增', 'rd:sale-order:create', 3, 10, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600303, '销售订单编辑', 'rd:sale-order:update', 3, 20, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600304, '销售订单取消', 'rd:sale-order:cancel', 3, 30, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600305, '销售订单重算', 'rd:sale-order:recalculate', 3, 40, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600306, '销售订单导出', 'rd:sale-order:export', 3, 50, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600400, '调拨管理', '', 1, 40, 600000, 'transfer', 'ep:sort', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600500, '报表中心', '', 1, 50, 600000, 'report', 'ep:trend-charts', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
