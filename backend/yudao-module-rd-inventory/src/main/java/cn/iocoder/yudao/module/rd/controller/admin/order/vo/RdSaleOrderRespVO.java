@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.order.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import cn.idev.excel.annotation.ExcelIgnoreUnannotated;
 import cn.idev.excel.annotation.ExcelProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,6 +25,7 @@ public class RdSaleOrderRespVO {
 
     @Schema(description = "订单日期", requiredMode = Schema.RequiredMode.REQUIRED)
     @ExcelProperty("订单日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate orderDate;
 
     @ExcelProperty("客户")

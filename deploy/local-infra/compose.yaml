@@ -1,0 +1,45 @@
+name: rd-erp-local
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: rd-erp-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: rd_erp
+      MYSQL_ROOT_PASSWORD: rd_local_2026
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    volumes:
+      - rd-erp-mysql-data:/var/lib/mysql
+      - ../../backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
+      - ../../backend/sql/mysql/rd_inventory.sql:/docker-entrypoint-initdb.d/02-rd-inventory.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-prd_local_2026"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    container_name: rd-erp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - rd-erp-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  rd-erp-mysql-data:
+  rd-erp-redis-data:

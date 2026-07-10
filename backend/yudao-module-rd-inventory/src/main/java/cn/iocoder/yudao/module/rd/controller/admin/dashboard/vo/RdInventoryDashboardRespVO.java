@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.dashboard.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -11,6 +12,7 @@ import java.util.List;
 @Data
 public class RdInventoryDashboardRespVO {
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate asOfDate;
     private StockMetric stock;
     private OrderMetric order;
@@ -51,6 +53,7 @@ public class RdInventoryDashboardRespVO {
 
     @Data
     public static class TrendItem extends MovementMetric {
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate bizDate;
     }
 
@@ -74,6 +77,7 @@ public class RdInventoryDashboardRespVO {
     public static class OpenOrderItem {
         private Long id;
         private String orderNo;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate orderDate;
         private String customerName;
         private String productModel;

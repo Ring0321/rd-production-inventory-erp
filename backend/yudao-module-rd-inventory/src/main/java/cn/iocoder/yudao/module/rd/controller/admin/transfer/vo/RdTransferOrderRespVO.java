@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.transfer.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import cn.idev.excel.annotation.ExcelIgnoreUnannotated;
 import cn.idev.excel.annotation.ExcelProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -21,6 +22,7 @@ public class RdTransferOrderRespVO {
     private String transferNo;
 
     @ExcelProperty("调拨日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate transferDate;
 
     private Long fromOrderId;

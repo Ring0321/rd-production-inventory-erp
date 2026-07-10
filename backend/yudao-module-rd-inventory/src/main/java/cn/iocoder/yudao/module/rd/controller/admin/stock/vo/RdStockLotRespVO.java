@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.stock.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import cn.idev.excel.annotation.ExcelIgnoreUnannotated;
 import cn.idev.excel.annotation.ExcelProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -75,6 +76,7 @@ public class RdStockLotRespVO {
     private BigDecimal stockWeight;
 
     @ExcelProperty("最后业务日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate lastBizDate;
 
     @ExcelProperty("状态")

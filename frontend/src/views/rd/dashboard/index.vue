@@ -4,7 +4,7 @@
       <div class="dashboard-header">
         <div>
           <h1>瑞鼎生产库存看板</h1>
-          <p>{{ overview?.asOfDate || asOfDate }}</p>
+          <p>{{ displayAsOfDate }}</p>
         </div>
         <div class="header-actions">
           <el-date-picker
@@ -89,7 +89,9 @@
       </div>
       <el-table :data="overview?.openOrders || []" :stripe="true" :show-overflow-tooltip="true">
         <el-table-column label="订单号" prop="orderNo" min-width="150" fixed />
-        <el-table-column label="订单日期" prop="orderDate" width="110" align="center" />
+        <el-table-column label="订单日期" prop="orderDate" width="110" align="center">
+          <template #default="scope">{{ normalizeDate(scope.row.orderDate) }}</template>
+        </el-table-column>
         <el-table-column label="客户" prop="customerName" min-width="150" />
         <el-table-column label="型号" prop="productModel" min-width="120" />
         <el-table-column label="应入数量" prop="requiredQty" width="100" align="right" />
@@ -133,6 +135,7 @@ defineOptions({ name: 'RdInventoryDashboard' })
 const loading = ref(false)
 const asOfDate = ref(formatDate(new Date(), 'YYYY-MM-DD'))
 const overview = ref<RdInventoryDashboardVO>()
+const displayAsOfDate = computed(() => normalizeDate(overview.value?.asOfDate) || asOfDate.value)
 const emptyMovement = {
   productionQty: 0,
   inboundQty: 0,
@@ -281,7 +284,7 @@ const loadOverview = async () => {
 const updateCharts = () => {
   const data = overview.value
   if (!data) return
-  ;(trendOptions.xAxis as any).data = data.trend.map((item) => item.bizDate.slice(5))
+  ;(trendOptions.xAxis as any).data = data.trend.map((item) => normalizeDate(item.bizDate).slice(5))
   const trendSeries = trendOptions.series as any[]
   trendSeries[0].data = data.trend.map((item) => Number(item.inboundQty || 0))
   trendSeries[1].data = data.trend.map((item) => Number(item.outboundQty || 0))
@@ -308,6 +311,15 @@ const formatNumber = (value?: number) =>
   new Intl.NumberFormat('zh-CN', {
     maximumFractionDigits: 3
   }).format(Number(value || 0))
+
+const normalizeDate = (value?: string | number[]) => {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  return value
+    .slice(0, 3)
+    .map((part, index) => (index === 0 ? String(part) : String(part).padStart(2, '0')))
+    .join('-')
+}
 
 const orderProgress = (fulfilled?: number, required?: number) => {
   const total = Number(required || 0)

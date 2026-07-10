@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.order.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -21,6 +22,7 @@ public class RdOrderStockCandidateRespVO {
     private BigDecimal availableQty;
     private BigDecimal packageWeight;
     private BigDecimal stockWeight;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate lastBizDate;
     private String status;
     private Boolean sameCustomer;

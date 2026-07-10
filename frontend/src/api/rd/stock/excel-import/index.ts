@@ -4,16 +4,16 @@ export interface RdExcelImportTaskVO {
   id: number
   fileName: string
   sheetName: string
-  bizDate: string
+  bizDate: string | number[]
   status: string
   totalRows: number
   validRows: number
   failedRows: number
   skippedRows: number
   importedRows: number
-  confirmTime?: string
+  confirmTime?: string | number
   remark?: string
-  createTime: string
+  createTime: string | number
 }
 
 export interface RdExcelImportRowVO {

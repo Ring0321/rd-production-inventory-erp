@@ -1,5 +1,7 @@
 import request from '@/config/axios'
 
+export type RdDashboardDate = string | number[]
+
 export interface RdDashboardStockMetricVO {
   stockLotCount: number
   warehouseQty: number
@@ -26,7 +28,7 @@ export interface RdDashboardMovementVO {
 }
 
 export interface RdDashboardTrendVO extends RdDashboardMovementVO {
-  bizDate: string
+  bizDate: RdDashboardDate
 }
 
 export interface RdDashboardRankingVO {
@@ -46,7 +48,7 @@ export interface RdDashboardOrderStatusVO {
 export interface RdDashboardOpenOrderVO {
   id: number
   orderNo: string
-  orderDate: string
+  orderDate: RdDashboardDate
   customerName: string
   productModel: string
   requiredQty: number
@@ -57,7 +59,7 @@ export interface RdDashboardOpenOrderVO {
 }
 
 export interface RdInventoryDashboardVO {
-  asOfDate: string
+  asOfDate: RdDashboardDate
   stock: RdDashboardStockMetricVO
   order: RdDashboardOrderMetricVO
   todayMovement: RdDashboardMovementVO

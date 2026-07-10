@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.production.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import cn.idev.excel.annotation.ExcelIgnoreUnannotated;
 import cn.idev.excel.annotation.ExcelProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,6 +21,7 @@ public class RdProductionOutputRespVO {
 
     @Schema(description = "产出日期", requiredMode = Schema.RequiredMode.REQUIRED)
     @ExcelProperty("产出日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate productionDate;
 
     @Schema(description = "货位编号", example = "1001")

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.excelimport.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -13,6 +14,7 @@ public class RdExcelImportTaskRespVO {
     private Long id;
     private String fileName;
     private String sheetName;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate bizDate;
     private String status;
     private Integer totalRows;

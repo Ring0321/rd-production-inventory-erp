@@ -1,6 +1,6 @@
 package cn.iocoder.yudao.module.rd.dal.dataobject.excelimport;
 
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-public class RdExcelImportRowDO extends BaseDO {
+public class RdExcelImportRowDO extends TenantBaseDO {
 
     @TableId
     private Long id;

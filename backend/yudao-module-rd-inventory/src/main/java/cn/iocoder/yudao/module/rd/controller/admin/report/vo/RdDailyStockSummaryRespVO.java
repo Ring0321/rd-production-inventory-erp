@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.report.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import cn.idev.excel.annotation.ExcelIgnoreUnannotated;
 import cn.idev.excel.annotation.ExcelProperty;
 import lombok.Data;
@@ -13,6 +14,7 @@ public class RdDailyStockSummaryRespVO {
 
     private Long id;
     @ExcelProperty("日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate bizDate;
     private Long stockLotId;
     @ExcelProperty("货位")

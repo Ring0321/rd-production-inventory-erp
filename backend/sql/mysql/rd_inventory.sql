@@ -5,6 +5,7 @@ SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `rd_location` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Location ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `location_code` varchar(64) NOT NULL COMMENT 'Location code, e.g. 3-22',
   `location_name` varchar(128) NOT NULL COMMENT 'Location name',
   `warehouse_name` varchar(128) DEFAULT NULL COMMENT 'Warehouse name',
@@ -18,11 +19,12 @@ CREATE TABLE IF NOT EXISTS `rd_location` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_location_code` (`location_code`, `deleted`)
+  UNIQUE KEY `uk_rd_location_code` (`tenant_id`, `location_code`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD warehouse location';
 
 CREATE TABLE IF NOT EXISTS `rd_furnace_layer` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Furnace layer ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `layer_code` varchar(32) NOT NULL COMMENT 'Layer code, e.g. X/Z/S/P/C',
   `layer_name` varchar(64) NOT NULL COMMENT 'Layer name',
   `status` tinyint NOT NULL DEFAULT 0 COMMENT 'Status: 0 enabled, 1 disabled',
@@ -34,11 +36,12 @@ CREATE TABLE IF NOT EXISTS `rd_furnace_layer` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_furnace_layer_code` (`layer_code`, `deleted`)
+  UNIQUE KEY `uk_rd_furnace_layer_code` (`tenant_id`, `layer_code`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD furnace layer dictionary';
 
 CREATE TABLE IF NOT EXISTS `rd_production_output` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Production output ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `production_date` date NOT NULL COMMENT 'Production date',
   `location_id` bigint DEFAULT NULL COMMENT 'Default location ID',
   `location_code` varchar(64) DEFAULT NULL COMMENT 'Location code',
@@ -65,6 +68,7 @@ CREATE TABLE IF NOT EXISTS `rd_production_output` (
 
 CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Stock lot ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `location_id` bigint DEFAULT NULL COMMENT 'Location ID',
   `location_code` varchar(64) DEFAULT NULL COMMENT 'Location code',
   `customer_name` varchar(128) NOT NULL COMMENT 'Customer',
@@ -98,6 +102,7 @@ CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
 
 CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Stock transaction ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `biz_date` date NOT NULL COMMENT 'Business date',
   `transaction_type` varchar(32) NOT NULL COMMENT 'OPENING/PRODUCTION_IN/INBOUND/OUTBOUND/TRANSFER_IN/TRANSFER_OUT/RETURN_IN/ADJUST_IN/ADJUST_OUT',
   `stock_lot_id` bigint DEFAULT NULL COMMENT 'Stock lot ID',
@@ -132,6 +137,7 @@ CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
 
 CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'RD sales order ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `order_no` varchar(64) NOT NULL COMMENT 'Sales order number',
   `order_date` date NOT NULL COMMENT 'Sales order date',
   `customer_name` varchar(128) NOT NULL COMMENT 'Customer',
@@ -154,7 +160,7 @@ CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_sale_order_no` (`order_no`, `deleted`),
+  UNIQUE KEY `uk_rd_sale_order_no` (`tenant_id`, `order_no`, `deleted`),
   KEY `idx_rd_sale_order_date_status` (`order_date`, `status`),
   KEY `idx_rd_sale_order_customer_status` (`customer_name`, `product_model`, `status`),
   KEY `idx_rd_sale_order_status_date` (`status`, `order_date`, `id`)
@@ -162,6 +168,7 @@ CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
 
 CREATE TABLE IF NOT EXISTS `rd_order_fulfillment` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Order fulfillment ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `order_id` bigint NOT NULL COMMENT 'RD sales order ID',
   `stock_lot_id` bigint NOT NULL COMMENT 'Stock lot ID',
   `matched_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Matched quantity',
@@ -183,6 +190,7 @@ CREATE TABLE IF NOT EXISTS `rd_order_fulfillment` (
 
 CREATE TABLE IF NOT EXISTS `rd_transfer_order` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Transfer order ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `transfer_no` varchar(64) NOT NULL COMMENT 'Transfer number',
   `transfer_date` date NOT NULL COMMENT 'Transfer date',
   `from_order_id` bigint DEFAULT NULL COMMENT 'Source order ID',
@@ -200,13 +208,14 @@ CREATE TABLE IF NOT EXISTS `rd_transfer_order` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_transfer_no` (`transfer_no`, `deleted`),
+  UNIQUE KEY `uk_rd_transfer_no` (`tenant_id`, `transfer_no`, `deleted`),
   KEY `idx_rd_transfer_date_status` (`transfer_date`, `status`),
   KEY `idx_rd_transfer_link` (`to_order_id`, `from_stock_lot_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD order transfer';
 
 CREATE TABLE IF NOT EXISTS `rd_outbound_order` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Outbound order ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `outbound_no` varchar(64) NOT NULL COMMENT 'Outbound number',
   `outbound_date` date NOT NULL COMMENT 'Outbound date',
   `order_id` bigint NOT NULL COMMENT 'Sales order ID',
@@ -223,13 +232,14 @@ CREATE TABLE IF NOT EXISTS `rd_outbound_order` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_outbound_no` (`outbound_no`, `deleted`),
+  UNIQUE KEY `uk_rd_outbound_no` (`tenant_id`, `outbound_no`, `deleted`),
   KEY `idx_rd_outbound_date_status` (`outbound_date`, `status`),
   KEY `idx_rd_outbound_order_fulfillment` (`order_id`, `fulfillment_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD outbound order';
 
 CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Daily summary ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `biz_date` date NOT NULL COMMENT 'Business date',
   `stock_lot_id` bigint NOT NULL COMMENT 'Stock lot ID',
   `location_code` varchar(64) NOT NULL DEFAULT '' COMMENT 'Location code',
@@ -252,12 +262,13 @@ CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_daily_summary` (`biz_date`, `stock_lot_id`, `deleted`),
+  UNIQUE KEY `uk_rd_daily_summary` (`tenant_id`, `biz_date`, `stock_lot_id`, `deleted`),
   KEY `idx_rd_daily_summary_query` (`biz_date`, `customer_name`, `product_model`, `location_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD daily stock summary';
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_task` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Import task ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `file_name` varchar(255) NOT NULL COMMENT 'File name',
   `sheet_name` varchar(128) DEFAULT NULL COMMENT 'Sheet name',
   `biz_date` date NOT NULL COMMENT 'Current stock baseline date',
@@ -280,6 +291,7 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_task` (
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_row` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Import staging row ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `task_id` bigint NOT NULL COMMENT 'Import task ID',
   `row_no` int NOT NULL COMMENT 'Excel row number',
   `location_code` varchar(64) DEFAULT NULL COMMENT 'Location code',
@@ -300,12 +312,13 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_row` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_import_row` (`task_id`, `row_no`, `deleted`),
+  UNIQUE KEY `uk_rd_import_row` (`tenant_id`, `task_id`, `row_no`, `deleted`),
   KEY `idx_rd_import_row_task_status` (`task_id`, `status`, `row_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD Excel import staging row';
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_error` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Import error ID',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
   `task_id` bigint NOT NULL COMMENT 'Import task ID',
   `row_no` int NOT NULL COMMENT 'Row number',
   `field_name` varchar(128) DEFAULT NULL COMMENT 'Field name',

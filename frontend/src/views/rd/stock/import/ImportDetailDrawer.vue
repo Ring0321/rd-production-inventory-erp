@@ -2,7 +2,7 @@
   <el-drawer v-model="drawerVisible" :title="drawerTitle" size="900px" class="import-detail-drawer">
     <div v-loading="loading">
       <el-descriptions v-if="task" :column="4" border>
-        <el-descriptions-item label="基准日期">{{ task.bizDate }}</el-descriptions-item>
+        <el-descriptions-item label="基准日期">{{ formatBizDate(task.bizDate) }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="statusMap[task.status]?.type || 'info'">
             {{ statusMap[task.status]?.label || task.status }}
@@ -13,7 +13,9 @@
         <el-descriptions-item label="错误">{{ task.failedRows }}</el-descriptions-item>
         <el-descriptions-item label="零库存跳过">{{ task.skippedRows }}</el-descriptions-item>
         <el-descriptions-item label="已导入">{{ task.importedRows }}</el-descriptions-item>
-        <el-descriptions-item label="确认时间">{{ task.confirmTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="确认时间">
+          {{ task.confirmTime ? formatDate(task.confirmTime) : '-' }}
+        </el-descriptions-item>
       </el-descriptions>
 
       <el-tabs v-model="activeTab" class="mt-16px" @tab-change="handleTabChange">
@@ -84,6 +86,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { formatDate } from '@/utils/formatTime'
 import type {
   RdExcelImportErrorVO,
   RdExcelImportRowVO,
@@ -183,6 +186,14 @@ const rowStatusType = (status: string): StatusTagType =>
     SKIPPED: 'info',
     IMPORTED: 'primary'
   })[status] as StatusTagType) || 'info'
+
+const formatBizDate = (value: string | number[]) => {
+  if (typeof value === 'string') return value
+  return value
+    .slice(0, 3)
+    .map((part, index) => (index === 0 ? String(part) : String(part).padStart(2, '0')))
+    .join('-')
+}
 </script>
 
 <style scoped>

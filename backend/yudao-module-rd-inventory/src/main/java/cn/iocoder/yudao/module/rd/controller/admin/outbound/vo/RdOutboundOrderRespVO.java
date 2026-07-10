@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.rd.controller.admin.outbound.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import cn.idev.excel.annotation.ExcelIgnoreUnannotated;
 import cn.idev.excel.annotation.ExcelProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -19,6 +20,7 @@ public class RdOutboundOrderRespVO {
     @ExcelProperty("出库单号")
     private String outboundNo;
     @ExcelProperty("出库日期")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate outboundDate;
     private Long orderId;
     @ExcelProperty("销售订单")

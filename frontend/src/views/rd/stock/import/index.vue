@@ -56,7 +56,9 @@
       <el-table-column label="任务号" prop="id" width="90" align="center" />
       <el-table-column label="文件名" prop="fileName" min-width="220" />
       <el-table-column label="工作表" prop="sheetName" min-width="140" />
-      <el-table-column label="基准日期" prop="bizDate" width="110" align="center" />
+      <el-table-column label="基准日期" prop="bizDate" width="110" align="center">
+        <template #default="scope">{{ formatBizDate(scope.row.bizDate) }}</template>
+      </el-table-column>
       <el-table-column label="状态" prop="status" width="100" align="center">
         <template #default="scope">
           <el-tag :type="statusMap[scope.row.status]?.type || 'info'">
@@ -81,7 +83,7 @@
       </el-table-column>
       <el-table-column label="零库存" prop="skippedRows" width="80" align="right" />
       <el-table-column label="已导入" prop="importedRows" width="80" align="right" />
-      <el-table-column label="创建时间" prop="createTime" width="170" />
+      <el-table-column label="创建时间" prop="createTime" width="170" :formatter="dateFormatter" />
       <el-table-column label="操作" width="250" fixed="right" align="center">
         <template #default="scope">
           <el-button link type="primary" @click="openDetail(scope.row.id)">
@@ -122,6 +124,7 @@
 
 <script setup lang="ts">
 import download from '@/utils/download'
+import { dateFormatter } from '@/utils/formatTime'
 import { RdExcelImportApi } from '@/api/rd/stock/excel-import'
 import type { RdExcelImportTaskVO } from '@/api/rd/stock/excel-import'
 import ImportForm from './ImportForm.vue'
@@ -192,6 +195,14 @@ const handlePrecheckSuccess = async (taskId: number) => {
 
 const canConfirm = (task: RdExcelImportTaskVO) => {
   return task.status === 'PRECHECKED' && task.failedRows === 0 && task.validRows > 0
+}
+
+const formatBizDate = (value: string | number[]) => {
+  if (typeof value === 'string') return value
+  return value
+    .slice(0, 3)
+    .map((part, index) => (index === 0 ? String(part) : String(part).padStart(2, '0')))
+    .join('-')
 }
 
 const handleConfirm = async (task: RdExcelImportTaskVO) => {
