@@ -6,8 +6,10 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
+import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockAdjustmentCreateReqVO;
 import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockLotPageReqVO;
 import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockLotRespVO;
+import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockOpeningCreateReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
 import cn.iocoder.yudao.module.rd.service.stock.RdStockLotService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,7 +18,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,6 +32,8 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
+import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserNickname;
 
 @Tag(name = "管理后台 - RD 库存台账")
 @RestController
@@ -37,6 +43,22 @@ public class RdStockLotController {
 
     @Resource
     private RdStockLotService stockLotService;
+
+    @PostMapping("/opening/create")
+    @Operation(summary = "创建期初库存")
+    @PreAuthorize("@ss.hasPermission('rd:stock-lot:opening')")
+    public CommonResult<Long> createOpeningStock(@Valid @RequestBody RdStockOpeningCreateReqVO createReqVO) {
+        return success(stockLotService.createOpeningStock(
+                createReqVO, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PostMapping("/adjustment/create")
+    @Operation(summary = "创建库存调整")
+    @PreAuthorize("@ss.hasPermission('rd:stock-lot:adjust')")
+    public CommonResult<Long> adjustStock(@Valid @RequestBody RdStockAdjustmentCreateReqVO createReqVO) {
+        return success(stockLotService.adjustStock(
+                createReqVO, getLoginUserId(), getLoginUserNickname()));
+    }
 
     @GetMapping("/get")
     @Operation(summary = "获得库存批次")

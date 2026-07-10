@@ -23,6 +23,12 @@ public class RdStockTransactionServiceImpl implements RdStockTransactionService 
     private RdStockTransactionMapper stockTransactionMapper;
 
     @Override
+    public Long createStockTransaction(RdStockTransactionDO stockTransaction) {
+        stockTransactionMapper.insert(stockTransaction);
+        return stockTransaction.getId();
+    }
+
+    @Override
     public RdStockTransactionDO getStockTransaction(Long id) {
         RdStockTransactionDO stockTransaction = stockTransactionMapper.selectById(id);
         if (stockTransaction == null) {

@@ -6,12 +6,16 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockLotPageReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * RD stock lot Mapper.
  */
 @Mapper
 public interface RdStockLotMapper extends BaseMapperX<RdStockLotDO> {
+
+    @Select("SELECT * FROM rd_stock_lot WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    RdStockLotDO selectByIdForUpdate(Long id);
 
     default PageResult<RdStockLotDO> selectPage(RdStockLotPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<RdStockLotDO>()

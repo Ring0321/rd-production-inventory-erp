@@ -1,9 +1,13 @@
 package cn.iocoder.yudao.module.rd.service.stock;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockAdjustmentCreateReqVO;
 import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockLotPageReqVO;
+import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockOpeningCreateReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.production.RdProductionOutputDO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
+
+import javax.validation.Valid;
 
 /**
  * RD stock lot Service.
@@ -11,6 +15,12 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
 public interface RdStockLotService {
 
     RdStockLotDO createProductionInbound(RdProductionOutputDO productionOutput);
+
+    Long createOpeningStock(@Valid RdStockOpeningCreateReqVO createReqVO,
+                            Long operatorId, String operatorName);
+
+    Long adjustStock(@Valid RdStockAdjustmentCreateReqVO createReqVO,
+                     Long operatorId, String operatorName);
 
     RdStockLotDO getStockLot(Long id);
 

@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
 CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Stock transaction ID',
   `biz_date` date NOT NULL COMMENT 'Business date',
-  `transaction_type` varchar(32) NOT NULL COMMENT 'OPENING/INBOUND/OUTBOUND/TRANSFER_IN/TRANSFER_OUT/RETURN_IN',
+  `transaction_type` varchar(32) NOT NULL COMMENT 'OPENING/PRODUCTION_IN/INBOUND/OUTBOUND/TRANSFER_IN/TRANSFER_OUT/RETURN_IN/ADJUST_IN/ADJUST_OUT',
   `stock_lot_id` bigint DEFAULT NULL COMMENT 'Stock lot ID',
   `location_id` bigint DEFAULT NULL COMMENT 'Location ID',
   `location_code` varchar(64) DEFAULT NULL COMMENT 'Location code',
@@ -265,6 +265,8 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600200, '仓库管理', '', 1, 20, 600000, 'stock', 'ep:house', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600201, '库存台账', 'rd:stock-lot:query', 2, 10, 600200, 'lot', 'ep:collection', 'rd/stock/lot/index', 'RdStockLot', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600202, '库存台账导出', 'rd:stock-lot:export', 3, 20, 600201, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600205, '库存期初录入', 'rd:stock-lot:opening', 3, 30, 600201, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600206, '库存调整', 'rd:stock-lot:adjust', 3, 40, 600201, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600203, '库存流水', 'rd:stock-transaction:query', 2, 20, 600200, 'transaction', 'ep:list', 'rd/stock/transaction/index', 'RdStockTransaction', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600204, '库存流水导出', 'rd:stock-transaction:export', 3, 10, 600203, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),

@@ -11,6 +11,8 @@ import javax.validation.Valid;
  */
 public interface RdStockTransactionService {
 
+    Long createStockTransaction(RdStockTransactionDO stockTransaction);
+
     RdStockTransactionDO getStockTransaction(Long id);
 
     PageResult<RdStockTransactionDO> getStockTransactionPage(@Valid RdStockTransactionPageReqVO pageReqVO);
