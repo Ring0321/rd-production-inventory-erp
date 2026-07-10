@@ -113,9 +113,16 @@
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" fixed="right" width="160">
-        <template #default>
-          <el-button link type="primary">流水</el-button>
-          <el-button link type="primary">调拨</el-button>
+        <template #default="scope">
+          <el-button
+            link
+            type="primary"
+            @click="openTransactionDrawer(scope.row)"
+            v-hasPermi="['rd:stock-transaction:query']"
+          >
+            流水
+          </el-button>
+          <el-button link type="primary" disabled>调拨</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -126,6 +133,8 @@
       @pagination="getList"
     />
   </ContentWrap>
+
+  <StockTransactionDrawer ref="transactionDrawerRef" />
 </template>
 
 <script setup lang="ts">
@@ -134,6 +143,7 @@ import download from '@/utils/download'
 import { useMessage } from '@/hooks/web/useMessage'
 import { RdStockLotApi } from '@/api/rd/stock/lot'
 import type { RdStockLotVO } from '@/api/rd/stock/lot'
+import StockTransactionDrawer from './StockTransactionDrawer.vue'
 
 defineOptions({ name: 'RdStockLot' })
 
@@ -196,6 +206,11 @@ const handleExport = async () => {
   } finally {
     exportLoading.value = false
   }
+}
+
+const transactionDrawerRef = ref()
+const openTransactionDrawer = (stockLot: RdStockLotVO) => {
+  transactionDrawerRef.value?.open(stockLot)
 }
 
 onMounted(() => {
