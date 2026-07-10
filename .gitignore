@@ -41,6 +41,8 @@ temp/
 tmp/
 export/
 import/
+!frontend/src/views/rd/stock/import/
+!frontend/src/views/rd/stock/import/**
 
 # Java coverage
 coverage/
