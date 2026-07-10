@@ -6,7 +6,10 @@ import cn.iocoder.yudao.module.rd.controller.admin.order.vo.RdSaleOrderSaveReqVO
 import cn.iocoder.yudao.module.rd.dal.dataobject.order.RdSaleOrderDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.order.RdOrderFulfillmentMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.order.RdSaleOrderMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
 import cn.iocoder.yudao.module.rd.enums.RdOrderStatusEnum;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -45,6 +48,10 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     private RdOrderFulfillmentMapper fulfillmentMapper;
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.SALE_ORDER_TYPE,
+            subType = RdLogRecordConstants.SALE_ORDER_CREATE_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.SALE_ORDER_CREATE_SUCCESS)
     public Long createSaleOrder(RdSaleOrderSaveReqVO createReqVO) {
         validateOrderNoUnique(null, createReqVO.getOrderNo());
         RdSaleOrderDO saleOrder = new RdSaleOrderDO()
@@ -60,10 +67,14 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
                 .setRemark(createReqVO.getRemark());
         recalculateMetrics(saleOrder);
         saleOrderMapper.insert(saleOrder);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, saleOrder.getId());
         return saleOrder.getId();
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.SALE_ORDER_TYPE,
+            subType = RdLogRecordConstants.SALE_ORDER_UPDATE_SUB_TYPE,
+            bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.SALE_ORDER_UPDATE_SUCCESS)
     public void updateSaleOrder(RdSaleOrderSaveReqVO updateReqVO) {
         RdSaleOrderDO saleOrder = validateSaleOrderEditable(updateReqVO.getId());
         validateOrderNoUnique(updateReqVO.getId(), updateReqVO.getOrderNo());
@@ -80,6 +91,9 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.SALE_ORDER_TYPE,
+            subType = RdLogRecordConstants.SALE_ORDER_CANCEL_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.SALE_ORDER_CANCEL_SUCCESS)
     public void cancelSaleOrder(Long id) {
         RdSaleOrderDO saleOrder = getSaleOrderForUpdate(id);
         if (zeroIfNull(fulfillmentMapper.sumOutboundQtyByOrderId(id)).signum() > 0) {
@@ -91,6 +105,9 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.SALE_ORDER_TYPE,
+            subType = RdLogRecordConstants.SALE_ORDER_RECALCULATE_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.SALE_ORDER_RECALCULATE_SUCCESS)
     public void recalculateSaleOrder(Long id) {
         RdSaleOrderDO saleOrder = validateSaleOrderEditable(id);
         recalculateMetrics(saleOrder);

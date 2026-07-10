@@ -10,6 +10,9 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.excelimport.RdExcelImportTaskDO
 import cn.iocoder.yudao.module.rd.dal.mysql.excelimport.RdExcelImportErrorMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.excelimport.RdExcelImportRowMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.excelimport.RdExcelImportTaskMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
@@ -43,20 +46,29 @@ public class RdExcelImportServiceImpl implements RdExcelImportService {
     private RdExcelImportErrorMapper errorMapper;
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.EXCEL_IMPORT_TYPE,
+            subType = RdLogRecordConstants.EXCEL_IMPORT_PRECHECK_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.EXCEL_IMPORT_PRECHECK_SUCCESS)
     public Long precheck(MultipartFile file, LocalDate bizDate, String sheetName) {
         validateFile(file);
         String targetSheetName = StringUtils.hasText(sheetName)
                 ? sheetName.trim() : RdInventoryExcelParser.DEFAULT_SHEET_NAME;
         try {
             RdInventoryExcelParser.ParseResult result = excelParser.parse(file.getInputStream(), targetSheetName);
-            return transactionService.savePrecheck(
+            Long taskId = transactionService.savePrecheck(
                     StringUtils.cleanPath(file.getOriginalFilename()), targetSheetName, bizDate, result);
+            LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, taskId);
+            return taskId;
         } catch (IOException exception) {
             throw exception(EXCEL_IMPORT_PARSE_FAILED, exception.getMessage());
         }
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.EXCEL_IMPORT_TYPE,
+            subType = RdLogRecordConstants.EXCEL_IMPORT_CONFIRM_SUB_TYPE,
+            bizNo = "{{#taskId}}", success = RdLogRecordConstants.EXCEL_IMPORT_CONFIRM_SUCCESS)
     public Integer confirm(Long taskId, Long operatorId, String operatorName) {
         return transactionService.confirm(taskId, operatorId, operatorName);
     }

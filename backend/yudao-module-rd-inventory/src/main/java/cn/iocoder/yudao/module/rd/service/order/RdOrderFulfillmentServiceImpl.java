@@ -9,8 +9,11 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.order.RdSaleOrderDO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.order.RdOrderFulfillmentMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.stock.RdStockLotMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
 import cn.iocoder.yudao.module.rd.enums.RdOrderFulfillmentStatusEnum;
 import cn.iocoder.yudao.module.rd.enums.RdStockLotStatusEnum;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -45,6 +48,10 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.FULFILLMENT_TYPE,
+            subType = RdLogRecordConstants.FULFILLMENT_ALLOCATE_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.FULFILLMENT_ALLOCATE_SUCCESS)
     public Long allocateStock(RdOrderFulfillmentAllocateReqVO allocateReqVO) {
         BigDecimal quantity = allocateReqVO.getQuantity();
         RdSaleOrderDO saleOrder = saleOrderService.changeAllocatedQty(allocateReqVO.getOrderId(), quantity);
@@ -68,11 +75,15 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
                 .setStatus(RdOrderFulfillmentStatusEnum.ALLOCATED.getStatus())
                 .setRemark(allocateReqVO.getRemark());
         fulfillmentMapper.insert(fulfillment);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, fulfillment.getId());
         return fulfillment.getId();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.FULFILLMENT_TYPE,
+            subType = RdLogRecordConstants.FULFILLMENT_AUTO_ALLOCATE_SUB_TYPE,
+            bizNo = "{{#orderId}}", success = RdLogRecordConstants.FULFILLMENT_AUTO_ALLOCATE_SUCCESS)
     public BigDecimal autoAllocateStock(Long orderId) {
         RdSaleOrderDO saleOrder = saleOrderService.getSaleOrder(orderId);
         BigDecimal remainingQty = saleOrder.getAdjustedDifferenceQty().max(BigDecimal.ZERO);
@@ -109,6 +120,9 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.FULFILLMENT_TYPE,
+            subType = RdLogRecordConstants.FULFILLMENT_CANCEL_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.FULFILLMENT_CANCEL_SUCCESS)
     public void cancelAllocation(Long id) {
         RdOrderFulfillmentDO currentFulfillment = fulfillmentMapper.selectById(id);
         if (currentFulfillment == null) {

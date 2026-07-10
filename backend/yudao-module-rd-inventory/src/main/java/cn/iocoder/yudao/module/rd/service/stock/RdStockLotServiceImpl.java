@@ -8,8 +8,11 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.production.RdProductionOutputDO
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockTransactionDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.stock.RdStockLotMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
 import cn.iocoder.yudao.module.rd.enums.RdStockLotStatusEnum;
 import cn.iocoder.yudao.module.rd.enums.RdStockTransactionTypeEnum;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -101,10 +104,16 @@ public class RdStockLotServiceImpl implements RdStockLotService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.STOCK_TYPE,
+            subType = RdLogRecordConstants.STOCK_OPENING_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.STOCK_OPENING_SUCCESS)
     public Long createOpeningStock(RdStockOpeningCreateReqVO createReqVO,
                                    Long operatorId, String operatorName) {
-        return createOpeningStock(createReqVO, SOURCE_TYPE_STOCK_OPENING, null, null,
+        Long stockLotId = createOpeningStock(createReqVO, SOURCE_TYPE_STOCK_OPENING, null, null,
                 operatorId, operatorName);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, stockLotId);
+        return stockLotId;
     }
 
     @Override
@@ -168,6 +177,9 @@ public class RdStockLotServiceImpl implements RdStockLotService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.STOCK_TYPE,
+            subType = RdLogRecordConstants.STOCK_ADJUST_SUB_TYPE,
+            bizNo = "{{#createReqVO.stockLotId}}", success = RdLogRecordConstants.STOCK_ADJUST_SUCCESS)
     public Long adjustStock(RdStockAdjustmentCreateReqVO createReqVO,
                             Long operatorId, String operatorName) {
         String adjustmentType = createReqVO.getAdjustmentType();

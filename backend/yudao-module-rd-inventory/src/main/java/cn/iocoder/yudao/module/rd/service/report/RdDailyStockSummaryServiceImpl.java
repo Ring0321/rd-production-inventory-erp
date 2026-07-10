@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.rd.controller.admin.report.vo.RdDailyStockTrendRe
 import cn.iocoder.yudao.module.rd.dal.dataobject.report.RdDailyStockSummaryDO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockTransactionDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.report.RdDailyStockSummaryMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -53,6 +55,9 @@ public class RdDailyStockSummaryServiceImpl implements RdDailyStockSummaryServic
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.DAILY_SUMMARY_TYPE,
+            subType = RdLogRecordConstants.DAILY_SUMMARY_REBUILD_SUB_TYPE,
+            bizNo = "0", success = RdLogRecordConstants.DAILY_SUMMARY_REBUILD_SUCCESS)
     public int rebuild(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("Invalid daily summary date range");

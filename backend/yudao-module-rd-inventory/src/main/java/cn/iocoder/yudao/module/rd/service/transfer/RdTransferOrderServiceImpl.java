@@ -9,11 +9,14 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockTransactionDO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.transfer.RdTransferOrderDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.stock.RdStockLotMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.transfer.RdTransferOrderMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
 import cn.iocoder.yudao.module.rd.enums.RdStockLotStatusEnum;
 import cn.iocoder.yudao.module.rd.enums.RdStockTransactionTypeEnum;
 import cn.iocoder.yudao.module.rd.enums.RdTransferOrderStatusEnum;
 import cn.iocoder.yudao.module.rd.service.order.RdSaleOrderService;
 import cn.iocoder.yudao.module.rd.service.stock.RdStockTransactionService;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -54,6 +57,10 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
     private RdSaleOrderService saleOrderService;
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.TRANSFER_TYPE,
+            subType = RdLogRecordConstants.TRANSFER_CREATE_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.TRANSFER_CREATE_SUCCESS)
     public Long createTransferOrder(RdTransferOrderSaveReqVO createReqVO) {
         validateTransferNoUnique(null, createReqVO.getTransferNo());
         RdStockLotDO fromStockLot = stockLotMapper.selectById(createReqVO.getFromStockLotId());
@@ -61,10 +68,14 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
         RdTransferOrderDO transferOrder = buildTransferOrder(createReqVO, fromStockLot)
                 .setStatus(RdTransferOrderStatusEnum.DRAFT.getStatus());
         transferOrderMapper.insert(transferOrder);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, transferOrder.getId());
         return transferOrder.getId();
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.TRANSFER_TYPE,
+            subType = RdLogRecordConstants.TRANSFER_UPDATE_SUB_TYPE,
+            bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.TRANSFER_UPDATE_SUCCESS)
     public void updateTransferOrder(RdTransferOrderSaveReqVO updateReqVO) {
         RdTransferOrderDO transferOrder = validateTransferOrderDraft(updateReqVO.getId());
         validateTransferNoUnique(updateReqVO.getId(), updateReqVO.getTransferNo());
@@ -77,6 +88,9 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.TRANSFER_TYPE,
+            subType = RdLogRecordConstants.TRANSFER_CONFIRM_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.TRANSFER_CONFIRM_SUCCESS)
     public void confirmTransferOrder(Long id, Long operatorId, String operatorName) {
         RdTransferOrderDO transferOrder = transferOrderMapper.selectByIdForUpdate(id);
         if (transferOrder == null) {
@@ -119,6 +133,9 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.TRANSFER_TYPE,
+            subType = RdLogRecordConstants.TRANSFER_CANCEL_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.TRANSFER_CANCEL_SUCCESS)
     public void cancelTransferOrder(Long id, Long operatorId, String operatorName) {
         RdTransferOrderDO transferOrder = transferOrderMapper.selectByIdForUpdate(id);
         if (transferOrder == null) {

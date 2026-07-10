@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockTransactionDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.order.RdOrderFulfillmentMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.outbound.RdOutboundOrderMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.stock.RdStockLotMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
 import cn.iocoder.yudao.module.rd.enums.RdOrderFulfillmentStatusEnum;
 import cn.iocoder.yudao.module.rd.enums.RdOrderStatusEnum;
 import cn.iocoder.yudao.module.rd.enums.RdOutboundOrderStatusEnum;
@@ -18,6 +19,8 @@ import cn.iocoder.yudao.module.rd.enums.RdStockLotStatusEnum;
 import cn.iocoder.yudao.module.rd.enums.RdStockTransactionTypeEnum;
 import cn.iocoder.yudao.module.rd.service.order.RdSaleOrderService;
 import cn.iocoder.yudao.module.rd.service.stock.RdStockTransactionService;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -62,6 +65,10 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
     private RdStockTransactionService stockTransactionService;
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.OUTBOUND_TYPE,
+            subType = RdLogRecordConstants.OUTBOUND_CREATE_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.OUTBOUND_CREATE_SUCCESS)
     public Long createOutboundOrder(RdOutboundOrderSaveReqVO createReqVO) {
         validateOutboundNoUnique(null, createReqVO.getOutboundNo());
         validateDraftUnique(null, createReqVO.getFulfillmentId());
@@ -72,10 +79,14 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
                 .setStockLotId(stockLot.getId())
                 .setStatus(RdOutboundOrderStatusEnum.DRAFT.getStatus());
         outboundOrderMapper.insert(outboundOrder);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, outboundOrder.getId());
         return outboundOrder.getId();
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.OUTBOUND_TYPE,
+            subType = RdLogRecordConstants.OUTBOUND_UPDATE_SUB_TYPE,
+            bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.OUTBOUND_UPDATE_SUCCESS)
     public void updateOutboundOrder(RdOutboundOrderSaveReqVO updateReqVO) {
         RdOutboundOrderDO outboundOrder = validateOutboundOrderDraft(updateReqVO.getId());
         validateOutboundNoUnique(updateReqVO.getId(), updateReqVO.getOutboundNo());
@@ -91,6 +102,9 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.OUTBOUND_TYPE,
+            subType = RdLogRecordConstants.OUTBOUND_CONFIRM_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.OUTBOUND_CONFIRM_SUCCESS)
     public void confirmOutboundOrder(Long id, Long operatorId, String operatorName) {
         RdOutboundOrderDO outboundOrder = outboundOrderMapper.selectByIdForUpdate(id);
         validateConfirmStatus(outboundOrder);
@@ -120,6 +134,9 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.OUTBOUND_TYPE,
+            subType = RdLogRecordConstants.OUTBOUND_CANCEL_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.OUTBOUND_CANCEL_SUCCESS)
     public void cancelOutboundOrder(Long id, Long operatorId, String operatorName) {
         RdOutboundOrderDO outboundOrder = outboundOrderMapper.selectByIdForUpdate(id);
         if (outboundOrder == null) {

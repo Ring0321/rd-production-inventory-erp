@@ -35,6 +35,10 @@ let isRefreshToken = false
 // 请求白名单，无须 token 的接口
 const whiteList: string[] = ['/login', '/refresh-token']
 
+const showApiError = (message: string) => {
+  ElMessage.error({ message, grouping: true, duration: 4000 })
+}
+
 // 创建axios实例
 const service: AxiosInstance = axios.create({
   baseURL: base_url, // api 的 base_url
@@ -193,7 +197,7 @@ service.interceptors.response.use(
         })
       }
     } else if (code === 500) {
-      ElMessage.error(t('sys.api.errMsg500'))
+      showApiError(msg || t('sys.api.errMsg500'))
       return Promise.reject(new Error(msg))
     } else if (code === 901) {
       ElMessage.error({
@@ -225,15 +229,15 @@ service.interceptors.response.use(
   (error: AxiosError) => {
     console.log('err' + error) // for debug
     let { message } = error
-    const { t } = useI18n()
     if (message === 'Network Error') {
-      message = t('sys.api.errorMessage')
+      message = '无法连接 ERP 服务，请确认服务已启动并检查网络后重试'
     } else if (message.includes('timeout')) {
-      message = t('sys.api.apiTimeoutMessage')
+      message = 'ERP 请求超时，请稍后重试或缩小查询范围'
     } else if (message.includes('Request failed with status code')) {
+      const { t } = useI18n()
       message = t('sys.api.apiRequestFailed') + message.substr(message.length - 3)
     }
-    ElMessage.error(message)
+    showApiError(message)
     return Promise.reject(error)
   }
 )

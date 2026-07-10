@@ -19,6 +19,7 @@ services:
       - rd-erp-mysql-data:/var/lib/mysql
       - ../../backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
       - ../../backend/sql/mysql/rd_inventory.sql:/docker-entrypoint-initdb.d/02-rd-inventory.sql:ro
+      - ../../backend/sql/mysql/rd_inventory_week10_permissions.sql:/docker-entrypoint-initdb.d/03-rd-permissions.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-prd_local_2026"]
       interval: 5s

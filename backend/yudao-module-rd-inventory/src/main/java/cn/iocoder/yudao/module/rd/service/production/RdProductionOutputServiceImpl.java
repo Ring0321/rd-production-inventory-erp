@@ -7,8 +7,11 @@ import cn.iocoder.yudao.module.rd.controller.admin.production.vo.RdProductionOut
 import cn.iocoder.yudao.module.rd.controller.admin.production.vo.RdProductionOutputSaveReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.production.RdProductionOutputDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.production.RdProductionOutputMapper;
+import cn.iocoder.yudao.module.rd.enums.RdLogRecordConstants;
 import cn.iocoder.yudao.module.rd.enums.RdProductionOutputStatusEnum;
 import cn.iocoder.yudao.module.rd.service.stock.RdStockLotService;
+import com.mzt.logapi.context.LogRecordContext;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -39,14 +42,22 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
     private RdStockLotService stockLotService;
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
+            subType = RdLogRecordConstants.PRODUCTION_CREATE_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.PRODUCTION_CREATE_SUCCESS)
     public Long createProductionOutput(RdProductionOutputSaveReqVO createReqVO) {
         RdProductionOutputDO productionOutput = BeanUtils.toBean(createReqVO, RdProductionOutputDO.class);
         fillCalculatedFields(productionOutput);
         productionOutputMapper.insert(productionOutput);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, productionOutput.getId());
         return productionOutput.getId();
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
+            subType = RdLogRecordConstants.PRODUCTION_UPDATE_SUB_TYPE,
+            bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.PRODUCTION_UPDATE_SUCCESS)
     public void updateProductionOutput(RdProductionOutputSaveReqVO updateReqVO) {
         RdProductionOutputDO oldProductionOutput = validateProductionOutputExists(updateReqVO.getId());
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(oldProductionOutput.getStatus())) {
@@ -61,6 +72,9 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
     }
 
     @Override
+    @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
+            subType = RdLogRecordConstants.PRODUCTION_CANCEL_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.PRODUCTION_CANCEL_SUCCESS)
     public void cancelProductionOutput(Long id) {
         RdProductionOutputDO productionOutput = validateProductionOutputExists(id);
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(productionOutput.getStatus())) {
@@ -76,6 +90,9 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
+            subType = RdLogRecordConstants.PRODUCTION_INBOUND_SUB_TYPE,
+            bizNo = "{{#id}}", success = RdLogRecordConstants.PRODUCTION_INBOUND_SUCCESS)
     public void inboundProductionOutput(Long id) {
         RdProductionOutputDO productionOutput = validateProductionOutputExists(id);
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(productionOutput.getStatus())) {
