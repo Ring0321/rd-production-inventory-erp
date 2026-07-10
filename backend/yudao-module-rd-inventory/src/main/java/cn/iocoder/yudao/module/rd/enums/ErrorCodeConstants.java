@@ -68,4 +68,12 @@ public interface ErrorCodeConstants {
     ErrorCode OUTBOUND_ORDER_DRAFT_EXISTS = new ErrorCode(1_080_500_007, "该匹配记录已有出库草稿，请先处理原草稿");
     ErrorCode OUTBOUND_ORDER_REVERSE_INSUFFICIENT = new ErrorCode(1_080_500_008, "出库数量已被后续业务占用，无法撤销");
 
+    // ========== RD Excel import 1-080-600-000 ==========
+    ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");
+    ErrorCode EXCEL_IMPORT_FILE_INVALID = new ErrorCode(1_080_600_001, "请上传不超过 20 MB 的 xlsx 文件");
+    ErrorCode EXCEL_IMPORT_TASK_STATUS_INVALID = new ErrorCode(1_080_600_002, "当前导入任务状态不能确认");
+    ErrorCode EXCEL_IMPORT_TASK_HAS_ERRORS = new ErrorCode(1_080_600_003, "预检存在错误，请修正 Excel 后重新上传");
+    ErrorCode EXCEL_IMPORT_TASK_NO_VALID_ROWS = new ErrorCode(1_080_600_004, "没有可导入的正库存数据");
+    ErrorCode EXCEL_IMPORT_PARSE_FAILED = new ErrorCode(1_080_600_005, "库存 Excel 解析失败：{}");
+
 }

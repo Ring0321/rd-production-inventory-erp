@@ -1,0 +1,35 @@
+package cn.iocoder.yudao.module.rd.dal.dataobject.excelimport;
+
+import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
+import com.baomidou.mybatisplus.annotation.KeySequence;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@TableName("rd_excel_import_task")
+@KeySequence("rd_excel_import_task_seq")
+@Data
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
+public class RdExcelImportTaskDO extends BaseDO {
+
+    @TableId
+    private Long id;
+    private String fileName;
+    private String sheetName;
+    private LocalDate bizDate;
+    private String status;
+    private Integer totalRows;
+    private Integer validRows;
+    private Integer failedRows;
+    private Integer skippedRows;
+    private Integer importedRows;
+    private LocalDateTime confirmTime;
+    private String remark;
+
+}

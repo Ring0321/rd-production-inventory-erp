@@ -41,6 +41,7 @@ public class RdStockLotServiceImpl implements RdStockLotService {
     private static final String SOURCE_TYPE_PRODUCTION_OUTPUT = "PRODUCTION_OUTPUT";
     private static final String SOURCE_TYPE_STOCK_OPENING = "STOCK_OPENING";
     private static final String SOURCE_TYPE_STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT";
+    private static final String SOURCE_TYPE_EXCEL_IMPORT = "EXCEL_IMPORT";
 
     @Resource
     private RdStockLotMapper stockLotMapper;
@@ -102,6 +103,22 @@ public class RdStockLotServiceImpl implements RdStockLotService {
     @Transactional(rollbackFor = Exception.class)
     public Long createOpeningStock(RdStockOpeningCreateReqVO createReqVO,
                                    Long operatorId, String operatorName) {
+        return createOpeningStock(createReqVO, SOURCE_TYPE_STOCK_OPENING, null, null,
+                operatorId, operatorName);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createImportedOpeningStock(RdStockOpeningCreateReqVO createReqVO,
+                                           Long importTaskId, Integer excelRowNo,
+                                           Long operatorId, String operatorName) {
+        return createOpeningStock(createReqVO, SOURCE_TYPE_EXCEL_IMPORT,
+                String.valueOf(importTaskId), String.valueOf(excelRowNo), operatorId, operatorName);
+    }
+
+    private Long createOpeningStock(RdStockOpeningCreateReqVO createReqVO,
+                                    String sourceType, String sourceNo, String sourceLineNo,
+                                    Long operatorId, String operatorName) {
         BigDecimal stockWeight = createReqVO.getQuantity().multiply(createReqVO.getPackageWeight());
         RdStockLotDO stockLot = new RdStockLotDO()
                 .setLocationId(createReqVO.getLocationId())
@@ -140,9 +157,9 @@ public class RdStockLotServiceImpl implements RdStockLotService {
                 .setWeight(stockWeight)
                 .setBeforeQty(BigDecimal.ZERO)
                 .setAfterQty(createReqVO.getQuantity())
-                .setSourceType(SOURCE_TYPE_STOCK_OPENING)
-                .setSourceNo(String.valueOf(stockLot.getId()))
-                .setSourceLineNo(stockLot.getFurnaceLayer())
+                .setSourceType(sourceType)
+                .setSourceNo(sourceNo == null ? String.valueOf(stockLot.getId()) : sourceNo)
+                .setSourceLineNo(sourceLineNo == null ? stockLot.getFurnaceLayer() : sourceLineNo)
                 .setOperatorId(operatorId)
                 .setOperatorName(operatorName)
                 .setRemark(createReqVO.getRemark()));
