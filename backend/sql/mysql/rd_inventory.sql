@@ -265,6 +265,8 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600200, '仓库管理', '', 1, 20, 600000, 'stock', 'ep:house', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600201, '库存台账', 'rd:stock-lot:query', 2, 10, 600200, 'lot', 'ep:collection', 'rd/stock/lot/index', 'RdStockLot', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600202, '库存台账导出', 'rd:stock-lot:export', 3, 20, 600201, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600203, '库存流水', 'rd:stock-transaction:query', 2, 20, 600200, 'transaction', 'ep:list', 'rd/stock/transaction/index', 'RdStockTransaction', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600204, '库存流水导出', 'rd:stock-transaction:export', 3, 10, 600203, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600400, '调拨管理', '', 1, 40, 600000, 'transfer', 'ep:sort', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600500, '报表中心', '', 1, 50, 600000, 'report', 'ep:trend-charts', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')

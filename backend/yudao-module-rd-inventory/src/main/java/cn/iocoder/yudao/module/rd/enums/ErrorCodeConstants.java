@@ -22,4 +22,7 @@ public interface ErrorCodeConstants {
     // ========== RD stock lot 1-080-200-000 ==========
     ErrorCode STOCK_LOT_NOT_EXISTS = new ErrorCode(1_080_200_000, "库存批次不存在");
 
+    // ========== RD stock transaction 1-080-210-000 ==========
+    ErrorCode STOCK_TRANSACTION_NOT_EXISTS = new ErrorCode(1_080_210_000, "库存流水不存在");
+
 }
