@@ -1,0 +1,88 @@
+name: rd-erp-trial
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${RD_DB_NAME:?set RD_DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${RD_DB_PASSWORD:?set RD_DB_PASSWORD}
+      TZ: ${RD_TIME_ZONE:-Asia/Shanghai}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../../backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
+      - ../../backend/sql/mysql/rd_inventory.sql:/docker-entrypoint-initdb.d/02-rd-inventory.sql:ro
+      - ../../backend/sql/mysql/rd_inventory_week10_indexes.sql:/docker-entrypoint-initdb.d/03-rd-indexes.sql:ro
+      - ../../backend/sql/mysql/rd_inventory_week10_permissions.sql:/docker-entrypoint-initdb.d/04-rd-permissions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      RD_REDIS_PASSWORD: ${RD_REDIS_PASSWORD:?set RD_REDIS_PASSWORD}
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${RD_REDIS_PASSWORD}\""]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${RD_REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/trial/backend.Dockerfile
+    restart: unless-stopped
+    entrypoint: ["java", "-XX:MaxRAMPercentage=75", "-Dfile.encoding=UTF-8", "-jar", "/app/yudao-server.jar", "--spring.profiles.active=trial"]
+    environment:
+      RD_MASTER_DATASOURCE_URL: jdbc:mysql://mysql:3306/${RD_DB_NAME}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true
+      RD_SLAVE_DATASOURCE_URL: jdbc:mysql://mysql:3306/${RD_DB_NAME}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true
+      RD_DB_USERNAME: ${RD_DB_USER:-root}
+      RD_DB_PASSWORD: ${RD_DB_PASSWORD:?set RD_DB_PASSWORD}
+      RD_REDIS_HOST: redis
+      RD_REDIS_PORT: 6379
+      RD_REDIS_PASSWORD: ${RD_REDIS_PASSWORD:?set RD_REDIS_PASSWORD}
+      RD_CAPTCHA_ENABLED: ${RD_CAPTCHA_ENABLED:-false}
+      TZ: ${RD_TIME_ZONE:-Asia/Shanghai}
+    volumes:
+      - ./application-trial.yaml:/app/config/application-trial.yaml:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:48080/admin-api/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/trial/frontend.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${RD_WEB_PORT:-9000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql-data:
+  redis-data:

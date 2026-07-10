@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.vscode
+backups
+docs
+frontend/node_modules
+frontend/dist*
+backend/**/target
+*.xlsx
+*.xls
+*.zip
+*.log

@@ -1,0 +1,98 @@
+server:
+  port: 48080
+
+spring:
+  autoconfigure:
+    exclude:
+      - com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure
+      - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration
+      - org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration
+      - org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusVectorStoreAutoConfiguration
+  datasource:
+    druid:
+      web-stat-filter:
+        enabled: false
+      stat-view-servlet:
+        enabled: false
+      filter:
+        stat:
+          enabled: true
+          log-slow-sql: true
+          slow-sql-millis: 1000
+          merge-sql: true
+        wall:
+          config:
+            multi-statement-allow: true
+    dynamic:
+      primary: master
+      strict: true
+      druid:
+        initial-size: 2
+        min-idle: 2
+        max-active: 30
+        max-wait: 60000
+        time-between-eviction-runs-millis: 60000
+        min-evictable-idle-time-millis: 600000
+        max-evictable-idle-time-millis: 1800000
+        validation-query: SELECT 1
+        test-while-idle: true
+        test-on-borrow: false
+        test-on-return: false
+        pool-prepared-statements: true
+        max-pool-prepared-statement-per-connection-size: 20
+      datasource:
+        master:
+          url: ${RD_MASTER_DATASOURCE_URL}
+          username: ${RD_DB_USERNAME}
+          password: ${RD_DB_PASSWORD}
+        slave:
+          lazy: true
+          url: ${RD_SLAVE_DATASOURCE_URL}
+          username: ${RD_DB_USERNAME}
+          password: ${RD_DB_PASSWORD}
+  redis:
+    host: ${RD_REDIS_HOST}
+    port: ${RD_REDIS_PORT:6379}
+    database: 0
+    password: ${RD_REDIS_PASSWORD}
+  boot:
+    admin:
+      context-path: /admin
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+yudao:
+  captcha:
+    enable: ${RD_CAPTCHA_ENABLED:false}
+  security:
+    mock-enable: false
+  access-log:
+    enable: true
+  demo: false
+
+justauth:
+  enabled: false
+
+wx:
+  mp:
+    app-id: ${RD_WX_MP_APP_ID:disabled}
+    secret: ${RD_WX_MP_SECRET:disabled}
+    config-storage:
+      type: RedisTemplate
+      key-prefix: wx
+      http-client-type: HttpComponents
+  miniapp:
+    appid: ${RD_WX_MINIAPP_APP_ID:disabled}
+    secret: ${RD_WX_MINIAPP_SECRET:disabled}
+    config-storage:
+      type: RedisTemplate
+      key-prefix: wa
+      http-client-type: HttpComponents

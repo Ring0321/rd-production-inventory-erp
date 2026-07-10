@@ -11,7 +11,8 @@
 
 1. `backend/sql/mysql/ruoyi-vue-pro.sql`
 2. `backend/sql/mysql/rd_inventory.sql`
-3. `backend/sql/mysql/rd_inventory_week10_permissions.sql`
+3. `backend/sql/mysql/rd_inventory_week10_indexes.sql`
+4. `backend/sql/mysql/rd_inventory_week10_permissions.sql`
 
 ```powershell
 docker compose -f deploy/local-infra/compose.yaml up -d
