@@ -76,6 +76,14 @@
         <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
         <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
         <el-button
+          type="primary"
+          plain
+          @click="openOpeningForm"
+          v-hasPermi="['rd:stock-lot:opening']"
+        >
+          <Icon icon="ep:plus" class="mr-5px" /> 新增期初
+        </el-button>
+        <el-button
           type="success"
           plain
           @click="handleExport"
@@ -135,6 +143,7 @@
   </ContentWrap>
 
   <StockTransactionDrawer ref="transactionDrawerRef" />
+  <OpeningForm ref="openingFormRef" @success="getList" />
 </template>
 
 <script setup lang="ts">
@@ -144,6 +153,7 @@ import { useMessage } from '@/hooks/web/useMessage'
 import { RdStockLotApi } from '@/api/rd/stock/lot'
 import type { RdStockLotVO } from '@/api/rd/stock/lot'
 import StockTransactionDrawer from './StockTransactionDrawer.vue'
+import OpeningForm from './OpeningForm.vue'
 
 defineOptions({ name: 'RdStockLot' })
 
@@ -211,6 +221,11 @@ const handleExport = async () => {
 const transactionDrawerRef = ref()
 const openTransactionDrawer = (stockLot: RdStockLotVO) => {
   transactionDrawerRef.value?.open(stockLot)
+}
+
+const openingFormRef = ref()
+const openOpeningForm = () => {
+  openingFormRef.value?.open()
 }
 
 onMounted(() => {

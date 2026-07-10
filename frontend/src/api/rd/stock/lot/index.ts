@@ -22,12 +22,28 @@ export interface RdStockLotVO {
   createTime?: string
 }
 
+export interface RdStockOpeningCreateReqVO {
+  bizDate: string
+  locationId?: number
+  locationCode: string
+  customerName: string
+  productModel: string
+  furnaceNo: string
+  furnaceLayer: string
+  quantity: number
+  packageWeight: number
+  remark?: string
+}
+
 export const RdStockLotApi = {
   getPage: async (params: any) => {
     return await request.get({ url: '/rd/stock-lot/page', params })
   },
   get: async (id: number) => {
     return await request.get({ url: '/rd/stock-lot/get?id=' + id })
+  },
+  createOpening: async (data: RdStockOpeningCreateReqVO) => {
+    return await request.post({ url: '/rd/stock-lot/opening/create', data })
   },
   exportExcel: async (params: any) => {
     return await request.download({ url: '/rd/stock-lot/export-excel', params })
