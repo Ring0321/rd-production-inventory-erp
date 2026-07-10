@@ -62,6 +62,12 @@ public class RdStockLotRespVO {
     @ExcelProperty("库房数量")
     private BigDecimal warehouseQty;
 
+    @ExcelProperty("锁定数量")
+    private BigDecimal lockedQty;
+
+    @ExcelProperty("可用数量")
+    private BigDecimal availableQty;
+
     @ExcelProperty("单包重量")
     private BigDecimal packageWeight;
 

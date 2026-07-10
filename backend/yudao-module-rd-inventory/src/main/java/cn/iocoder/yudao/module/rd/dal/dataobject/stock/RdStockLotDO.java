@@ -42,6 +42,7 @@ public class RdStockLotDO extends BaseDO {
     private BigDecimal outboundQty;
     private BigDecimal returnQty;
     private BigDecimal warehouseQty;
+    private BigDecimal lockedQty;
     private BigDecimal packageWeight;
     private BigDecimal stockWeight;
     private LocalDate lastBizDate;

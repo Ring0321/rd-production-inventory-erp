@@ -66,7 +66,7 @@ public class RdStockLotController {
     @PreAuthorize("@ss.hasPermission('rd:stock-lot:query')")
     public CommonResult<RdStockLotRespVO> getStockLot(@RequestParam("id") Long id) {
         RdStockLotDO stockLot = stockLotService.getStockLot(id);
-        return success(BeanUtils.toBean(stockLot, RdStockLotRespVO.class));
+        return success(fillAvailableQty(BeanUtils.toBean(stockLot, RdStockLotRespVO.class)));
     }
 
     @GetMapping("/page")
@@ -74,7 +74,7 @@ public class RdStockLotController {
     @PreAuthorize("@ss.hasPermission('rd:stock-lot:query')")
     public CommonResult<PageResult<RdStockLotRespVO>> getStockLotPage(@Valid RdStockLotPageReqVO pageReqVO) {
         PageResult<RdStockLotDO> pageResult = stockLotService.getStockLotPage(pageReqVO);
-        return success(BeanUtils.toBean(pageResult, RdStockLotRespVO.class));
+        return success(BeanUtils.toBean(pageResult, RdStockLotRespVO.class, this::fillAvailableQty));
     }
 
     @GetMapping("/export-excel")
@@ -86,7 +86,15 @@ public class RdStockLotController {
         pageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         List<RdStockLotDO> list = stockLotService.getStockLotPage(pageReqVO).getList();
         ExcelUtils.write(response, "库存台账.xls", "数据", RdStockLotRespVO.class,
-                BeanUtils.toBean(list, RdStockLotRespVO.class));
+                BeanUtils.toBean(list, RdStockLotRespVO.class, this::fillAvailableQty));
+    }
+
+    private RdStockLotRespVO fillAvailableQty(RdStockLotRespVO stockLot) {
+        if (stockLot.getLockedQty() == null) {
+            stockLot.setLockedQty(java.math.BigDecimal.ZERO);
+        }
+        stockLot.setAvailableQty(stockLot.getWarehouseQty().subtract(stockLot.getLockedQty()));
+        return stockLot;
     }
 
 }

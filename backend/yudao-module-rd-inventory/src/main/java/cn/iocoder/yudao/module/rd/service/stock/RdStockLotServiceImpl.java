@@ -22,6 +22,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserNickname;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.STOCK_LOT_ADJUST_CLOSED;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.STOCK_LOT_ADJUST_BELOW_LOCKED;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.STOCK_LOT_ADJUST_NEGATIVE_BALANCE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.STOCK_LOT_ADJUST_TYPE_INVALID;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.STOCK_LOT_NOT_EXISTS;
@@ -61,6 +62,7 @@ public class RdStockLotServiceImpl implements RdStockLotService {
                 .setOutboundQty(BigDecimal.ZERO)
                 .setReturnQty(BigDecimal.ZERO)
                 .setWarehouseQty(quantity)
+                .setLockedQty(BigDecimal.ZERO)
                 .setPackageWeight(productionOutput.getPackageWeight())
                 .setStockWeight(stockWeight)
                 .setLastBizDate(productionOutput.getProductionDate())
@@ -111,6 +113,7 @@ public class RdStockLotServiceImpl implements RdStockLotService {
                 .setOutboundQty(BigDecimal.ZERO)
                 .setReturnQty(BigDecimal.ZERO)
                 .setWarehouseQty(createReqVO.getQuantity())
+                .setLockedQty(BigDecimal.ZERO)
                 .setPackageWeight(createReqVO.getPackageWeight())
                 .setStockWeight(stockWeight)
                 .setLastBizDate(createReqVO.getBizDate())
@@ -166,6 +169,9 @@ public class RdStockLotServiceImpl implements RdStockLotService {
         if (afterQty.signum() < 0) {
             throw exception(STOCK_LOT_ADJUST_NEGATIVE_BALANCE);
         }
+        if (afterQty.compareTo(zeroIfNull(stockLot.getLockedQty())) < 0) {
+            throw exception(STOCK_LOT_ADJUST_BELOW_LOCKED);
+        }
 
         stockLot.setWarehouseQty(afterQty)
                 .setStockWeight(afterQty.multiply(stockLot.getPackageWeight()))
@@ -202,6 +208,10 @@ public class RdStockLotServiceImpl implements RdStockLotService {
 
     private static LocalDate maxBizDate(LocalDate currentBizDate, LocalDate newBizDate) {
         return currentBizDate == null || newBizDate.isAfter(currentBizDate) ? newBizDate : currentBizDate;
+    }
+
+    private static BigDecimal zeroIfNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     @Override

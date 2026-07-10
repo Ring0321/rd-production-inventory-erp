@@ -110,6 +110,8 @@
       <el-table-column label="出库" align="right" prop="outboundQty" width="100" />
       <el-table-column label="退货" align="right" prop="returnQty" width="100" />
       <el-table-column label="库房数量" align="right" prop="warehouseQty" width="110" />
+      <el-table-column label="锁定数量" align="right" prop="lockedQty" width="110" />
+      <el-table-column label="可用数量" align="right" prop="availableQty" width="110" />
       <el-table-column label="单包重量" align="right" prop="packageWeight" width="110" />
       <el-table-column label="库存重量" align="right" prop="stockWeight" width="110" />
       <el-table-column label="最后日期" align="center" prop="lastBizDate" width="110" />

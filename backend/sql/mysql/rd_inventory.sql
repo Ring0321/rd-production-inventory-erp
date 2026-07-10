@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
   `outbound_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Outbound quantity',
   `return_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Return quantity',
   `warehouse_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Current warehouse quantity',
+  `locked_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Quantity locked by order matching',
   `package_weight` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Single package weight',
   `stock_weight` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Current stock weight',
   `last_biz_date` date DEFAULT NULL COMMENT 'Last movement date',
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   KEY `idx_rd_stock_lot_core` (`customer_name`, `product_model`, `furnace_no`, `furnace_layer`, `location_code`),
+  KEY `idx_rd_stock_lot_match` (`customer_name`, `product_model`, `status`, `last_biz_date`),
   KEY `idx_rd_stock_lot_location` (`location_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inventory lot ledger';
 

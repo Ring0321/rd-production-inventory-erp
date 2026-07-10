@@ -14,6 +14,8 @@ export interface RdStockLotVO {
   outboundQty: number
   returnQty: number
   warehouseQty: number
+  lockedQty: number
+  availableQty: number
   packageWeight: number
   stockWeight: number
   lastBizDate?: string
