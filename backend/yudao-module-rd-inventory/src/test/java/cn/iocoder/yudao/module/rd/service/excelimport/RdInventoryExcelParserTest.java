@@ -62,6 +62,9 @@ class RdInventoryExcelParserTest {
             Row total = sheet.createRow(6);
             total.createCell(4).setCellValue("破碎料");
             total.createCell(10).setCellValue(199);
+            Row sectionTotal = sheet.createRow(7);
+            sectionTotal.createCell(0).setCellValue("成品料");
+            sectionTotal.createCell(12).setCellValue(164606);
 
             workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
             workbook.write(output);

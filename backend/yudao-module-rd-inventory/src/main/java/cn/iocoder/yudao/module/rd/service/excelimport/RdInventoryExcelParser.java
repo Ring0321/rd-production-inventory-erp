@@ -181,8 +181,10 @@ public class RdInventoryExcelParser {
     }
 
     private static boolean isBusinessRow(Map<Integer, String> cells) {
-        return !isBlank(value(cells, 0)) || !isBlank(value(cells, 1))
+        boolean hasCoreDimension = !isBlank(value(cells, 1))
                 || !isBlank(value(cells, 2)) || !isBlank(value(cells, 3));
+        boolean hasLocationAndQuantity = !isBlank(value(cells, 0)) && !isBlank(value(cells, 10));
+        return hasCoreDimension || hasLocationAndQuantity;
     }
 
     private static final class InventorySheetHandler implements XSSFSheetXMLHandler.SheetContentsHandler {

@@ -18,6 +18,12 @@ WHERE `biz_date` IS NULL;
 ALTER TABLE `rd_excel_import_task`
   MODIFY COLUMN `biz_date` date NOT NULL COMMENT 'Current stock baseline date';
 
+ALTER TABLE `rd_stock_lot`
+  ADD KEY `idx_rd_stock_lot_status_qty` (`status`, `warehouse_qty`);
+
+ALTER TABLE `rd_sale_order_extend`
+  ADD KEY `idx_rd_sale_order_status_date` (`status`, `order_date`, `id`);
+
 CREATE TABLE IF NOT EXISTS `rd_excel_import_row` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Import staging row ID',
   `task_id` bigint NOT NULL COMMENT 'Import task ID',
@@ -46,6 +52,7 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_row` (
 
 INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
+(600010, '库存看板', 'rd:dashboard:query', 2, 1, 600000, 'dashboard', 'ep:data-board', 'rd/dashboard/index', 'RdInventoryDashboard', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600220, '库存 Excel 导入', 'rd:excel-import:query', 2, 40, 600200, 'import', 'ep:upload-filled', 'rd/stock/import/index', 'RdStockImport', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600221, '库存 Excel 预检', 'rd:excel-import:create', 3, 10, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600222, '确认库存 Excel 导入', 'rd:excel-import:confirm', 3, 20, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),

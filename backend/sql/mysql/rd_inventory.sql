@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS `rd_stock_lot` (
   PRIMARY KEY (`id`),
   KEY `idx_rd_stock_lot_core` (`customer_name`, `product_model`, `furnace_no`, `furnace_layer`, `location_code`),
   KEY `idx_rd_stock_lot_match` (`customer_name`, `product_model`, `status`, `last_biz_date`),
-  KEY `idx_rd_stock_lot_location` (`location_id`, `status`)
+  KEY `idx_rd_stock_lot_location` (`location_id`, `status`),
+  KEY `idx_rd_stock_lot_status_qty` (`status`, `warehouse_qty`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inventory lot ledger';
 
 CREATE TABLE IF NOT EXISTS `rd_stock_transaction` (
@@ -155,7 +156,8 @@ CREATE TABLE IF NOT EXISTS `rd_sale_order_extend` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_sale_order_no` (`order_no`, `deleted`),
   KEY `idx_rd_sale_order_date_status` (`order_date`, `status`),
-  KEY `idx_rd_sale_order_customer_status` (`customer_name`, `product_model`, `status`)
+  KEY `idx_rd_sale_order_customer_status` (`customer_name`, `product_model`, `status`),
+  KEY `idx_rd_sale_order_status_date` (`status`, `order_date`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD sales order fulfillment extension';
 
 CREATE TABLE IF NOT EXISTS `rd_order_fulfillment` (
@@ -320,6 +322,7 @@ CREATE TABLE IF NOT EXISTS `rd_excel_import_error` (
 
 INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
 (600000, '瑞鼎库存', '', 1, 35, 0, '/rd', 'ep:box', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600010, '库存看板', 'rd:dashboard:query', 2, 1, 600000, 'dashboard', 'ep:data-board', 'rd/dashboard/index', 'RdInventoryDashboard', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600100, '生产管理', '', 1, 10, 600000, 'production', 'ep:cpu', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600101, '生产炉层产量', 'rd:production-output:query', 2, 10, 600100, 'output', 'ep:list', 'rd/production/output/index', 'RdProductionOutput', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600102, '生产炉层产量新增', 'rd:production-output:create', 3, 10, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
