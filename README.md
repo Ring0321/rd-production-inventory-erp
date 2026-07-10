@@ -8,8 +8,8 @@ _基于 `ruoyi-vue-pro` 后端与 `yudao-ui-admin-vue3` 前端二次开发，用
 
 ```text
 rd-production-inventory-erp/
-├── backend/   # ruoyi-vue-pro 后端基线，后续新增 yudao-module-rd-inventory
-├── frontend/  # yudao-ui-admin-vue3 前端基线，后续新增 src/views/rd 与 src/api/rd
+├── backend/   # ruoyi-vue-pro 后端与 yudao-module-rd-inventory 业务模块
+├── frontend/  # yudao-ui-admin-vue3 前端与 src/views/rd、src/api/rd 业务页面
 └── docs/      # 架构方案与详细开发计划
 ```
 
@@ -17,9 +17,9 @@ rd-production-inventory-erp/
 
 ## 当前阶段
 
-当前执行《ERP生产库存订单系统详细开发计划》的第 1 步：项目初始化、开发仓库建立、源码基线导入、GitHub 私有仓库推送。
+《ERP生产库存订单系统详细开发计划》第 1 至第 9 周已完成。当前已经形成生产入库、库存台账、订单差额、订单匹配、调拨、出库、日报、历史 Excel 迁移和库存看板闭环。
 
-下一步是创建后端 `yudao-module-rd-inventory` 模块骨架，并创建前端 `src/views/rd`、`src/api/rd` 目录骨架。
+下一步进入第 10 周：数据库联调、索引与并发压测、权限回归、备份恢复和试运行验收。
 
 ---
 
@@ -38,4 +38,4 @@ rd-production-inventory-erp/
 
 - [ERP生产库存订单管理系统开发方案](docs/ERP生产库存订单管理系统开发方案.md)
 - [ERP生产库存订单系统详细开发计划](docs/ERP生产库存订单系统详细开发计划.md)
-
+- [第 9 周开发验收记录](docs/第9周开发验收记录.md)
