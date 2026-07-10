@@ -4,7 +4,9 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.rd.controller.admin.stock.vo.RdStockTransactionPageReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockTransactionDO;
 import cn.iocoder.yudao.module.rd.dal.mysql.stock.RdStockTransactionMapper;
+import cn.iocoder.yudao.module.rd.service.report.RdDailyStockSummaryService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import javax.annotation.Resource;
@@ -21,10 +23,14 @@ public class RdStockTransactionServiceImpl implements RdStockTransactionService 
 
     @Resource
     private RdStockTransactionMapper stockTransactionMapper;
+    @Resource
+    private RdDailyStockSummaryService dailyStockSummaryService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createStockTransaction(RdStockTransactionDO stockTransaction) {
         stockTransactionMapper.insert(stockTransaction);
+        dailyStockSummaryService.applyStockTransaction(stockTransaction);
         return stockTransaction.getId();
     }
 

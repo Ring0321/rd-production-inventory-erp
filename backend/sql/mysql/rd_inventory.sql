@@ -229,15 +229,19 @@ CREATE TABLE IF NOT EXISTS `rd_outbound_order` (
 CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Daily summary ID',
   `biz_date` date NOT NULL COMMENT 'Business date',
-  `location_code` varchar(64) DEFAULT NULL COMMENT 'Location code',
-  `customer_name` varchar(128) DEFAULT NULL COMMENT 'Customer',
-  `product_model` varchar(128) DEFAULT NULL COMMENT 'Product model',
+  `stock_lot_id` bigint NOT NULL COMMENT 'Stock lot ID',
+  `location_code` varchar(64) NOT NULL DEFAULT '' COMMENT 'Location code',
+  `customer_name` varchar(128) NOT NULL COMMENT 'Customer',
+  `product_model` varchar(128) NOT NULL COMMENT 'Product model',
+  `furnace_no` varchar(64) NOT NULL COMMENT 'Production furnace number',
+  `furnace_layer` varchar(32) NOT NULL COMMENT 'Furnace layer',
   `production_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily production output',
   `inbound_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily inbound',
   `outbound_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily outbound',
   `transfer_in_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily transfer inbound',
   `transfer_out_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily transfer outbound',
   `return_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily return',
+  `net_change_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Daily signed net change',
   `warehouse_qty` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'End warehouse quantity',
   `stock_weight` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'End stock weight',
   `creator` varchar(64) DEFAULT '',
@@ -246,7 +250,8 @@ CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_daily_summary` (`biz_date`, `location_code`, `customer_name`, `product_model`, `deleted`)
+  UNIQUE KEY `uk_rd_daily_summary` (`biz_date`, `stock_lot_id`, `deleted`),
+  KEY `idx_rd_daily_summary_query` (`biz_date`, `customer_name`, `product_model`, `location_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD daily stock summary';
 
 CREATE TABLE IF NOT EXISTS `rd_excel_import_task` (
@@ -323,7 +328,10 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600404, '调拨单确认', 'rd:transfer-order:confirm', 3, 30, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600405, '调拨单撤销', 'rd:transfer-order:cancel', 3, 40, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600406, '调拨单导出', 'rd:transfer-order:export', 3, 50, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
-(600500, '报表中心', '', 1, 50, 600000, 'report', 'ep:trend-charts', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')
+(600500, '报表中心', '', 1, 50, 600000, 'report', 'ep:trend-charts', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600501, '每日出入库统计', 'rd:daily-stock-summary:query', 2, 10, 600500, 'daily', 'ep:data-analysis', 'rd/report/daily/index', 'RdDailyStockSummary', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600502, '每日统计重算', 'rd:daily-stock-summary:rebuild', 3, 10, 600501, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600503, '每日统计导出', 'rd:daily-stock-summary:export', 3, 20, 600501, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `permission` = VALUES(`permission`),
@@ -341,3 +349,20 @@ ON DUPLICATE KEY UPDATE
   `deleted` = b'0',
   `updater` = 'admin',
   `update_time` = NOW();
+
+INSERT INTO `infra_job`
+(`id`, `name`, `status`, `handler_name`, `handler_param`, `cron_expression`, `retry_count`, `retry_interval`, `monitor_timeout`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+VALUES
+(600001, 'RD 每日库存汇总', 1, 'rdDailyStockSummaryJob', NULL, '0 10 0 * * ?', 2, 60, 600, 'admin', NOW(), 'admin', NOW(), b'0')
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `status` = VALUES(`status`),
+  `handler_name` = VALUES(`handler_name`),
+  `handler_param` = VALUES(`handler_param`),
+  `cron_expression` = VALUES(`cron_expression`),
+  `retry_count` = VALUES(`retry_count`),
+  `retry_interval` = VALUES(`retry_interval`),
+  `monitor_timeout` = VALUES(`monitor_timeout`),
+  `updater` = VALUES(`updater`),
+  `update_time` = VALUES(`update_time`),
+  `deleted` = VALUES(`deleted`);
