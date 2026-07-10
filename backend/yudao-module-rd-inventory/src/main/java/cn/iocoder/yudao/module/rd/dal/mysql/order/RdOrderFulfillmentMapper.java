@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.rd.enums.RdOrderFulfillmentStatusEnum;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
+import java.math.BigDecimal;
+
 /**
  * RD order fulfillment Mapper.
  */
@@ -17,6 +19,10 @@ public interface RdOrderFulfillmentMapper extends BaseMapperX<RdOrderFulfillment
 
     @Select("SELECT * FROM rd_order_fulfillment WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdOrderFulfillmentDO selectByIdForUpdate(Long id);
+
+    @Select("SELECT COALESCE(SUM(outbound_qty), 0) FROM rd_order_fulfillment "
+            + "WHERE order_id = #{orderId} AND deleted = 0 AND status <> 'CANCELLED'")
+    BigDecimal sumOutboundQtyByOrderId(Long orderId);
 
     default RdOrderFulfillmentDO selectActive(Long orderId, Long stockLotId) {
         return selectOne(new LambdaQueryWrapperX<RdOrderFulfillmentDO>()

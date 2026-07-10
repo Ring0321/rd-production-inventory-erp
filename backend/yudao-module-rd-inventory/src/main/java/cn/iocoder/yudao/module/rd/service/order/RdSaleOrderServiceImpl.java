@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.rd.controller.admin.order.vo.RdSaleOrderPageReqVO;
 import cn.iocoder.yudao.module.rd.controller.admin.order.vo.RdSaleOrderSaveReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.order.RdSaleOrderDO;
+import cn.iocoder.yudao.module.rd.dal.mysql.order.RdOrderFulfillmentMapper;
 import cn.iocoder.yudao.module.rd.dal.mysql.order.RdSaleOrderMapper;
 import cn.iocoder.yudao.module.rd.enums.RdOrderStatusEnum;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import org.springframework.validation.annotation.Validated;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -25,6 +27,7 @@ import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_NOT
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_ALLOCATION_EXCEEDS_DIFFERENCE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_ALLOCATION_NEGATIVE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_NO_EXISTS;
+import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_OUTBOUND_EXISTS;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_STATUS_CANNOT_CHANGE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_TRANSFER_EXCEEDS_DIFFERENCE;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.SALE_ORDER_TRANSFER_NEGATIVE;
@@ -38,6 +41,8 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
 
     @Resource
     private RdSaleOrderMapper saleOrderMapper;
+    @Resource
+    private RdOrderFulfillmentMapper fulfillmentMapper;
 
     @Override
     public Long createSaleOrder(RdSaleOrderSaveReqVO createReqVO) {
@@ -74,8 +79,12 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelSaleOrder(Long id) {
-        RdSaleOrderDO saleOrder = validateSaleOrderEditable(id);
+        RdSaleOrderDO saleOrder = getSaleOrderForUpdate(id);
+        if (zeroIfNull(fulfillmentMapper.sumOutboundQtyByOrderId(id)).signum() > 0) {
+            throw exception(SALE_ORDER_OUTBOUND_EXISTS);
+        }
         saleOrderMapper.updateById(new RdSaleOrderDO()
                 .setId(saleOrder.getId())
                 .setStatus(RdOrderStatusEnum.CANCELLED.getStatus()));
@@ -146,6 +155,45 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
         toOrder.setTransferInQty(transferInQty);
         recalculateMetrics(toOrder);
         saleOrderMapper.updateById(toOrder);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RdSaleOrderDO lockSaleOrderForOutbound(Long id, boolean allowClosed) {
+        RdSaleOrderDO saleOrder = saleOrderMapper.selectByIdForUpdate(id);
+        if (saleOrder == null) {
+            throw exception(SALE_ORDER_NOT_EXISTS);
+        }
+        if (RdOrderStatusEnum.CANCELLED.getStatus().equals(saleOrder.getStatus())
+                || (!allowClosed && RdOrderStatusEnum.CLOSED.getStatus().equals(saleOrder.getStatus()))) {
+            throw exception(SALE_ORDER_STATUS_CANNOT_CHANGE);
+        }
+        return saleOrder;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncOutboundStatus(Long id, BigDecimal totalOutboundQty, String operatorName) {
+        RdSaleOrderDO saleOrder = saleOrderMapper.selectByIdForUpdate(id);
+        if (saleOrder == null) {
+            throw exception(SALE_ORDER_NOT_EXISTS);
+        }
+        if (RdOrderStatusEnum.CANCELLED.getStatus().equals(saleOrder.getStatus())) {
+            throw exception(SALE_ORDER_STATUS_CANNOT_CHANGE);
+        }
+        boolean shouldClose = zeroIfNull(saleOrder.getFulfilledQty()).compareTo(saleOrder.getRequiredQty()) >= 0
+                && zeroIfNull(totalOutboundQty).compareTo(saleOrder.getRequiredQty()) >= 0;
+        if (shouldClose && !RdOrderStatusEnum.CLOSED.getStatus().equals(saleOrder.getStatus())) {
+            saleOrderMapper.updateById(new RdSaleOrderDO()
+                    .setId(id)
+                    .setStatus(RdOrderStatusEnum.CLOSED.getStatus())
+                    .setCloseTime(LocalDateTime.now())
+                    .setCloseBy(operatorName));
+        } else if (!shouldClose && RdOrderStatusEnum.CLOSED.getStatus().equals(saleOrder.getStatus())) {
+            saleOrderMapper.reopenAfterOutboundCancel(id,
+                    resolveStatus(saleOrder.getRequiredQty(), zeroIfNull(saleOrder.getFulfilledQty())),
+                    operatorName == null ? "" : operatorName);
+        }
     }
 
     @Override

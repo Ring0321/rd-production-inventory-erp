@@ -203,6 +203,29 @@ CREATE TABLE IF NOT EXISTS `rd_transfer_order` (
   KEY `idx_rd_transfer_link` (`to_order_id`, `from_stock_lot_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD order transfer';
 
+CREATE TABLE IF NOT EXISTS `rd_outbound_order` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Outbound order ID',
+  `outbound_no` varchar(64) NOT NULL COMMENT 'Outbound number',
+  `outbound_date` date NOT NULL COMMENT 'Outbound date',
+  `order_id` bigint NOT NULL COMMENT 'Sales order ID',
+  `fulfillment_id` bigint NOT NULL COMMENT 'Order fulfillment ID',
+  `stock_lot_id` bigint NOT NULL COMMENT 'Stock lot ID',
+  `quantity` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Outbound quantity',
+  `package_weight` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Single package weight',
+  `weight` decimal(24,6) NOT NULL DEFAULT 0.000000 COMMENT 'Outbound weight',
+  `status` varchar(32) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT/CONFIRMED/CANCELLED',
+  `remark` varchar(512) DEFAULT NULL COMMENT 'Remark',
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_outbound_no` (`outbound_no`, `deleted`),
+  KEY `idx_rd_outbound_date_status` (`outbound_date`, `status`),
+  KEY `idx_rd_outbound_order_fulfillment` (`order_id`, `fulfillment_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD outbound order';
+
 CREATE TABLE IF NOT EXISTS `rd_daily_stock_summary` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Daily summary ID',
   `biz_date` date NOT NULL COMMENT 'Business date',
@@ -276,6 +299,12 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600206, '库存调整', 'rd:stock-lot:adjust', 3, 40, 600201, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600203, '库存流水', 'rd:stock-transaction:query', 2, 20, 600200, 'transaction', 'ep:list', 'rd/stock/transaction/index', 'RdStockTransaction', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600204, '库存流水导出', 'rd:stock-transaction:export', 3, 10, 600203, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600207, '出库上线', 'rd:outbound-order:query', 2, 30, 600200, 'outbound', 'ep:upload', 'rd/outbound/index', 'RdOutboundOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600208, '出库单新增', 'rd:outbound-order:create', 3, 10, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600209, '出库单编辑', 'rd:outbound-order:update', 3, 20, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600210, '出库单确认', 'rd:outbound-order:confirm', 3, 30, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600211, '出库单撤销', 'rd:outbound-order:cancel', 3, 40, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600212, '出库单导出', 'rd:outbound-order:export', 3, 50, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600301, '销售订单', 'rd:sale-order:query', 2, 10, 600300, 'sale', 'ep:document', 'rd/order/sale/index', 'RdSaleOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600302, '销售订单新增', 'rd:sale-order:create', 3, 10, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),

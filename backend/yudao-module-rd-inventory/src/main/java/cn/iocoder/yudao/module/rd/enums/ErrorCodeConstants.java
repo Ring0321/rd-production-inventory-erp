@@ -37,6 +37,7 @@ public interface ErrorCodeConstants {
     ErrorCode SALE_ORDER_ALLOCATION_NEGATIVE = new ErrorCode(1_080_300_004, "订单已分配数量不能小于 0");
     ErrorCode SALE_ORDER_TRANSFER_NEGATIVE = new ErrorCode(1_080_300_005, "订单调入或调出数量不能小于 0");
     ErrorCode SALE_ORDER_TRANSFER_EXCEEDS_DIFFERENCE = new ErrorCode(1_080_300_006, "调入数量不能超过订单剩余差额");
+    ErrorCode SALE_ORDER_OUTBOUND_EXISTS = new ErrorCode(1_080_300_007, "销售订单已有确认出库记录，不能取消");
 
     // ========== RD order fulfillment 1-080-310-000 ==========
     ErrorCode ORDER_FULFILLMENT_NOT_EXISTS = new ErrorCode(1_080_310_000, "订单库存匹配记录不存在");
@@ -55,5 +56,16 @@ public interface ErrorCodeConstants {
     ErrorCode TRANSFER_ORDER_SAME_CUSTOMER = new ErrorCode(1_080_400_006, "相同客户库存请使用订单匹配，无需调拨");
     ErrorCode TRANSFER_ORDER_FROM_ORDER_MISMATCH = new ErrorCode(1_080_400_007, "调出订单与调出库存客户或型号不一致");
     ErrorCode TRANSFER_ORDER_REVERSE_INSUFFICIENT = new ErrorCode(1_080_400_008, "调入库存已被占用或数量不足，无法撤销调拨");
+
+    // ========== RD outbound order 1-080-500-000 ==========
+    ErrorCode OUTBOUND_ORDER_NOT_EXISTS = new ErrorCode(1_080_500_000, "出库单不存在");
+    ErrorCode OUTBOUND_ORDER_NO_EXISTS = new ErrorCode(1_080_500_001, "出库单号已存在");
+    ErrorCode OUTBOUND_ORDER_STATUS_NOT_DRAFT = new ErrorCode(1_080_500_002, "只有草稿出库单可以修改或确认");
+    ErrorCode OUTBOUND_ORDER_STATUS_CANNOT_CANCEL = new ErrorCode(1_080_500_003, "当前出库单状态不能撤销");
+    ErrorCode OUTBOUND_ORDER_FULFILLMENT_MISMATCH = new ErrorCode(1_080_500_004, "出库单与订单匹配记录不一致");
+    ErrorCode OUTBOUND_ORDER_QUANTITY_EXCEEDS_ALLOCATION = new ErrorCode(1_080_500_005, "出库数量超过匹配记录剩余可出库数量");
+    ErrorCode OUTBOUND_ORDER_STOCK_INSUFFICIENT = new ErrorCode(1_080_500_006, "已锁定库存不足，无法确认出库");
+    ErrorCode OUTBOUND_ORDER_DRAFT_EXISTS = new ErrorCode(1_080_500_007, "该匹配记录已有出库草稿，请先处理原草稿");
+    ErrorCode OUTBOUND_ORDER_REVERSE_INSUFFICIENT = new ErrorCode(1_080_500_008, "出库数量已被后续业务占用，无法撤销");
 
 }

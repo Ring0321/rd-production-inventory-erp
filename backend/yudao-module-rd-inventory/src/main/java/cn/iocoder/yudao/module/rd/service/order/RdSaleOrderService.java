@@ -27,6 +27,10 @@ public interface RdSaleOrderService {
 
     void changeTransferQty(Long fromOrderId, Long toOrderId, BigDecimal deltaQty);
 
+    RdSaleOrderDO lockSaleOrderForOutbound(Long id, boolean allowClosed);
+
+    void syncOutboundStatus(Long id, BigDecimal totalOutboundQty, String operatorName);
+
     RdSaleOrderDO getSaleOrder(Long id);
 
     Map<Long, RdSaleOrderDO> getSaleOrderMap(Collection<Long> ids);

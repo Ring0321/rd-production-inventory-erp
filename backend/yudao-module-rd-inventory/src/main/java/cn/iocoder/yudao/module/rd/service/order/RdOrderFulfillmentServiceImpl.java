@@ -118,7 +118,8 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
                 currentFulfillment.getOrderId(), currentFulfillment.getAllocatedQty().negate());
 
         RdOrderFulfillmentDO fulfillment = fulfillmentMapper.selectByIdForUpdate(id);
-        if (!RdOrderFulfillmentStatusEnum.ALLOCATED.getStatus().equals(fulfillment.getStatus())) {
+        if (!RdOrderFulfillmentStatusEnum.ALLOCATED.getStatus().equals(fulfillment.getStatus())
+                || zeroIfNull(fulfillment.getOutboundQty()).signum() > 0) {
             throw exception(ORDER_FULFILLMENT_STATUS_CANNOT_CANCEL);
         }
         RdStockLotDO stockLot = stockLotMapper.selectByIdForUpdate(fulfillment.getStockLotId());
