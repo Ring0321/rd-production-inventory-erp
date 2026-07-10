@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.rd.controller.admin.order.vo.RdSaleOrderSaveReqVO
 import cn.iocoder.yudao.module.rd.dal.dataobject.order.RdSaleOrderDO;
 
 import javax.validation.Valid;
+import java.math.BigDecimal;
 
 /**
  * RD sales order Service.
@@ -19,6 +20,8 @@ public interface RdSaleOrderService {
     void cancelSaleOrder(Long id);
 
     void recalculateSaleOrder(Long id);
+
+    RdSaleOrderDO changeAllocatedQty(Long id, BigDecimal deltaQty);
 
     RdSaleOrderDO getSaleOrder(Long id);
 

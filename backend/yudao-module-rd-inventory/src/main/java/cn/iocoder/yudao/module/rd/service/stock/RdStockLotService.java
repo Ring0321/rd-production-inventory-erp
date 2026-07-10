@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.rd.dal.dataobject.production.RdProductionOutputDO
 import cn.iocoder.yudao.module.rd.dal.dataobject.stock.RdStockLotDO;
 
 import javax.validation.Valid;
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * RD stock lot Service.
@@ -23,6 +25,8 @@ public interface RdStockLotService {
                      Long operatorId, String operatorName);
 
     RdStockLotDO getStockLot(Long id);
+
+    Map<Long, RdStockLotDO> getStockLotMap(Collection<Long> ids);
 
     PageResult<RdStockLotDO> getStockLotPage(RdStockLotPageReqVO pageReqVO);
 

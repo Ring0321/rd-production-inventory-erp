@@ -6,12 +6,16 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.rd.controller.admin.order.vo.RdSaleOrderPageReqVO;
 import cn.iocoder.yudao.module.rd.dal.dataobject.order.RdSaleOrderDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * RD sales order Mapper.
  */
 @Mapper
 public interface RdSaleOrderMapper extends BaseMapperX<RdSaleOrderDO> {
+
+    @Select("SELECT * FROM rd_sale_order_extend WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    RdSaleOrderDO selectByIdForUpdate(Long id);
 
     default RdSaleOrderDO selectByOrderNo(String orderNo) {
         return selectOne(RdSaleOrderDO::getOrderNo, orderNo);

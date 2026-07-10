@@ -282,6 +282,10 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600304, '销售订单取消', 'rd:sale-order:cancel', 3, 30, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600305, '销售订单重算', 'rd:sale-order:recalculate', 3, 40, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600306, '销售订单导出', 'rd:sale-order:export', 3, 50, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600310, '订单匹配', 'rd:order-fulfillment:query', 2, 20, 600300, 'fulfillment', 'ep:connection', 'rd/order/fulfillment/index', 'RdOrderFulfillment', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600311, '订单手动匹配', 'rd:order-fulfillment:allocate', 3, 10, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600312, '订单自动匹配', 'rd:order-fulfillment:auto', 3, 20, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600313, '订单取消匹配', 'rd:order-fulfillment:cancel', 3, 30, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600400, '调拨管理', '', 1, 40, 600000, 'transfer', 'ep:sort', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600500, '报表中心', '', 1, 50, 600000, 'report', 'ep:trend-charts', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE

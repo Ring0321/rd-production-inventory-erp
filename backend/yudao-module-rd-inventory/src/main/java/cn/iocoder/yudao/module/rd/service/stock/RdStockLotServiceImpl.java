@@ -17,8 +17,12 @@ import org.springframework.validation.annotation.Validated;
 import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertMap;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserNickname;
 import static cn.iocoder.yudao.module.rd.enums.ErrorCodeConstants.STOCK_LOT_ADJUST_CLOSED;
@@ -221,6 +225,14 @@ public class RdStockLotServiceImpl implements RdStockLotService {
             throw exception(STOCK_LOT_NOT_EXISTS);
         }
         return stockLot;
+    }
+
+    @Override
+    public Map<Long, RdStockLotDO> getStockLotMap(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return convertMap(stockLotMapper.selectByIds(ids), RdStockLotDO::getId);
     }
 
     @Override
