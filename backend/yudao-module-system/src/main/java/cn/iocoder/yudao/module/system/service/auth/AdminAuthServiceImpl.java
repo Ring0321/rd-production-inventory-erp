@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.system.service.auth;
 
-import cn.hutool.core.util.ObjectUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
@@ -22,7 +21,6 @@ import cn.iocoder.yudao.module.system.enums.logger.LoginResultEnum;
 import cn.iocoder.yudao.module.system.enums.oauth2.OAuth2ClientConstants;
 import cn.iocoder.yudao.module.system.enums.sms.SmsSceneEnum;
 import cn.iocoder.yudao.module.system.service.logger.LoginLogService;
-import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -61,8 +59,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private OAuth2TokenService oauth2TokenService;
     @Resource
     private SocialUserService socialUserService;
-    @Resource
-    private MemberService memberService;
     @Resource
     private Validator validator;
     @Resource
@@ -122,7 +118,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         if (Objects.equals(SmsSceneEnum.ADMIN_MEMBER_RESET_PASSWORD.getScene(), reqVO.getScene())) {
             ResponseModel response = doValidateCaptcha(reqVO);
             if (!response.isSuccess()) {
-                throw exception(AUTH_REGISTER_CAPTCHA_CODE_ERROR, response.getRepMsg());
+                throw exception(AUTH_LOGIN_CAPTCHA_CODE_ERROR, response.getRepMsg());
             }
         }
 
@@ -242,11 +238,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         reqDTO.setTraceId(TracerUtils.getTraceId());
         reqDTO.setUserId(userId);
         reqDTO.setUserType(userType);
-        if (ObjectUtil.equal(getUserType().getValue(), userType)) {
-            reqDTO.setUsername(getUsername(userId));
-        } else {
-            reqDTO.setUsername(memberService.getMemberUserMobile(userId));
-        }
+        reqDTO.setUsername(getUsername(userId));
         reqDTO.setUserAgent(ServletUtils.getUserAgent());
         reqDTO.setUserIp(ServletUtils.getClientIP());
         reqDTO.setResult(LoginResultEnum.SUCCESS.getResult());
@@ -263,27 +255,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
     private UserTypeEnum getUserType() {
         return UserTypeEnum.ADMIN;
-    }
-
-    @Override
-    public AuthLoginRespVO register(AuthRegisterReqVO registerReqVO) {
-        // 1. 校验验证码
-        validateCaptcha(registerReqVO);
-
-        // 2. 校验用户名是否已存在
-        Long userId = userService.registerUser(registerReqVO);
-
-        // 3. 创建 Token 令牌，记录登录日志
-        return createTokenAfterLoginSuccess(userId, registerReqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
-    }
-
-    @VisibleForTesting
-    void validateCaptcha(AuthRegisterReqVO reqVO) {
-        ResponseModel response = doValidateCaptcha(reqVO);
-        // 验证不通过
-        if (!response.isSuccess()) {
-            throw exception(AUTH_REGISTER_CAPTCHA_CODE_ERROR, response.getRepMsg());
-        }
     }
 
     @Override

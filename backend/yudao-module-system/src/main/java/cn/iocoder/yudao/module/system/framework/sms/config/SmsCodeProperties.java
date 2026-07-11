@@ -16,26 +16,26 @@ public class SmsCodeProperties {
      * 过期时间
      */
     @NotNull(message = "过期时间不能为空")
-    private Duration expireTimes;
+    private Duration expireTimes = Duration.ofMinutes(10);
     /**
      * 短信发送频率
      */
     @NotNull(message = "短信发送频率不能为空")
-    private Duration sendFrequency;
+    private Duration sendFrequency = Duration.ofMinutes(1);
     /**
      * 每日发送最大数量
      */
     @NotNull(message = "每日发送最大数量不能为空")
-    private Integer sendMaximumQuantityPerDay;
+    private Integer sendMaximumQuantityPerDay = 10;
     /**
      * 验证码最小值
      */
     @NotNull(message = "验证码最小值不能为空")
-    private Integer beginCode;
+    private Integer beginCode = 100_000;
     /**
      * 验证码最大值
      */
     @NotNull(message = "验证码最大值不能为空")
-    private Integer endCode;
+    private Integer endCode = 999_999;
 
 }

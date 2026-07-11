@@ -13,7 +13,6 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.common.util.validation.ValidationUtils;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
-import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportExcelVO;
@@ -63,7 +62,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     static final String USER_INIT_PASSWORD_KEY = "system.user.init-password";
 
-    static final String USER_REGISTER_ENABLED_KEY = "system.user.register-enabled";
 
     @Resource
     private AdminUserMapper userMapper;
@@ -120,30 +118,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("user", user);
-        return user.getId();
-    }
-
-    @Override
-    public Long registerUser(AuthRegisterReqVO registerReqVO) {
-        // 1.1 校验是否开启注册
-        if (ObjUtil.notEqual(configApi.getConfigValueByKey(USER_REGISTER_ENABLED_KEY), "true")) {
-            throw exception(USER_REGISTER_DISABLED);
-        }
-        // 1.2 校验账户配合
-        tenantService.handleTenantInfo(tenant -> {
-            long count = userMapper.selectCount();
-            if (count >= tenant.getAccountCount()) {
-                throw exception(USER_COUNT_MAX, tenant.getAccountCount());
-            }
-        });
-        // 1.3 校验正确性
-        validateUserForCreateOrUpdate(null, registerReqVO.getUsername(), null, null, null, null);
-
-        // 2. 插入用户
-        AdminUserDO user = BeanUtils.toBean(registerReqVO, AdminUserDO.class);
-        user.setStatus(CommonStatusEnum.ENABLE.getStatus()); // 默认开启
-        user.setPassword(encodePassword(registerReqVO.getPassword())); // 加密密码
-        userMapper.insert(user);
         return user.getId();
     }
 

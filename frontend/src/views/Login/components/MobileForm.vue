@@ -1,219 +1,92 @@
 <template>
   <el-form
     v-show="getShow"
-    ref="formSmsLogin"
-    :model="loginData.loginForm"
+    ref="formRef"
+    :model="form"
     :rules="rules"
     class="login-form"
     label-position="top"
-    label-width="120px"
     size="large"
   >
-    <el-row class="mx-[-10px]">
-      <!-- 租户名 -->
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <LoginFormTitle class="w-full" />
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px">
-        <el-form-item v-if="loginData.tenantEnable === 'true'" prop="tenantName">
-          <el-input
-            v-model="loginData.loginForm.tenantName"
-            :placeholder="t('login.tenantNamePlaceholder')"
-            :prefix-icon="iconHouse"
-            type="primary"
-            link
-          />
-        </el-form-item>
-      </el-col>
-      <!-- 手机号 -->
-      <el-col :span="24" class="px-10px">
-        <el-form-item prop="mobileNumber">
-          <el-input
-            v-model="loginData.loginForm.mobileNumber"
-            :placeholder="t('login.mobileNumberPlaceholder')"
-            :prefix-icon="iconCellphone"
-          />
-        </el-form-item>
-      </el-col>
-      <!-- 验证码 -->
-      <el-col :span="24" class="px-10px">
-        <el-form-item prop="code">
-          <el-row :gutter="5" justify="space-between" style="width: 100%">
-            <el-col :span="24">
-              <el-input
-                v-model="loginData.loginForm.code"
-                :placeholder="t('login.codePlaceholder')"
-                :prefix-icon="iconCircleCheck"
-              >
-                <!-- <el-button class="w-[100%]"> -->
-                <template #append>
-                  <span
-                    v-if="mobileCodeTimer <= 0"
-                    class="getMobileCode"
-                    style="cursor: pointer"
-                    @click="getSmsCode"
-                  >
-                    {{ t('login.getSmsCode') }}
-                  </span>
-                  <span v-if="mobileCodeTimer > 0" class="getMobileCode" style="cursor: pointer">
-                    {{ mobileCodeTimer }}秒后可重新获取
-                  </span>
-                </template>
-              </el-input>
-              <!-- </el-button> -->
-            </el-col>
-          </el-row>
-        </el-form-item>
-      </el-col>
-      <!-- 登录按钮 / 返回按钮 -->
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <el-button :loading="loginLoading" class="w-full" type="primary" @click="signIn()">
-            {{ t('login.login') }}
+    <LoginFormTitle />
+    <p class="form-hint">使用已绑定的手机号登录</p>
+    <el-form-item prop="mobile">
+      <el-input v-model="form.mobile" placeholder="手机号" :prefix-icon="iconCellphone" />
+    </el-form-item>
+    <el-form-item prop="code">
+      <el-input v-model="form.code" placeholder="短信验证码" :prefix-icon="iconCheck">
+        <template #append>
+          <el-button :disabled="countdown > 0" @click="sendCode">
+            {{ countdown > 0 ? `${countdown} 秒` : '获取验证码' }}
           </el-button>
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <el-button :loading="loginLoading" class="w-full" @click="handleBackLogin()">
-            {{ t('login.backLogin') }}
-          </el-button>
-        </el-form-item>
-      </el-col>
-    </el-row>
+        </template>
+      </el-input>
+    </el-form-item>
+    <el-button :loading="loading" class="full-button" type="primary" @click="submit">登录</el-button>
+    <el-button class="full-button back-button" @click="handleBackLogin">返回账号登录</el-button>
   </el-form>
 </template>
+
 <script lang="ts" setup>
-import type { RouteLocationNormalizedLoaded } from 'vue-router'
-
 import { useIcon } from '@/hooks/web/useIcon'
-
 import { setTenantId, setToken } from '@/utils/auth'
-import { usePermissionStore } from '@/store/modules/permission'
-import { getTenantIdByName, sendSmsCode, smsLogin } from '@/api/login'
+import { sendSmsCode, smsLogin } from '@/api/login'
 import LoginFormTitle from './LoginFormTitle.vue'
 import { LoginStateEnum, useFormValid, useLoginState } from './useLogin'
-import { ElLoading } from 'element-plus'
 
 defineOptions({ name: 'MobileForm' })
 
-const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
 const message = useMessage()
-const permissionStore = usePermissionStore()
-const { currentRoute, push } = useRouter()
-const formSmsLogin = ref()
-const loginLoading = ref(false)
-const iconHouse = useIcon({ icon: 'ep:house' })
+const formRef = ref()
+const loading = ref(false)
+const countdown = ref(0)
 const iconCellphone = useIcon({ icon: 'ep:cellphone' })
-const iconCircleCheck = useIcon({ icon: 'ep:circle-check' })
-const { validForm } = useFormValid(formSmsLogin)
+const iconCheck = useIcon({ icon: 'ep:circle-check' })
+const { validForm } = useFormValid(formRef)
 const { handleBackLogin, getLoginState } = useLoginState()
 const getShow = computed(() => unref(getLoginState) === LoginStateEnum.MOBILE)
+const form = reactive({ mobile: '', code: '' })
+const rules = { mobile: [required], code: [required] }
 
-const rules = {
-  tenantName: [required],
-  mobileNumber: [required],
-  code: [required]
+const sendCode = async () => {
+  if (!form.mobile) return message.warning('请先输入手机号')
+  await sendSmsCode({ mobile: form.mobile, scene: 21 })
+  message.success('验证码已发送')
+  countdown.value = 60
+  const timer = window.setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0) window.clearInterval(timer)
+  }, 1000)
 }
-const loginData = reactive({
-  codeImg: '',
-  tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
-  token: '',
-  loading: {
-    signIn: false
-  },
-  loginForm: {
-    uuid: '',
-    tenantName: '芋道源码',
-    mobileNumber: '',
-    code: ''
+
+const submit = async () => {
+  if (!(await validForm())) return
+  loading.value = true
+  try {
+    setTenantId(1)
+    setToken(await smsLogin(form))
+    await router.push((route.query.redirect as string) || '/')
+  } finally {
+    loading.value = false
   }
-})
-const smsVO = reactive({
-  smsCode: {
-    mobile: '',
-    scene: 21
-  },
-  loginSms: {
-    mobile: '',
-    code: ''
-  }
-})
-const mobileCodeTimer = ref(0)
-const redirect = ref<string>('')
-const getSmsCode = async () => {
-  await getTenantId()
-  smsVO.smsCode.mobile = loginData.loginForm.mobileNumber
-  await sendSmsCode(smsVO.smsCode).then(async () => {
-    message.success(t('login.SmsSendMsg'))
-    // 设置倒计时
-    mobileCodeTimer.value = 60
-    let msgTimer = setInterval(() => {
-      mobileCodeTimer.value = mobileCodeTimer.value - 1
-      if (mobileCodeTimer.value <= 0) {
-        clearInterval(msgTimer)
-      }
-    }, 1000)
-  })
-}
-watch(
-  () => currentRoute.value,
-  (route: RouteLocationNormalizedLoaded) => {
-    redirect.value = route?.query?.redirect as string
-  },
-  {
-    immediate: true
-  }
-)
-// 获取租户 ID
-const getTenantId = async () => {
-  if (loginData.tenantEnable === 'true') {
-    const res = await getTenantIdByName(loginData.loginForm.tenantName)
-    setTenantId(res)
-  }
-}
-// 登录
-const signIn = async () => {
-  await getTenantId()
-  const data = await validForm()
-  if (!data) return
-  ElLoading.service({
-    lock: true,
-    text: '正在加载系统中...',
-    background: 'rgba(0, 0, 0, 0.7)'
-  })
-  loginLoading.value = true
-  smsVO.loginSms.mobile = loginData.loginForm.mobileNumber
-  smsVO.loginSms.code = loginData.loginForm.code
-  await smsLogin(smsVO.loginSms)
-    .then(async (res) => {
-      setToken(res)
-      if (!redirect.value) {
-        redirect.value = '/'
-      }
-      push({ path: redirect.value || permissionStore.addRouters[0].path })
-    })
-    .catch(() => {})
-    .finally(() => {
-      loginLoading.value = false
-      setTimeout(() => {
-        const loadingInstance = ElLoading.service()
-        loadingInstance.close()
-      }, 400)
-    })
 }
 </script>
 
-<style lang="scss" scoped>
-:deep(.anticon) {
-  &:hover {
-    color: var(--el-color-primary) !important;
-  }
+<style scoped>
+.form-hint {
+  margin: -4px 0 24px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 
-.smsbtn {
-  margin-top: 33px;
+.full-button {
+  width: 100%;
+}
+
+.back-button {
+  margin: 12px 0 0;
 }
 </style>

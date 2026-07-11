@@ -1,0 +1,92 @@
+server:
+  port: 48080
+  servlet:
+    encoding:
+      enabled: true
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: rd-erp-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  main:
+    allow-circular-references: true
+  servlet:
+    multipart:
+      max-file-size: 32MB
+      max-request-size: 64MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: true
+      write-date-timestamps-as-nanoseconds: false
+      write-durations-as-timestamps: true
+      fail-on-empty-beans: false
+  cache:
+    type: REDIS
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: NONE
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info
+
+yudao:
+  info:
+    version: 1.0.0
+    base-package: cn.iocoder.yudao
+  web:
+    admin-api:
+      prefix: /admin-api
+      controller: '**.controller.admin.**'
+  security:
+    token-header: Authorization
+    token-parameter: token
+    mock-enable: false
+  tenant:
+    enable: true
+    ignore-urls:
+      - /admin-api/system/auth/capabilities
+      - /admin-api/actuator/**
+    ignore-tables:
+      - system_tenant
+      - system_dict_type
+      - system_dict_data
+  access-log:
+    enable: true
+  captcha:
+    enable: ${RD_CAPTCHA_ENABLED:false}
+rd:
+  erp:
+    bootstrap:
+      admin-password: ${RD_ADMIN_INITIAL_PASSWORD:}
+    auth:
+      sms-enabled: ${RD_SMS_ENABLED:false}
+      password-reset-enabled: ${RD_PASSWORD_RESET_ENABLED:false}
+      social-enabled: ${RD_SOCIAL_ENABLED:false}
+      access-token-validity-seconds: ${RD_ACCESS_TOKEN_VALIDITY_SECONDS:1800}
+      refresh-token-validity-seconds: ${RD_REFRESH_TOKEN_VALIDITY_SECONDS:2592000}
+
+justauth:
+  enabled: ${RD_SOCIAL_ENABLED:false}
+
+logging:
+  config: classpath:logback-spring.xml

@@ -1,0 +1,31 @@
+spring:
+  autoconfigure:
+    exclude:
+      - com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure
+  datasource:
+    dynamic:
+      primary: master
+      strict: true
+      datasource:
+        master:
+          url: ${RD_MASTER_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3307/rd_erp?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true}
+          username: ${RD_DB_USERNAME:root}
+          password: ${RD_DB_PASSWORD}
+        slave:
+          lazy: true
+          url: ${RD_SLAVE_DATASOURCE_URL:${RD_MASTER_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3307/rd_erp?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true}}
+          username: ${RD_DB_USERNAME:root}
+          password: ${RD_DB_PASSWORD}
+  redis:
+    host: ${RD_REDIS_HOST:127.0.0.1}
+    port: ${RD_REDIS_PORT:6379}
+    database: ${RD_REDIS_DATABASE:0}
+    password: ${RD_REDIS_PASSWORD}
+
+yudao:
+  security:
+    mock-enable: false
+  captcha:
+    enable: ${RD_CAPTCHA_ENABLED:false}
+justauth:
+  enabled: ${RD_SOCIAL_ENABLED:false}

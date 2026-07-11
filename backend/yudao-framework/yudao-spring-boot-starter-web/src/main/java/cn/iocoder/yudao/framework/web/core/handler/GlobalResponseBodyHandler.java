@@ -7,7 +7,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 /**
@@ -20,7 +19,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
  * 目前，GlobalResponseBodyHandler 的主要作用是，记录 Controller 的返回结果，
  * 方便 {@link cn.iocoder.yudao.framework.apilog.core.filter.ApiAccessLogFilter} 记录访问日志
  */
-@ControllerAdvice
 public class GlobalResponseBodyHandler implements ResponseBodyAdvice {
 
     @Override

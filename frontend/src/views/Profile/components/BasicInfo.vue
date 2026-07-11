@@ -1,121 +1,68 @@
 <template>
-  <Form ref="formRef" :labelWidth="200" :rules="rules" :schema="schema">
-    <template #sex="form">
-      <el-radio-group v-model="form['sex']">
+  <el-form ref="formRef" :model="form" :rules="rules" label-width="96px">
+    <el-form-item :label="t('profile.user.nickname')" prop="nickname">
+      <el-input v-model="form.nickname" />
+    </el-form-item>
+    <el-form-item :label="t('profile.user.mobile')" prop="mobile">
+      <el-input v-model="form.mobile" />
+    </el-form-item>
+    <el-form-item :label="t('profile.user.email')" prop="email">
+      <el-input v-model="form.email" />
+    </el-form-item>
+    <el-form-item :label="t('profile.user.sex')" prop="sex">
+      <el-radio-group v-model="form.sex">
         <el-radio :value="1">{{ t('profile.user.man') }}</el-radio>
         <el-radio :value="2">{{ t('profile.user.woman') }}</el-radio>
       </el-radio-group>
-    </template>
-  </Form>
-  <div style="text-align: center">
-    <el-button type="primary" @click="submit()">{{ t('common.save') }}</el-button>
-    <el-button type="danger" @click="init()">{{ t('common.reset') }}</el-button>
-  </div>
+    </el-form-item>
+    <el-form-item>
+      <el-button type="primary" @click="submit">{{ t('common.save') }}</el-button>
+      <el-button @click="init">{{ t('common.reset') }}</el-button>
+    </el-form-item>
+  </el-form>
 </template>
+
 <script lang="ts" setup>
-import type { FormRules } from 'element-plus'
-import { FormSchema } from '@/types/form'
-import type { FormExpose } from '@/components/Form'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   getUserProfile,
   updateUserProfile,
-  UserProfileUpdateReqVO
+  type UserProfileUpdateReqVO
 } from '@/api/system/user/profile'
 import { useUserStore } from '@/store/modules/user'
 
 defineOptions({ name: 'BasicInfo' })
 
 const { t } = useI18n()
-const message = useMessage() // 消息弹窗
+const message = useMessage()
 const userStore = useUserStore()
-
-// 定义事件
-const emit = defineEmits<{
-  (e: 'success'): void
-}>()
-
-// 表单校验
+const emit = defineEmits<{ (e: 'success'): void }>()
+const formRef = ref<FormInstance>()
+const form = reactive<UserProfileUpdateReqVO>({ nickname: '', mobile: '', email: '', sex: 0 })
 const rules = reactive<FormRules>({
   nickname: [{ required: true, message: t('profile.rules.nickname'), trigger: 'blur' }],
   email: [
     { required: true, message: t('profile.rules.mail'), trigger: 'blur' },
-    {
-      type: 'email',
-      message: t('profile.rules.truemail'),
-      trigger: ['blur', 'change']
-    }
+    { type: 'email', message: t('profile.rules.truemail'), trigger: ['blur', 'change'] }
   ],
   mobile: [
     { required: true, message: t('profile.rules.phone'), trigger: 'blur' },
-    {
-      pattern: /^1[3-9]\d{9}$/,
-      message: t('profile.rules.truephone'),
-      trigger: 'blur'
-    }
+    { pattern: /^1[3-9]\d{9}$/, message: t('profile.rules.truephone'), trigger: 'blur' }
   ]
 })
-const schema = reactive<FormSchema[]>([
-  {
-    field: 'nickname',
-    label: t('profile.user.nickname'),
-    component: 'Input'
-  },
-  {
-    field: 'mobile',
-    label: t('profile.user.mobile'),
-    component: 'Input'
-  },
-  {
-    field: 'email',
-    label: t('profile.user.email'),
-    component: 'Input'
-  },
-  {
-    field: 'sex',
-    label: t('profile.user.sex'),
-    component: 'InputNumber',
-    value: 0
-  }
-])
-const formRef = ref<FormExpose>() // 表单 Ref
-
-// 监听 userStore 中头像的变化，同步更新表单数据
-watch(
-  () => userStore.getUser.avatar,
-  (newAvatar) => {
-    if (newAvatar && formRef.value) {
-      // 直接更新表单模型中的头像字段
-      const formModel = formRef.value.formModel
-      if (formModel) {
-        formModel.avatar = newAvatar
-      }
-    }
-  }
-)
-
-const submit = () => {
-  const elForm = unref(formRef)?.getElFormRef()
-  if (!elForm) return
-  elForm.validate(async (valid) => {
-    if (valid) {
-      const data = unref(formRef)?.formModel as UserProfileUpdateReqVO
-      await updateUserProfile(data)
-      message.success(t('common.updateSuccess'))
-      const profile = await init()
-      await userStore.setUserNicknameAction(profile.nickname)
-      // 发送成功事件
-      emit('success')
-    }
-  })
-}
 
 const init = async () => {
-  const res = await getUserProfile()
-  unref(formRef)?.setValues(res)
-  return res
+  Object.assign(form, await getUserProfile())
+  return form
 }
 
-onMounted(async () => {
-  await init()
-})
+const submit = async () => {
+  if (!(await formRef.value?.validate())) return
+  await updateUserProfile(form)
+  message.success(t('common.updateSuccess'))
+  await userStore.setUserNicknameAction(form.nickname || '')
+  emit('success')
+}
+
+onMounted(init)
 </script>

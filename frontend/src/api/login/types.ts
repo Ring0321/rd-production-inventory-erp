@@ -30,9 +30,3 @@ export type UserVO = {
   loginDate: string
 }
 
-export type RegisterVO = {
-  tenantName: string
-  username: string
-  password: string
-  captchaVerification: string
-}

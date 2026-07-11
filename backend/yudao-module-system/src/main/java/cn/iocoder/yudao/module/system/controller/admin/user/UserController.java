@@ -179,7 +179,7 @@ public class UserController {
     @GetMapping("/get-import-template")
     @Operation(summary = "获得导入用户模板")
     public void importTemplate(HttpServletResponse response) throws IOException {
-        // 手动创建导出 demo
+        // 手动创建导出模板
         List<UserImportExcelVO> list = Arrays.asList(
                 UserImportExcelVO.builder().username("yunai").deptId(1L).email("yunai@iocoder.cn").mobile("15601691300")
                         .nickname("芋道").status(CommonStatusEnum.ENABLE.getStatus()).sex(SexEnum.MALE.getSex()).build(),

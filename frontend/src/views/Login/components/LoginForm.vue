@@ -2,349 +2,216 @@
   <el-form
     v-show="getShow"
     ref="formLogin"
-    :model="loginData.loginForm"
-    :rules="LoginRules"
+    :model="loginForm"
+    :rules="loginRules"
     class="login-form"
     label-position="top"
-    label-width="120px"
     size="large"
   >
-    <el-row class="mx-[-10px]">
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <LoginFormTitle class="w-full" />
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px">
-        <el-form-item v-if="loginData.tenantEnable === 'true'" prop="tenantName">
-          <el-input
-            v-model="loginData.loginForm.tenantName"
-            :placeholder="t('login.tenantNamePlaceholder')"
-            :prefix-icon="iconHouse"
-            link
-            type="primary"
-          />
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px">
-        <el-form-item prop="username">
-          <el-input
-            v-model="loginData.loginForm.username"
-            :placeholder="t('login.usernamePlaceholder')"
-            :prefix-icon="iconAvatar"
-          />
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px">
-        <el-form-item prop="password">
-          <el-input
-            v-model="loginData.loginForm.password"
-            :placeholder="t('login.passwordPlaceholder')"
-            :prefix-icon="iconLock"
-            show-password
-            type="password"
-            @keyup.enter="getCode()"
-          />
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px mt-[-20px] mb-[-20px]">
-        <el-form-item>
-          <el-row justify="space-between" style="width: 100%">
-            <el-col :span="6">
-              <el-checkbox v-model="loginData.loginForm.rememberMe">
-                {{ t('login.remember') }}
-              </el-checkbox>
-            </el-col>
-            <el-col :offset="6" :span="12">
-              <el-link
-                class="float-right"
-                type="primary"
-                @click="setLoginState(LoginStateEnum.RESET_PASSWORD)"
-              >
-                {{ t('login.forgetPassword') }}
-              </el-link>
-            </el-col>
-          </el-row>
-        </el-form-item>
-      </el-col>
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <el-button :loading="loginLoading" class="w-full" type="primary" @click="getCode()">
-            {{ t('login.login') }}
-          </el-button>
-        </el-form-item>
-      </el-col>
-      <Verify
-        v-if="loginData.captchaEnable === 'true'"
-        ref="verify"
-        :captchaType="captchaType"
-        :imgSize="{ width: '400px', height: '200px' }"
-        mode="pop"
-        @success="handleLogin"
+    <LoginFormTitle />
+    <p class="login-hint">使用企业账号进入管理系统</p>
+
+    <el-form-item prop="username">
+      <el-input v-model="loginForm.username" placeholder="账号" :prefix-icon="iconAvatar" />
+    </el-form-item>
+    <el-form-item prop="password">
+      <el-input
+        v-model="loginForm.password"
+        placeholder="密码"
+        :prefix-icon="iconLock"
+        show-password
+        type="password"
+        @keyup.enter="getCode"
       />
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <el-row :gutter="5" justify="space-between" style="width: 100%">
-            <el-col :span="8">
-              <el-button class="w-full" @click="setLoginState(LoginStateEnum.MOBILE)">
-                {{ t('login.btnMobile') }}
-              </el-button>
-            </el-col>
-            <el-col :span="8">
-              <el-button class="w-full" @click="setLoginState(LoginStateEnum.QR_CODE)">
-                {{ t('login.btnQRCode') }}
-              </el-button>
-            </el-col>
-            <el-col :span="8">
-              <el-button class="w-full" @click="setLoginState(LoginStateEnum.REGISTER)">
-                {{ t('login.btnRegister') }}
-              </el-button>
-            </el-col>
-          </el-row>
-        </el-form-item>
-      </el-col>
-      <el-divider content-position="center">{{ t('login.otherLogin') }}</el-divider>
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <div class="w-full flex justify-between">
-            <Icon
-              v-for="(item, key) in socialList"
-              :key="key"
-              :icon="item.icon"
-              :size="30"
-              class="anticon cursor-pointer"
-              color="#999"
-              @click="doSocialLogin(item.type)"
-            />
-          </div>
-        </el-form-item>
-      </el-col>
-      <el-divider content-position="center">萌新必读</el-divider>
-      <el-col :span="24" class="px-10px">
-        <el-form-item>
-          <div class="w-full flex justify-between">
-            <el-link href="https://doc.iocoder.cn/" target="_blank">📚开发指南</el-link>
-            <el-link href="https://doc.iocoder.cn/video/" target="_blank">🔥视频教程</el-link>
-            <el-link href="https://www.iocoder.cn/Interview/good-collection/" target="_blank">
-              ⚡面试手册
-            </el-link>
-            <el-link href="http://static.yudao.iocoder.cn/mp/Aix9975.jpeg" target="_blank">
-              🤝外包咨询
-            </el-link>
-          </div>
-        </el-form-item>
-      </el-col>
-    </el-row>
+    </el-form-item>
+
+    <div class="login-options">
+      <el-checkbox v-model="loginForm.rememberMe">记住账号</el-checkbox>
+      <el-link
+        v-if="capabilities.passwordReset"
+        type="primary"
+        @click="setLoginState(LoginStateEnum.RESET_PASSWORD)"
+      >
+        忘记密码？
+      </el-link>
+    </div>
+
+    <el-button :loading="loginLoading" class="login-button" type="primary" @click="getCode">
+      登录
+    </el-button>
+
+    <Verify
+      v-if="capabilities.captcha"
+      ref="verify"
+      :captchaType="captchaType"
+      :imgSize="{ width: '400px', height: '200px' }"
+      mode="pop"
+      @success="handleLogin"
+    />
+
+    <div v-if="capabilities.sms || capabilities.socialProviders.length" class="alternate-login">
+      <el-button v-if="capabilities.sms" @click="setLoginState(LoginStateEnum.MOBILE)">
+        <Icon icon="ep:cellphone" /> 手机登录
+      </el-button>
+      <el-tooltip
+        v-for="provider in capabilities.socialProviders"
+        :key="provider"
+        :content="socialProviderName(provider)"
+      >
+        <el-button circle :aria-label="socialProviderName(provider)" @click="doSocialLogin(provider)">
+          <Icon :icon="socialProviderIcon(provider)" />
+        </el-button>
+      </el-tooltip>
+    </div>
   </el-form>
 </template>
+
 <script lang="ts" setup>
 import { ElLoading } from 'element-plus'
-import LoginFormTitle from './LoginFormTitle.vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-
 import { useIcon } from '@/hooks/web/useIcon'
-
 import * as authUtil from '@/utils/auth'
 import { usePermissionStore } from '@/store/modules/permission'
 import * as LoginApi from '@/api/login'
+import type { AuthCapabilitiesVO } from '@/api/login'
+import LoginFormTitle from './LoginFormTitle.vue'
 import { LoginStateEnum, useFormValid, useLoginState } from './useLogin'
 
 defineOptions({ name: 'LoginForm' })
 
-const { t } = useI18n()
-const message = useMessage()
-const iconHouse = useIcon({ icon: 'ep:house' })
-const iconAvatar = useIcon({ icon: 'ep:avatar' })
+const iconAvatar = useIcon({ icon: 'ep:user' })
 const iconLock = useIcon({ icon: 'ep:lock' })
 const formLogin = ref()
 const { validForm } = useFormValid(formLogin)
 const { setLoginState, getLoginState } = useLoginState()
 const { currentRoute, push } = useRouter()
 const permissionStore = usePermissionStore()
-const redirect = ref<string>('')
+const redirect = ref('')
 const loginLoading = ref(false)
 const verify = ref()
-const captchaType = ref('blockPuzzle') // blockPuzzle 滑块 clickWord 点击文字 pictureWord 文字验证码
-
+const captchaType = ref('blockPuzzle')
 const getShow = computed(() => unref(getLoginState) === LoginStateEnum.LOGIN)
-
-const LoginRules = {
-  tenantName: [required],
-  username: [required],
-  password: [required]
-}
-const loginData = reactive({
-  isShowPassword: false,
-  captchaEnable: import.meta.env.VITE_APP_CAPTCHA_ENABLE,
-  tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
-  loginForm: {
-    tenantName: import.meta.env.VITE_APP_DEFAULT_LOGIN_TENANT || '',
-    username: import.meta.env.VITE_APP_DEFAULT_LOGIN_USERNAME || '',
-    password: import.meta.env.VITE_APP_DEFAULT_LOGIN_PASSWORD || '',
-    captchaVerification: '',
-    rememberMe: true // 默认记录我。如果不需要，可手动修改
-  }
+const capabilities = reactive<AuthCapabilitiesVO>({
+  password: true,
+  captcha: false,
+  sms: false,
+  passwordReset: false,
+  registration: false,
+  socialProviders: [],
+  qrProvider: null
 })
 
-const socialList = [
-  { icon: 'ant-design:wechat-filled', type: 30 },
-  { icon: 'ant-design:dingtalk-circle-filled', type: 20 },
-  { icon: 'ant-design:github-filled', type: 0 },
-  { icon: 'ant-design:alipay-circle-filled', type: 0 }
-]
+const loginRules = { username: [required], password: [required] }
+const loginForm = reactive({
+  username: '',
+  password: '',
+  captchaVerification: '',
+  rememberMe: true
+})
 
-// 获取验证码
 const getCode = async () => {
-  // 情况一，未开启：则直接登录
-  if (loginData.captchaEnable === 'false') {
-    await handleLogin({})
-  } else {
-    // 情况二，已开启：则展示验证码；只有完成验证码的情况，才进行登录
-    // 弹出验证码
-    verify.value.show()
-  }
+  if (capabilities.captcha) verify.value?.show()
+  else await handleLogin({})
 }
-// 获取租户 ID
-const getTenantId = async () => {
-  if (loginData.tenantEnable === 'true') {
-    const res = await LoginApi.getTenantIdByName(loginData.loginForm.tenantName)
-    authUtil.setTenantId(res)
-  }
-}
-// 记住我
-const getLoginFormCache = () => {
-  const loginForm = authUtil.getLoginForm()
-  if (loginForm) {
-    loginData.loginForm = {
-      ...loginData.loginForm,
-      username: loginForm.username ? loginForm.username : loginData.loginForm.username,
-      password: loginForm.password ? loginForm.password : loginData.loginForm.password,
-      rememberMe: loginForm.rememberMe,
-      tenantName: loginForm.tenantName ? loginForm.tenantName : loginData.loginForm.tenantName
-    }
-  }
-}
-// 根据域名，获得租户信息
-const getTenantByWebsite = async () => {
-  if (loginData.tenantEnable === 'true') {
-    const website = location.host
-    const res = await LoginApi.getTenantByWebsite(website)
-    if (res) {
-      loginData.loginForm.tenantName = res.name
-      authUtil.setTenantId(res.id)
-    }
-  }
-}
-const loading = ref() // ElLoading.service 返回的实例
-// 登录
-const handleLogin = async (params: any) => {
+
+const handleLogin = async (params: { captchaVerification?: string }) => {
+  if (!(await validForm())) return
   loginLoading.value = true
+  let loading: ReturnType<typeof ElLoading.service> | undefined
   try {
-    await getTenantId()
-    const data = await validForm()
-    if (!data) {
-      return
-    }
-    const loginDataLoginForm = { ...loginData.loginForm }
-    loginDataLoginForm.captchaVerification = params.captchaVerification
-    const res = await LoginApi.login(loginDataLoginForm)
-    if (!res) {
-      return
-    }
-    loading.value = ElLoading.service({
-      lock: true,
-      text: '正在加载系统中...',
-      background: 'rgba(0, 0, 0, 0.7)'
+    const result = await LoginApi.login({
+      username: loginForm.username,
+      password: loginForm.password,
+      captchaVerification: params.captchaVerification || ''
     })
-    if (loginDataLoginForm.rememberMe) {
-      authUtil.setLoginForm(loginDataLoginForm)
+    if (loginForm.rememberMe) {
+      authUtil.setLoginForm({ username: loginForm.username, rememberMe: true })
     } else {
       authUtil.removeLoginForm()
     }
-    authUtil.setToken(res)
-    if (!redirect.value) {
-      redirect.value = '/'
-    }
-    // 判断是否为SSO登录
-    if (redirect.value.indexOf('sso') !== -1) {
-      window.location.href = window.location.href.replace('/login?redirect=', '')
-    } else {
-      await push({ path: redirect.value || permissionStore.addRouters[0].path })
-    }
+    authUtil.setToken(result)
+    loading = ElLoading.service({ lock: true, text: '正在加载 ERP 工作台…' })
+    await push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/' })
   } finally {
     loginLoading.value = false
-    loading.value.close()
+    loading?.close()
   }
 }
 
-// 社交登录
+const socialProviderName = (type: number) =>
+  ({
+    10: 'Gitee',
+    20: '钉钉',
+    30: '企业微信',
+    31: '微信公众号',
+    32: '微信开放平台',
+    34: '微信小程序',
+    40: '支付宝小程序'
+  })[type] || `社交登录 ${type}`
+const socialProviderIcon = (type: number) =>
+  ({
+    10: 'simple-icons:gitee',
+    20: 'ri:dingtalk-fill',
+    30: 'ri:wechat-2-fill',
+    31: 'ri:wechat-fill',
+    32: 'ri:wechat-fill',
+    34: 'ri:wechat-fill',
+    40: 'ri:alipay-fill'
+  })[type] || 'ep:connection'
+
 const doSocialLogin = async (type: number) => {
-  if (type === 0) {
-    message.error('此方式未配置')
-  } else {
-    loginLoading.value = true
-    if (loginData.tenantEnable === 'true') {
-      // 尝试先通过 tenantName 获取租户
-      await getTenantId()
-      // 如果获取不到，则需要弹出提示，进行处理
-      if (!authUtil.getTenantId()) {
-        try {
-          const data = await message.prompt('请输入租户名称', t('common.reminder'))
-          if (data?.action !== 'confirm') throw 'cancel'
-          const res = await LoginApi.getTenantIdByName(data.value)
-          authUtil.setTenantId(res)
-        } catch (error) {
-          if (error === 'cancel') return
-        } finally {
-          loginLoading.value = false
-        }
-      }
-    }
-    // 计算 redirectUri
-    // 注意: type、redirect 需要先 encode 一次，否则钉钉回调会丢失。
-    // 配合 social-login.vue#getUrlValue() 使用
-    const redirectUri =
-      location.origin +
-      '/social-login?' +
-      encodeURIComponent(`type=${type}&redirect=${redirect.value || '/'}`)
-
-    // 进行跳转
-    window.location.href = await LoginApi.socialAuthRedirect(type, encodeURIComponent(redirectUri))
-  }
+  const redirectUri = `${location.origin}/social-login?${encodeURIComponent(`type=${type}&redirect=${redirect.value || '/'}`)}`
+  window.location.href = await LoginApi.socialAuthRedirect(type, encodeURIComponent(redirectUri))
 }
+
 watch(
   () => currentRoute.value,
   (route: RouteLocationNormalizedLoaded) => {
-    redirect.value = route?.query?.redirect as string
+    redirect.value = route.query.redirect as string || ''
   },
-  {
-    immediate: true
-  }
+  { immediate: true }
 )
-onMounted(() => {
-  getLoginFormCache()
-  getTenantByWebsite()
+
+onMounted(async () => {
+  authUtil.setTenantId(1)
+  const cached = authUtil.getLoginForm()
+  if (cached) {
+    loginForm.username = cached.username || ''
+    loginForm.rememberMe = cached.rememberMe
+  }
+  Object.assign(capabilities, await LoginApi.getAuthCapabilities())
 })
 </script>
 
 <style lang="scss" scoped>
-:deep(.anticon) {
-  &:hover {
-    color: var(--el-color-primary) !important;
-  }
+.login-form {
+  width: 100%;
 }
 
-.login-code {
-  float: right;
-  width: 100%;
-  height: 38px;
+.login-hint {
+  margin: -4px 0 24px;
+  text-align: center;
+  color: #7b8491;
+  font-size: 13px;
+}
 
-  img {
-    width: 100%;
-    height: auto;
-    max-width: 100px;
-    vertical-align: middle;
-    cursor: pointer;
-  }
+.login-options {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.login-button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.alternate-login {
+  display: flex;
+  margin-top: 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 </style>

@@ -9,7 +9,7 @@
 
 首次启动时，MySQL 会依次执行：
 
-1. `backend/sql/mysql/ruoyi-vue-pro.sql`
+1. `backend/sql/mysql/rd_erp_clean.sql`
 2. `backend/sql/mysql/rd_inventory.sql`
 3. `backend/sql/mysql/rd_inventory_week10_indexes.sql`
 4. `backend/sql/mysql/rd_inventory_week10_permissions.sql`

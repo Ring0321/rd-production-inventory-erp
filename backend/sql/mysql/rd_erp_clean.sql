@@ -1,4 +1,4 @@
-﻿
+
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -617,7 +617,6 @@ CREATE TABLE `system_tenant` (
   `contact_mobile` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系手机',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT '租户状态',
   `websites` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '绑定域名数组',
-  `package_id` bigint NOT NULL COMMENT '租户套餐编号',
   `expire_time` datetime NOT NULL COMMENT '过期时间',
   `account_count` int NOT NULL COMMENT '账号数量',
   `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '创建者',
@@ -627,23 +626,6 @@ CREATE TABLE `system_tenant` (
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB AUTO_INCREMENT=162 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `system_tenant_package`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `system_tenant_package` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '套餐编号',
-  `name` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '套餐名',
-  `status` tinyint NOT NULL DEFAULT '0' COMMENT '租户状态（0正常 1停用）',
-  `remark` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '备注',
-  `menu_ids` varchar(4096) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联的菜单编号',
-  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '创建者',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '更新者',
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=114 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户套餐表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `system_user_post`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1266,13 +1248,10 @@ INSERT INTO `system_dict_data` (`id`, `sort`, `label`, `value`, `dict_type`, `st
 (1155, 103, '短信登录', '103', 'system_login_type', 0, 'default', '', '短信登录', 'system', NOW(), 'system', NOW(), b'0')
 ON DUPLICATE KEY UPDATE `sort`=VALUES(`sort`), `label`=VALUES(`label`), `value`=VALUES(`value`), `dict_type`=VALUES(`dict_type`), `status`=VALUES(`status`), `color_type`=VALUES(`color_type`), `remark`=VALUES(`remark`), `deleted`=b'0';
 
-INSERT INTO `system_tenant_package` (`id`, `name`, `status`, `remark`, `menu_ids`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
-(1, '瑞鼎 ERP 固定套餐', 0, '单公司固定套餐，不提供租户管理界面', '[1,100,101,103,104,105,108,500,501,600000,600100,600101,600200,600201,600203,600207,600220,600300,600301,600310,600400,600401,600500,600501]', 'system', NOW(), 'system', NOW(), b'0')
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `status`=VALUES(`status`), `remark`=VALUES(`remark`), `menu_ids`=VALUES(`menu_ids`), `deleted`=b'0';
 
-INSERT INTO `system_tenant` (`id`, `name`, `contact_user_id`, `contact_name`, `contact_mobile`, `status`, `websites`, `package_id`, `expire_time`, `account_count`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
-(1, '瑞鼎生产库存订单ERP', 1, '系统管理员', NULL, 0, '[]', 1, '2099-12-31 23:59:59', 500, 'system', NOW(), 'system', NOW(), b'0')
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `contact_user_id`=VALUES(`contact_user_id`), `status`=VALUES(`status`), `package_id`=VALUES(`package_id`), `expire_time`=VALUES(`expire_time`), `account_count`=VALUES(`account_count`), `deleted`=b'0';
+INSERT INTO `system_tenant` (`id`, `name`, `contact_user_id`, `contact_name`, `contact_mobile`, `status`, `websites`, `expire_time`, `account_count`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
+(1, '瑞鼎生产库存订单ERP', 1, '系统管理员', NULL, 0, '[]', '2099-12-31 23:59:59', 500, 'system', NOW(), 'system', NOW(), b'0')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `contact_user_id`=VALUES(`contact_user_id`), `status`=VALUES(`status`), `expire_time`=VALUES(`expire_time`), `account_count`=VALUES(`account_count`), `deleted`=b'0';
 
 INSERT INTO `system_dept` (`id`, `name`, `parent_id`, `sort`, `leader_user_id`, `phone`, `email`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES
 (1, '瑞鼎科技', 0, 1, 1, NULL, NULL, 0, 'system', NOW(), 'system', NOW(), b'0', 1)

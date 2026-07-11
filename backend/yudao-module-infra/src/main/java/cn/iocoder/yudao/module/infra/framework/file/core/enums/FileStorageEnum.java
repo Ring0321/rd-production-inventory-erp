@@ -5,14 +5,8 @@ import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClient;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClientConfig;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.db.DBFileClient;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.db.DBFileClientConfig;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.ftp.FtpFileClient;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.ftp.FtpFileClientConfig;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.local.LocalFileClient;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.local.LocalFileClientConfig;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.s3.S3FileClient;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.s3.S3FileClientConfig;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.sftp.SftpFileClient;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.sftp.SftpFileClientConfig;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -28,10 +22,6 @@ public enum FileStorageEnum {
     DB(1, DBFileClientConfig.class, DBFileClient.class),
 
     LOCAL(10, LocalFileClientConfig.class, LocalFileClient.class),
-    FTP(11, FtpFileClientConfig.class, FtpFileClient.class),
-    SFTP(12, SftpFileClientConfig.class, SftpFileClient.class),
-
-    S3(20, S3FileClientConfig.class, S3FileClient.class),
     ;
 
     /**

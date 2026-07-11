@@ -237,7 +237,7 @@ const sourceTypeMap: Record<string, string> = {
   PRODUCTION: '生产匹配',
   TRANSFER: '调拨'
 }
-const fulfillmentStatusOptions = [
+const fulfillmentStatusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
   { label: '已匹配', value: 'MATCHED', type: 'info' },
   { label: '已分配', value: 'ALLOCATED', type: 'success' },
   { label: '已出库', value: 'OUTBOUNDED', type: 'info' },
@@ -245,7 +245,7 @@ const fulfillmentStatusOptions = [
 ]
 const fulfillmentStatusMap = fulfillmentStatusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: string }>
+  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
 )
 
 const getOrderList = async () => {

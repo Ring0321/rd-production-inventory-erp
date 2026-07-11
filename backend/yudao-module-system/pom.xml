@@ -3,12 +3,12 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <groupId>cn.iocoder.boot</groupId>
-        <artifactId>yudao</artifactId>
+        <groupId>com.ruiding.erp</groupId>
+        <artifactId>rd-erp-platform</artifactId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>yudao-module-system</artifactId>
+    <artifactId>rd-erp-system</artifactId>
     <packaging>jar</packaging>
 
     <name>${project.artifactId}</name>
@@ -19,29 +19,29 @@
 
     <dependencies>
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-module-infra</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-infra</artifactId>
             <version>${revision}</version>
         </dependency>
 
         <!-- 业务组件 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-biz-data-permission</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-biz-data-permission</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-biz-tenant</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-biz-tenant</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-biz-ip</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-biz-ip</artifactId>
         </dependency>
 
         <!-- Web 相关 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-security</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-security</artifactId>
         </dependency>
 
         <dependency>
@@ -51,43 +51,38 @@
 
         <!-- DB 相关 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-mybatis</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-mybatis</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-redis</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-redis</artifactId>
         </dependency>
 
         <!-- Job 定时任务相关 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-job</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-job</artifactId>
         </dependency>
 
         <!-- 消息队列相关 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-mq</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-mq</artifactId>
         </dependency>
 
         <!-- Test 测试相关 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-test</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
 
         <!-- 工具类相关 -->
         <dependency>
-            <groupId>cn.iocoder.boot</groupId>
-            <artifactId>yudao-spring-boot-starter-excel</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-mail</artifactId>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-excel</artifactId>
         </dependency>
 
         <!-- 三方云服务相关 -->

@@ -25,7 +25,7 @@ if (-not $maven) {
 if (-not $SkipBuild) {
     Push-Location $backendRoot
     try {
-        & $maven -pl yudao-dependencies,yudao-server -am -DskipTests install
+        & $maven -pl rd-erp-server -am -DskipTests install
         if ($LASTEXITCODE -ne 0) {
             throw "Backend build failed"
         }
@@ -37,16 +37,17 @@ if (-not $SkipBuild) {
 $env:RD_MASTER_DATASOURCE_URL = "jdbc:mysql://127.0.0.1:3307/rd_erp?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true"
 $env:RD_SLAVE_DATASOURCE_URL = $env:RD_MASTER_DATASOURCE_URL
 $env:RD_DB_USERNAME = "root"
-$env:RD_DB_PASSWORD = "rd_local_2026"
+$env:RD_DB_PASSWORD = if ($env:RD_DB_PASSWORD) { $env:RD_DB_PASSWORD } else { throw "Set RD_DB_PASSWORD before startup" }
 $env:RD_REDIS_HOST = "127.0.0.1"
 $env:RD_REDIS_PORT = "6379"
+$env:RD_ADMIN_INITIAL_PASSWORD = if ($env:RD_ADMIN_INITIAL_PASSWORD) { $env:RD_ADMIN_INITIAL_PASSWORD } else { throw "Set RD_ADMIN_INITIAL_PASSWORD before startup" }
 
 $java = (Get-Command java.exe -ErrorAction SilentlyContinue).Source
 if (-not $java) {
     throw "java.exe was not found"
 }
 
-$serverJar = Join-Path $backendRoot "yudao-server\target\yudao-server.jar"
+$serverJar = Join-Path $backendRoot "rd-erp-server\target\rd-erp-server.jar"
 if (-not (Test-Path $serverJar)) {
     throw "Backend executable was not found; retry without -SkipBuild"
 }

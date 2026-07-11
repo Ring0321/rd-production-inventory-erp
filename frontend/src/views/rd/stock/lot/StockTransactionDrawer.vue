@@ -69,7 +69,7 @@ const drawerTitle = computed(() => {
   }
   return `库存流水 - 批次 ${currentLot.value.id}`
 })
-const transactionTypeOptions = [
+const transactionTypeOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
   { label: '期初', value: 'OPENING', type: 'info' },
   { label: '生产入库', value: 'PRODUCTION_IN', type: 'success' },
   { label: '入库', value: 'INBOUND', type: 'success' },
@@ -82,7 +82,7 @@ const transactionTypeOptions = [
 ]
 const transactionTypeMap = transactionTypeOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: string }>
+  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
 )
 const sourceTypeMap: Record<string, string> = {
   PRODUCTION_OUTPUT: '生产炉层产量',

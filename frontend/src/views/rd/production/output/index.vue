@@ -187,7 +187,7 @@ const queryParams = reactive({
   furnaceNo: undefined as string | undefined,
   status: undefined as string | undefined
 })
-const statusOptions = [
+const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
   { label: '草稿', value: 'DRAFT', type: 'info' },
   { label: '已确认', value: 'CONFIRMED', type: 'warning' },
   { label: '已入库', value: 'INBOUNDED', type: 'success' },
@@ -195,7 +195,7 @@ const statusOptions = [
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: string }>
+  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
 )
 
 const getList = async () => {

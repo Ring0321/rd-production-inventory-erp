@@ -2,12 +2,13 @@ param(
     [string]$ContainerName = "rd-erp-mysql",
     [string]$SourceDatabase = "rd_erp",
     [string]$User = "root",
-    [string]$Password = "rd_local_2026",
+    [string]$Password = $env:RD_DB_PASSWORD,
     [string]$OutputDirectory
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not $Password) { throw "Set RD_DB_PASSWORD or pass -Password" }
 
 $targetDatabase = "rd_erp_restore_" + (Get-Date -Format "yyyyMMddHHmmss")
 $scriptRoot = $PSScriptRoot

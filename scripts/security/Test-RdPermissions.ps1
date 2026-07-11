@@ -2,11 +2,14 @@ param(
     [string]$ApiBase = "http://127.0.0.1:48080/admin-api",
     [string]$TenantId = "1",
     [string]$MySqlContainer = "rd-erp-mysql",
-    [string]$RedisContainer = "rd-erp-redis"
+    [string]$RedisContainer = "rd-erp-redis",
+    [string]$AdminPassword = $env:RD_TEST_PASSWORD,
+    [string]$DatabasePassword = $env:RD_DB_PASSWORD
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not $AdminPassword -or -not $DatabasePassword) { throw "Set RD_TEST_PASSWORD and RD_DB_PASSWORD" }
 $ApiBase = $ApiBase.TrimEnd("/")
 $apiUri = [Uri]$ApiBase
 if ($apiUri.Host -notin @("127.0.0.1", "localhost") -or $apiUri.Port -ne 48080) {
@@ -63,7 +66,7 @@ $accessTokens = @()
 
 function Invoke-LocalSql {
     param([string]$Sql)
-    & docker exec $MySqlContainer mysql -uroot -prd_local_2026 rd_erp -e $Sql | Out-Null
+    & docker exec -e "MYSQL_PWD=$DatabasePassword" $MySqlContainer mysql -uroot rd_erp -e $Sql | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Local permission test SQL failed"
     }
@@ -147,7 +150,7 @@ VALUES ($($user.userId), $($user.roleId), 'admin', NOW(), 'admin', NOW(), b'0', 
         $tenantHeaders = @{ "tenant-id" = $TenantId }
         $login = Invoke-Api -Method Post -Path "/system/auth/login" -Headers $tenantHeaders -Body @{
             username = $user.username
-            password = "admin123"
+            password = $AdminPassword
             captchaVerification = ""
         }
         if ($login.code -ne 0) {

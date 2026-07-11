@@ -3,12 +3,13 @@ param(
     [string]$ContainerName = "rd-erp-mysql",
     [string]$Database = "rd_erp",
     [string]$User = "root",
-    [string]$Password = "rd_local_2026",
+    [string]$Password = $env:RD_DB_PASSWORD,
     [int]$RetentionDays = 14
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not $Password) { throw "Set RD_DB_PASSWORD or pass -Password" }
 
 if ($Database -notmatch '^[A-Za-z0-9_]+$' -or $User -notmatch '^[A-Za-z0-9_]+$') {
     throw "Database and user names may only contain letters, numbers, and underscores"

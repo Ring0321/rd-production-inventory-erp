@@ -1,17 +1,15 @@
 import CryptoJS from 'crypto-js'
-import { JSEncrypt } from 'jsencrypt'
 
 /**
  * API 加解密工具类
- * 支持 AES 和 RSA 加密算法
+ * 仅保留 ERP 当前使用的 AES 加密能力。
  */
 
 // 从环境变量获取配置
 const API_ENCRYPT_ENABLE = import.meta.env.VITE_APP_API_ENCRYPT_ENABLE === 'true'
 const API_ENCRYPT_HEADER = import.meta.env.VITE_APP_API_ENCRYPT_HEADER || 'X-Api-Encrypt'
-const API_ENCRYPT_ALGORITHM = import.meta.env.VITE_APP_API_ENCRYPT_ALGORITHM || 'AES'
-const API_ENCRYPT_REQUEST_KEY = import.meta.env.VITE_APP_API_ENCRYPT_REQUEST_KEY || '' // AES密钥 或 RSA公钥
-const API_ENCRYPT_RESPONSE_KEY = import.meta.env.VITE_APP_API_ENCRYPT_RESPONSE_KEY || '' // AES密钥 或 RSA私钥
+const API_ENCRYPT_REQUEST_KEY = import.meta.env.VITE_APP_API_ENCRYPT_REQUEST_KEY || ''
+const API_ENCRYPT_RESPONSE_KEY = import.meta.env.VITE_APP_API_ENCRYPT_RESPONSE_KEY || ''
 
 /**
  * AES 加密工具类
@@ -80,64 +78,6 @@ export class AES {
 }
 
 /**
- * RSA 加密工具类
- */
-export class RSA {
-  /**
-   * RSA 加密
-   * @param data 要加密的数据
-   * @param publicKey 公钥（必需）
-   * @returns 加密后的字符串
-   */
-  static encrypt(data: string, publicKey: string): string | false {
-    try {
-      if (!publicKey) {
-        throw new Error('RSA 公钥不能为空')
-      }
-
-      const encryptor = new JSEncrypt()
-      encryptor.setPublicKey(publicKey)
-      const result = encryptor.encrypt(data)
-      if (result === false) {
-        throw new Error('RSA 加密失败，可能是公钥格式错误或数据过长')
-      }
-      return result
-    } catch (error) {
-      console.error('RSA 加密失败:', error)
-      throw error
-    }
-  }
-
-  /**
-   * RSA 解密
-   * @param encryptedData 加密的数据
-   * @param privateKey 私钥（必需）
-   * @returns 解密后的字符串
-   */
-  static decrypt(encryptedData: string, privateKey: string): string | false {
-    try {
-      if (!privateKey) {
-        throw new Error('RSA 私钥不能为空')
-      }
-      if (!encryptedData) {
-        throw new Error('RSA 解密数据不能为空')
-      }
-
-      const encryptor = new JSEncrypt()
-      encryptor.setPrivateKey(privateKey)
-      const result = encryptor.decrypt(encryptedData)
-      if (result === false) {
-        throw new Error('RSA 解密失败，可能是私钥错误或数据损坏')
-      }
-      return result
-    } catch (error) {
-      console.error('RSA 解密失败:', error)
-      throw error
-    }
-  }
-}
-
-/**
  * API 加解密主类
  */
 export class ApiEncrypt {
@@ -161,23 +101,7 @@ export class ApiEncrypt {
     try {
       const jsonData = typeof data === 'string' ? data : JSON.stringify(data)
 
-      if (API_ENCRYPT_ALGORITHM.toUpperCase() === 'AES') {
-        if (!API_ENCRYPT_REQUEST_KEY) {
-          throw new Error('AES 请求加密密钥未配置')
-        }
-        return AES.encrypt(jsonData, API_ENCRYPT_REQUEST_KEY)
-      } else if (API_ENCRYPT_ALGORITHM.toUpperCase() === 'RSA') {
-        if (!API_ENCRYPT_REQUEST_KEY) {
-          throw new Error('RSA 公钥未配置')
-        }
-        const result = RSA.encrypt(jsonData, API_ENCRYPT_REQUEST_KEY)
-        if (result === false) {
-          throw new Error('RSA 加密失败')
-        }
-        return result
-      } else {
-        throw new Error(`不支持的加密算法: ${API_ENCRYPT_ALGORITHM}`)
-      }
+      return AES.encrypt(jsonData, API_ENCRYPT_REQUEST_KEY)
     } catch (error) {
       console.error('请求数据加密失败:', error)
       throw error
@@ -195,23 +119,7 @@ export class ApiEncrypt {
     }
 
     try {
-      let decryptedData: string | false = ''
-      if (API_ENCRYPT_ALGORITHM.toUpperCase() === 'AES') {
-        if (!API_ENCRYPT_RESPONSE_KEY) {
-          throw new Error('AES 响应解密密钥未配置')
-        }
-        decryptedData = AES.decrypt(encryptedData, API_ENCRYPT_RESPONSE_KEY)
-      } else if (API_ENCRYPT_ALGORITHM.toUpperCase() === 'RSA') {
-        if (!API_ENCRYPT_RESPONSE_KEY) {
-          throw new Error('RSA 私钥未配置')
-        }
-        decryptedData = RSA.decrypt(encryptedData, API_ENCRYPT_RESPONSE_KEY)
-        if (decryptedData === false) {
-          throw new Error('RSA 解密失败')
-        }
-      } else {
-        throw new Error(`不支持的解密算法: ${API_ENCRYPT_ALGORITHM}`)
-      }
+      const decryptedData = AES.decrypt(encryptedData, API_ENCRYPT_RESPONSE_KEY)
 
       if (!decryptedData) {
         throw new Error('解密结果为空')

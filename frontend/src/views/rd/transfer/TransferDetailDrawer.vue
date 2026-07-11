@@ -60,14 +60,14 @@ const transferOrder = ref<RdTransferOrderVO>()
 const drawerTitle = computed(() => {
   return transferOrder.value ? `调拨单 - ${transferOrder.value.transferNo}` : '调拨单详情'
 })
-const statusOptions = [
+const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
   { label: '草稿', value: 'DRAFT', type: 'info' },
   { label: '已确认', value: 'CONFIRMED', type: 'success' },
   { label: '已撤销', value: 'CANCELLED', type: 'danger' }
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: string }>
+  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
 )
 
 const open = async (id: number) => {

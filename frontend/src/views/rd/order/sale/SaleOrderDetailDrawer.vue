@@ -62,7 +62,7 @@ const saleOrder = ref<RdSaleOrderVO>()
 const drawerTitle = computed(() => {
   return saleOrder.value ? `销售订单 - ${saleOrder.value.orderNo}` : '销售订单详情'
 })
-const statusOptions = [
+const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
   { label: '待满足', value: 'OPEN', type: 'info' },
   { label: '部分满足', value: 'PARTIAL', type: 'warning' },
   { label: '已满足', value: 'FULFILLED', type: 'success' },
@@ -71,7 +71,7 @@ const statusOptions = [
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: string }>
+  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
 )
 
 const differenceClass = (value: number) => {

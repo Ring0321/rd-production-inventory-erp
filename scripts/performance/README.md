@@ -7,7 +7,7 @@ them in a `finally` block.
 ## Excel parser
 
 ```powershell
-mvn -pl yudao-module-rd-inventory -Drd.performance.tests=true `
+mvn -pl rd-erp-inventory -Drd.performance.tests=true `
   -Dtest=RdInventoryExcelParserPerformanceTest test
 ```
 

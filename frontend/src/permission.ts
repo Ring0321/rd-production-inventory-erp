@@ -36,7 +36,7 @@ router.beforeEach(async (to, from, next) => {
       const userStore = useUserStoreWithOut()
       const permissionStore = usePermissionStoreWithOut()
       // 异步加载字典
-      // 另外，间接 issue：https://gitee.com/yudaocode/yudao-ui-admin-vue3/issues/ID9FLI
+      // 动态路由加载完成后重试当前导航。
       if (!dictStore.getIsSetDict) {
         dictStore.setDictMap().then()
       }

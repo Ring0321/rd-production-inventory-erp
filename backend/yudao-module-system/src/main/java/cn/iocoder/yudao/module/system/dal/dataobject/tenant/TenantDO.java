@@ -32,7 +32,6 @@ public class TenantDO extends BaseDO {
     /**
      * 套餐编号 - 系统
      */
-    public static final Long PACKAGE_ID_SYSTEM = 0L;
 
     /**
      * 租户编号，自增
@@ -70,13 +69,6 @@ public class TenantDO extends BaseDO {
      */
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> websites;
-    /**
-     * 租户套餐编号
-     *
-     * 关联 {@link TenantPackageDO#getId()}
-     * 特殊逻辑：系统内置租户，不使用套餐，暂时使用 {@link #PACKAGE_ID_SYSTEM} 标识
-     */
-    private Long packageId;
     /**
      * 过期时间
      */

@@ -8,21 +8,19 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants;
-import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.date.DateUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
-import cn.iocoder.yudao.module.system.controller.admin.oauth2.vo.token.OAuth2AccessTokenPageReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
-import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2ClientDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2RefreshTokenDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.oauth2.OAuth2AccessTokenMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.oauth2.OAuth2RefreshTokenMapper;
 import cn.iocoder.yudao.module.system.dal.redis.oauth2.OAuth2AccessTokenRedisDAO;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,19 +51,20 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
     private OAuth2AccessTokenRedisDAO oauth2AccessTokenRedisDAO;
 
     @Resource
-    private OAuth2ClientService oauth2ClientService;
-    @Resource
     @Lazy // 懒加载，避免循环依赖
     private AdminUserService adminUserService;
+
+    @Value("${rd.erp.auth.access-token-validity-seconds:1800}")
+    private long accessTokenValiditySeconds;
+    @Value("${rd.erp.auth.refresh-token-validity-seconds:2592000}")
+    private long refreshTokenValiditySeconds;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OAuth2AccessTokenDO createAccessToken(Long userId, Integer userType, String clientId, List<String> scopes) {
-        OAuth2ClientDO clientDO = oauth2ClientService.validOAuthClientFromCache(clientId);
-        // 创建刷新令牌
-        OAuth2RefreshTokenDO refreshTokenDO = createOAuth2RefreshToken(userId, userType, clientDO, scopes);
-        // 创建访问令牌
-        return createOAuth2AccessToken(refreshTokenDO, clientDO);
+        validateInternalClient(clientId);
+        OAuth2RefreshTokenDO refreshTokenDO = createOAuth2RefreshToken(userId, userType, clientId, scopes);
+        return createOAuth2AccessToken(refreshTokenDO);
     }
 
     @Override
@@ -77,8 +76,7 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
             throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(), "无效的刷新令牌");
         }
 
-        // 校验 Client 匹配
-        OAuth2ClientDO clientDO = oauth2ClientService.validOAuthClientFromCache(clientId);
+        validateInternalClient(clientId);
         if (ObjectUtil.notEqual(clientId, refreshTokenDO.getClientId())) {
             throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(), "刷新令牌的客户端编号不正确");
         }
@@ -97,7 +95,7 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
         }
 
         // 创建访问令牌
-        return createOAuth2AccessToken(refreshTokenDO, clientDO);
+        return createOAuth2AccessToken(refreshTokenDO);
     }
 
     @Override
@@ -171,18 +169,13 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
         });
     }
 
-    @Override
-    public PageResult<OAuth2AccessTokenDO> getAccessTokenPage(OAuth2AccessTokenPageReqVO reqVO) {
-        return oauth2AccessTokenMapper.selectPage(reqVO);
-    }
-
-    private OAuth2AccessTokenDO createOAuth2AccessToken(OAuth2RefreshTokenDO refreshTokenDO, OAuth2ClientDO clientDO) {
+    private OAuth2AccessTokenDO createOAuth2AccessToken(OAuth2RefreshTokenDO refreshTokenDO) {
         OAuth2AccessTokenDO accessTokenDO = new OAuth2AccessTokenDO().setAccessToken(generateAccessToken())
                 .setUserId(refreshTokenDO.getUserId()).setUserType(refreshTokenDO.getUserType())
                 .setUserInfo(buildUserInfo(refreshTokenDO.getUserId(), refreshTokenDO.getUserType()))
-                .setClientId(clientDO.getClientId()).setScopes(refreshTokenDO.getScopes())
+                .setClientId(refreshTokenDO.getClientId()).setScopes(refreshTokenDO.getScopes())
                 .setRefreshToken(refreshTokenDO.getRefreshToken())
-                .setExpiresTime(LocalDateTime.now().plusSeconds(clientDO.getAccessTokenValiditySeconds()));
+                .setExpiresTime(LocalDateTime.now().plusSeconds(accessTokenValiditySeconds));
         // 优先从 refreshToken 获取租户编号，避免 ThreadLocal 被污染时导致 tenantId 为 null
         // 可能关联的 issue：https://t.zsxq.com/JIi5G
         Long tenantId = refreshTokenDO.getTenantId();
@@ -196,13 +189,20 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
         return accessTokenDO;
     }
 
-    private OAuth2RefreshTokenDO createOAuth2RefreshToken(Long userId, Integer userType, OAuth2ClientDO clientDO, List<String> scopes) {
+    private OAuth2RefreshTokenDO createOAuth2RefreshToken(Long userId, Integer userType, String clientId,
+                                                           List<String> scopes) {
         OAuth2RefreshTokenDO refreshToken = new OAuth2RefreshTokenDO().setRefreshToken(generateRefreshToken())
                 .setUserId(userId).setUserType(userType)
-                .setClientId(clientDO.getClientId()).setScopes(scopes)
-                .setExpiresTime(LocalDateTime.now().plusSeconds(clientDO.getRefreshTokenValiditySeconds()));
+                .setClientId(clientId).setScopes(scopes)
+                .setExpiresTime(LocalDateTime.now().plusSeconds(refreshTokenValiditySeconds));
         oauth2RefreshTokenMapper.insert(refreshToken);
         return refreshToken;
+    }
+
+    private void validateInternalClient(String clientId) {
+        if (!cn.iocoder.yudao.module.system.enums.oauth2.OAuth2ClientConstants.CLIENT_ID_DEFAULT.equals(clientId)) {
+            throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(), "不支持的客户端编号");
+        }
     }
 
     private OAuth2AccessTokenDO convertToAccessToken(OAuth2RefreshTokenDO refreshTokenDO) {

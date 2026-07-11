@@ -1,5 +1,5 @@
 /**
- * Created by 芋道源码
+ * Shared application constants.
  *
  * 枚举类
  */

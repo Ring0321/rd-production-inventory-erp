@@ -28,7 +28,7 @@ if (-not $SkipBuild) {
     }
     Push-Location $backendRoot
     try {
-        & $maven -pl yudao-dependencies,yudao-server -am -DskipTests package
+        & $maven -pl rd-erp-server -am -DskipTests package
         if ($LASTEXITCODE -ne 0) {
             throw "Backend package build failed"
         }
@@ -57,7 +57,7 @@ if (-not $SkipBuild) {
     }
 }
 
-$serverJar = Join-Path $backendRoot "yudao-server\target\yudao-server.jar"
+$serverJar = Join-Path $backendRoot "rd-erp-server\target\rd-erp-server.jar"
 $frontendDist = Join-Path $frontendRoot "dist-prod"
 if (-not (Test-Path -LiteralPath $serverJar) -or -not (Test-Path -LiteralPath $frontendDist)) {
     throw "Build outputs are missing; run again without -SkipBuild"
@@ -83,16 +83,14 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $stageRoot "docs") -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $stageRoot "scripts") -Force | Out-Null
 
-    Copy-Item -LiteralPath $serverJar -Destination (Join-Path $stageRoot "backend\yudao-server.jar")
+    Copy-Item -LiteralPath $serverJar -Destination (Join-Path $stageRoot "backend\rd-erp-server.jar")
     Copy-Item -Path (Join-Path $frontendDist "*") -Destination (Join-Path $stageRoot "frontend") -Recurse
     Copy-Item -LiteralPath (Join-Path $repoRoot "deploy\trial") -Destination (Join-Path $stageRoot "deploy") -Recurse
     Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\backup") -Destination (Join-Path $stageRoot "scripts") -Recurse
 
     @(
-        "ruoyi-vue-pro.sql",
-        "rd_inventory.sql",
-        "rd_inventory_week10_indexes.sql",
-        "rd_inventory_week10_permissions.sql"
+        "rd_erp_clean.sql",
+        "rd_erp_upgrade_slim.sql"
     ) | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path $backendRoot "sql\mysql\$_") `
                 -Destination (Join-Path $stageRoot "database\$_")

@@ -10,9 +10,12 @@ import cn.iocoder.yudao.framework.security.config.SecurityProperties;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.*;
 import cn.iocoder.yudao.module.system.convert.auth.AuthConvert;
+import cn.iocoder.yudao.module.system.dal.dataobject.social.SocialClientDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.dal.mysql.sms.SmsChannelMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.social.SocialClientMapper;
 import cn.iocoder.yudao.module.system.enums.logger.LoginLogTypeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
@@ -25,6 +28,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +39,7 @@ import javax.validation.Valid;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
@@ -62,6 +67,47 @@ public class AuthController {
 
     @Resource
     private SecurityProperties securityProperties;
+    @Resource
+    private SmsChannelMapper smsChannelMapper;
+    @Resource
+    private SocialClientMapper socialClientMapper;
+
+    @Value("${yudao.captcha.enable:false}")
+    private Boolean captchaEnabled;
+    @Value("${rd.erp.auth.sms-enabled:false}")
+    private Boolean smsEnabled;
+    @Value("${rd.erp.auth.password-reset-enabled:false}")
+    private Boolean passwordResetEnabled;
+    @Value("${rd.erp.auth.social-enabled:false}")
+    private Boolean socialEnabled;
+
+    @GetMapping("/capabilities")
+    @PermitAll
+    @Operation(summary = "获取当前部署可用的登录能力")
+    public CommonResult<AuthCapabilitiesRespVO> getCapabilities() {
+        boolean smsConfigured = Boolean.TRUE.equals(smsEnabled) && smsChannelMapper.selectList().stream()
+                .anyMatch(channel -> CommonStatusEnum.ENABLE.getStatus().equals(channel.getStatus())
+                        && StrUtil.isAllNotBlank(channel.getCode(), channel.getSignature(), channel.getApiKey()));
+        List<Integer> socialProviders = Collections.emptyList();
+        if (Boolean.TRUE.equals(socialEnabled)) {
+            socialProviders = socialClientMapper.selectList().stream()
+                    .filter(client -> CommonStatusEnum.ENABLE.getStatus().equals(client.getStatus()))
+                    .filter(client -> StrUtil.isAllNotBlank(client.getClientId(), client.getClientSecret()))
+                    .map(SocialClientDO::getSocialType)
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.toList());
+        }
+        return success(AuthCapabilitiesRespVO.builder()
+                .password(true)
+                .captcha(Boolean.TRUE.equals(captchaEnabled))
+                .sms(smsConfigured)
+                .passwordReset(smsConfigured && Boolean.TRUE.equals(passwordResetEnabled))
+                .registration(false)
+                .socialProviders(socialProviders)
+                .qrProvider(null)
+                .build());
+    }
 
     @PostMapping("/login")
     @PermitAll
@@ -115,13 +161,6 @@ public class AuthController {
 
         // 2. 拼接结果返回
         return success(AuthConvert.INSTANCE.convert(user, roles, menuList));
-    }
-
-    @PostMapping("/register")
-    @PermitAll
-    @Operation(summary = "注册用户")
-    public CommonResult<AuthLoginRespVO> register(@RequestBody @Valid AuthRegisterReqVO registerReqVO) {
-        return success(authService.register(registerReqVO));
     }
 
     // ========== 短信登录相关 ==========

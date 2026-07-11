@@ -1,128 +1,192 @@
 <template>
-  <div
-    :class="prefixCls"
-    class="relative h-[100%] lt-md:px-10px lt-sm:px-10px lt-xl:px-10px lt-xl:px-10px"
-  >
-    <div class="relative mx-auto h-full flex">
-      <div
-        :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px lt-xl:hidden overflow-x-hidden overflow-y-auto`"
-      >
-        <!-- 左上角的 logo + 系统标题 -->
-        <div class="relative flex items-center text-white">
-          <img alt="" class="mr-10px h-48px w-48px" src="@/assets/imgs/logo.png" />
-          <span class="text-20px font-bold">{{ underlineToHump(appStore.getTitle) }}</span>
-        </div>
-        <!-- 左边的背景图 + 欢迎语 -->
-        <div class="h-[calc(100%-60px)] flex items-center justify-center">
-          <TransitionGroup
-            appear
-            enter-active-class="animate__animated animate__bounceInLeft"
-            tag="div"
-          >
-            <img key="1" alt="" class="w-350px" src="@/assets/svgs/login-box-bg.svg" />
-            <div key="2" class="text-3xl text-white">{{ t('login.welcome') }}</div>
-            <div key="3" class="mt-5 text-14px font-normal text-white">
-              {{ t('login.message') }}
-            </div>
-          </TransitionGroup>
+  <main class="login-page">
+    <header class="brand-bar">
+      <div class="brand">
+        <img src="@/assets/imgs/logo.png" alt="瑞鼎 ERP" />
+        <div>
+          <strong>{{ appStore.getTitle }}</strong>
+          <span>生产 · 库存 · 订单</span>
         </div>
       </div>
-      <div
-        class="relative flex-1 p-30px dark:bg-[var(--login-bg-color)] lt-sm:p-10px overflow-x-hidden overflow-y-auto"
-      >
-        <!-- 右上角的主题、语言选择 -->
-        <div
-          class="flex items-center justify-between at-2xl:justify-end at-xl:justify-end"
-          style="color: var(--el-text-color-primary)"
-        >
-          <div class="flex items-center at-2xl:hidden at-xl:hidden">
-            <img alt="" class="mr-10px h-48px w-48px" src="@/assets/imgs/logo.png" />
-            <span class="text-20px font-bold">{{ underlineToHump(appStore.getTitle) }}</span>
-          </div>
-          <div class="flex items-center justify-end space-x-10px h-48px">
-            <ThemeSwitch />
-            <LocaleDropdown />
-          </div>
-        </div>
-        <!-- 右边的登录界面 -->
-        <Transition appear enter-active-class="animate__animated animate__bounceInRight">
-          <div
-            class="m-auto h-[calc(100%-60px)] w-[100%] flex items-center at-2xl:max-w-500px at-lg:max-w-500px at-md:max-w-500px at-xl:max-w-500px"
-          >
-            <!-- 账号登录 -->
-            <LoginForm class="m-auto h-auto p-20px lt-xl:(rounded-3xl light:bg-white)" />
-            <!-- 手机登录 -->
-            <MobileForm class="m-auto h-auto p-20px lt-xl:(rounded-3xl light:bg-white)" />
-            <!-- 二维码登录 -->
-            <QrCodeForm class="m-auto h-auto p-20px lt-xl:(rounded-3xl light:bg-white)" />
-            <!-- 注册 -->
-            <RegisterForm class="m-auto h-auto p-20px lt-xl:(rounded-3xl light:bg-white)" />
-            <!-- 三方登录 -->
-            <SSOLoginVue class="m-auto h-auto p-20px lt-xl:(rounded-3xl light:bg-white)" />
-            <!-- 忘记密码 -->
-            <ForgetPasswordForm class="m-auto h-auto p-20px lt-xl:(rounded-3xl light:bg-white)" />
-          </div>
-        </Transition>
+      <div class="header-tools">
+        <ThemeSwitch />
+        <LocaleDropdown />
       </div>
-    </div>
-  </div>
-</template>
-<script lang="ts" setup>
-import { underlineToHump } from '@/utils'
+    </header>
 
-import { useDesign } from '@/hooks/web/useDesign'
+    <section class="login-stage">
+      <div class="system-context" aria-hidden="true">
+        <div class="context-mark"><Icon icon="ep:office-building" :size="28" /></div>
+        <h1>生产库存协同管理</h1>
+        <p>炉号炉层追溯、库房数量管控与销售订单履约。</p>
+        <div class="context-grid">
+          <span><Icon icon="ep:box" /> 库存台账</span>
+          <span><Icon icon="ep:tickets" /> 订单差额</span>
+          <span><Icon icon="ep:switch" /> 调拨出库</span>
+        </div>
+      </div>
+
+      <div class="login-panel">
+        <LoginForm />
+        <MobileForm />
+        <ForgetPasswordForm />
+      </div>
+    </section>
+
+    <footer>瑞鼎生产库存订单ERP</footer>
+  </main>
+</template>
+
+<script lang="ts" setup>
 import { useAppStore } from '@/store/modules/app'
 import { ThemeSwitch } from '@/layout/components/ThemeSwitch'
 import { LocaleDropdown } from '@/layout/components/LocaleDropdown'
-
-import {
-  LoginForm,
-  MobileForm,
-  QrCodeForm,
-  RegisterForm,
-  SSOLoginVue,
-  ForgetPasswordForm
-} from './components'
+import { LoginForm, MobileForm, ForgetPasswordForm } from './components'
 
 defineOptions({ name: 'Login' })
-
-const { t } = useI18n()
 const appStore = useAppStore()
-const { getPrefixCls } = useDesign()
-const prefixCls = getPrefixCls('login')
 </script>
 
 <style lang="scss" scoped>
-$prefix-cls: #{$namespace}-login;
-
-.#{$prefix-cls} {
-  overflow: auto;
-
-  &__left {
-    &::before {
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: -1;
-      width: 100%;
-      height: 100%;
-      background-image: url('@/assets/svgs/login-bg.svg');
-      background-position: center;
-      background-repeat: no-repeat;
-      content: '';
-    }
-  }
+.login-page {
+  display: grid;
+  min-height: 100%;
+  color: #27313f;
+  background: #f4f6f8;
+  grid-template-rows: 72px 1fr 44px;
 }
-</style>
 
-<style lang="scss">
-.dark .login-form {
-  .el-divider__text {
-    background-color: var(--login-bg-color);
+.brand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 4vw, 64px);
+  border-bottom: 1px solid #dfe4ea;
+  background: #fff;
+}
+
+.brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.brand strong,
+.brand span {
+  display: block;
+  letter-spacing: 0;
+}
+
+.brand strong {
+  font-size: 19px;
+}
+
+.brand span {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #7b8491;
+}
+
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-stage {
+  display: grid;
+  width: min(1040px, calc(100% - 40px));
+  margin: auto;
+  gap: clamp(40px, 8vw, 110px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+}
+
+.system-context {
+  align-self: center;
+}
+
+.context-mark {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b9d9cc;
+  border-radius: 6px;
+  color: #13795b;
+  background: #e9f5f0;
+}
+
+.system-context h1 {
+  margin: 22px 0 10px;
+  font-size: 30px;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.system-context p {
+  max-width: 480px;
+  margin: 0;
+  color: #697382;
+  line-height: 1.8;
+}
+
+.context-grid {
+  display: flex;
+  margin-top: 28px;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  color: #465261;
+  font-size: 13px;
+}
+
+.context-grid span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.login-panel {
+  align-self: center;
+  padding: 32px 34px;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(38 50 64 / 8%);
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #8a929d;
+}
+
+@media (width <= 760px) {
+  .login-page {
+    grid-template-rows: 64px 1fr 38px;
   }
 
-  .el-card {
-    background-color: var(--login-bg-color);
+  .brand span,
+  .system-context {
+    display: none;
+  }
+
+  .login-stage {
+    width: min(420px, calc(100% - 24px));
+    grid-template-columns: 1fr;
+  }
+
+  .login-panel {
+    padding: 26px 20px;
   }
 }
 </style>

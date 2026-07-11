@@ -6,10 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
 import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClientConfig;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.db.DBFileClientConfig;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.ftp.FtpFileClientConfig;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.local.LocalFileClientConfig;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.s3.S3FileClientConfig;
-import cn.iocoder.yudao.module.infra.framework.file.core.client.sftp.SftpFileClientConfig;
 import cn.iocoder.yudao.module.infra.framework.file.core.enums.FileStorageEnum;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -91,14 +88,8 @@ public class FileConfigDO extends BaseDO {
             switch (className) {
                 case "DBFileClientConfig":
                     return JsonUtils.parseObject2(json, DBFileClientConfig.class);
-                case "FtpFileClientConfig":
-                    return JsonUtils.parseObject2(json, FtpFileClientConfig.class);
                 case "LocalFileClientConfig":
                     return JsonUtils.parseObject2(json, LocalFileClientConfig.class);
-                case "SftpFileClientConfig":
-                    return JsonUtils.parseObject2(json, SftpFileClientConfig.class);
-                case "S3FileClientConfig":
-                    return JsonUtils.parseObject2(json, S3FileClientConfig.class);
                 default:
                     throw new IllegalArgumentException("未知的 FileClientConfig 类型：" + json);
             }

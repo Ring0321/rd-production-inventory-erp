@@ -160,14 +160,14 @@ const queryParams = reactive({
   transferNo: undefined as string | undefined,
   status: undefined as string | undefined
 })
-const statusOptions = [
+const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
   { label: '草稿', value: 'DRAFT', type: 'info' },
   { label: '已确认', value: 'CONFIRMED', type: 'success' },
   { label: '已撤销', value: 'CANCELLED', type: 'danger' }
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: string }>
+  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
 )
 
 const getList = async () => {

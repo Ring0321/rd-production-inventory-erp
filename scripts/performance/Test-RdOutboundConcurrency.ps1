@@ -2,13 +2,14 @@ param(
     [string]$ApiBase = "http://127.0.0.1:48080/admin-api",
     [string]$TenantId = "1",
     [string]$Username = "admin",
-    [string]$Password = "admin123",
+    [string]$Password = $env:RD_TEST_PASSWORD,
     [string]$MySqlContainer = "rd-erp-mysql",
     [switch]$KeepData
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not $Password) { throw "Set RD_TEST_PASSWORD or pass -Password" }
 $ApiBase = $ApiBase.TrimEnd("/")
 $apiUri = [Uri]$ApiBase
 if ($apiUri.Host -notin @("127.0.0.1", "localhost") -or $apiUri.Port -ne 48080) {

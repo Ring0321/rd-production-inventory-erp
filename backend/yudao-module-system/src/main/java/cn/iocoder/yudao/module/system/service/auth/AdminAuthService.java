@@ -71,14 +71,6 @@ public interface AdminAuthService {
     AuthLoginRespVO refreshToken(String refreshToken);
 
     /**
-     * 用户注册
-     *
-     * @param createReqVO 注册用户
-     * @return 注册结果
-     */
-    AuthLoginRespVO register(AuthRegisterReqVO createReqVO);
-
-    /**
      * 重置密码
      *
      * @param reqVO 验证码信息

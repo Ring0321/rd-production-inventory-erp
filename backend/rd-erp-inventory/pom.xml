@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.ruiding.erp</groupId>
+        <artifactId>rd-erp-platform</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>rd-erp-inventory</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Ruiding ERP Inventory</name>
+    <description>生产产量、成品库存、订单匹配、调拨、出库和日报业务模块</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-system</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-job</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-excel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ruiding.erp</groupId>
+            <artifactId>rd-erp-spring-boot-starter-test</artifactId>
+        </dependency>
+    </dependencies>
+</project>

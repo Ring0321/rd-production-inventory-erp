@@ -1,4 +1,4 @@
 /**
- * 消息队列，支持 Redis、RocketMQ、RabbitMQ、Kafka 四种
+ * Redis 消息队列基础能力
  */
 package cn.iocoder.yudao.framework.mq;

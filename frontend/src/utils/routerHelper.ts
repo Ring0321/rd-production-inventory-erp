@@ -10,7 +10,10 @@ import {
   splitRoutePath
 } from '@/utils/routeParams'
 
-const modules = import.meta.glob('../views/**/*.{vue,tsx}')
+const modules = {
+  ...import.meta.glob('../views/rd/**/*.{vue,tsx}'),
+  ...import.meta.glob('../views/system/{user,dept,post,role,dict,loginlog,operatelog}/**/*.{vue,tsx}')
+}
 /**
  * 注册一个异步组件
  * @param componentPath 例:/bpm/oa/leave/detail

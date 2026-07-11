@@ -14,10 +14,7 @@ services:
       - --default-time-zone=+08:00
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../../database/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
-      - ../../database/rd_inventory.sql:/docker-entrypoint-initdb.d/02-rd-inventory.sql:ro
-      - ../../database/rd_inventory_week10_indexes.sql:/docker-entrypoint-initdb.d/03-rd-indexes.sql:ro
-      - ../../database/rd_inventory_week10_permissions.sql:/docker-entrypoint-initdb.d/04-rd-permissions.sql:ro
+      - ../../database/rd_erp_clean.sql:/docker-entrypoint-initdb.d/01-rd-erp-clean.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
@@ -43,7 +40,7 @@ services:
       context: ../..
       dockerfile: deploy/trial/backend-runtime.Dockerfile
     restart: unless-stopped
-    entrypoint: ["java", "-XX:MaxRAMPercentage=75", "-Dfile.encoding=UTF-8", "-jar", "/app/yudao-server.jar", "--spring.profiles.active=trial"]
+    entrypoint: ["java", "-XX:MaxRAMPercentage=75", "-Dfile.encoding=UTF-8", "-jar", "/app/rd-erp-server.jar", "--spring.profiles.active=trial"]
     environment:
       RD_MASTER_DATASOURCE_URL: jdbc:mysql://mysql:3306/${RD_DB_NAME}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true
       RD_SLAVE_DATASOURCE_URL: jdbc:mysql://mysql:3306/${RD_DB_NAME}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true
@@ -53,6 +50,7 @@ services:
       RD_REDIS_PORT: 6379
       RD_REDIS_PASSWORD: ${RD_REDIS_PASSWORD:?set RD_REDIS_PASSWORD}
       RD_CAPTCHA_ENABLED: ${RD_CAPTCHA_ENABLED:-false}
+      RD_ADMIN_INITIAL_PASSWORD: ${RD_ADMIN_INITIAL_PASSWORD:?set RD_ADMIN_INITIAL_PASSWORD}
       TZ: ${RD_TIME_ZONE:-Asia/Shanghai}
     volumes:
       - ./application-trial.yaml:/app/config/application-trial.yaml:ro
