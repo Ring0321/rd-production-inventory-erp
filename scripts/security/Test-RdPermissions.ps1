@@ -24,6 +24,7 @@ if ($apiUri.Host -notin @("127.0.0.1", "localhost")) {
 $testUsers = @(
     [pscustomobject]@{
         userId = 602001; username = "rdpermwarehouse"; roleId = 600002
+        requiredPermissions = @("rd:customer-product:query", "rd:stock-matrix:query")
         allowedPermission = "rd:stock-lot:query"
         allowedMethod = "Get"; allowedPath = "/rd/stock-lot/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:sale-order:create"
@@ -32,6 +33,7 @@ $testUsers = @(
     },
     [pscustomobject]@{
         userId = 602002; username = "rdpermproduction"; roleId = 600001
+        requiredPermissions = @("rd:customer-product:query")
         allowedPermission = "rd:production-output:query"
         allowedMethod = "Get"; allowedPath = "/rd/production-output/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:sale-order:query"
@@ -39,6 +41,7 @@ $testUsers = @(
     },
     [pscustomobject]@{
         userId = 602003; username = "rdpermorder"; roleId = 600003
+        requiredPermissions = @("rd:customer-product:query")
         allowedPermission = "rd:sale-order:query"
         allowedMethod = "Get"; allowedPath = "/rd/sale-order/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:stock-lot:opening"
@@ -47,6 +50,7 @@ $testUsers = @(
     },
     [pscustomobject]@{
         userId = 602004; username = "rdpermauditor"; roleId = 600004
+        requiredPermissions = @("rd:customer-product:query", "rd:stock-matrix:query")
         allowedPermission = "rd:transfer-order:query"
         allowedMethod = "Get"; allowedPath = "/rd/transfer-order/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:production-output:create"
@@ -55,6 +59,7 @@ $testUsers = @(
     },
     [pscustomobject]@{
         userId = 602005; username = "rdpermreadonly"; roleId = 600005
+        requiredPermissions = @("rd:customer-product:query", "rd:stock-matrix:query")
         allowedPermission = "rd:dashboard:query"
         allowedMethod = "Get"; allowedPath = "/rd/dashboard/overview?asOfDate=2026-07-10"; allowedBody = $null
         deniedPermission = "rd:production-output:create"
@@ -173,6 +178,11 @@ VALUES ($($user.userId), $($user.roleId), 'admin', NOW(), 'admin', NOW(), b'0', 
         $permissions = @($permissionInfo.data.permissions)
         if ($permissions -notcontains $user.allowedPermission) {
             throw "$($user.username) is missing $($user.allowedPermission)"
+        }
+        foreach ($requiredPermission in $user.requiredPermissions) {
+            if ($permissions -notcontains $requiredPermission) {
+                throw "$($user.username) is missing $requiredPermission"
+            }
         }
         if ($permissions -contains $user.deniedPermission) {
             throw "$($user.username) unexpectedly has $($user.deniedPermission)"

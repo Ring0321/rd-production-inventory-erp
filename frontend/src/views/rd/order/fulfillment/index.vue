@@ -16,24 +16,11 @@
           class="!w-240px"
         />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input
-          v-model="orderQuery.customerName"
-          placeholder="请输入客户"
-          clearable
-          @keyup.enter="handleOrderQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input
-          v-model="orderQuery.productModel"
-          placeholder="请输入型号"
-          clearable
-          @keyup.enter="handleOrderQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="orderQuery.customerName"
+        v-model:product-model="orderQuery.productModel"
+        query-mode
+      />
       <el-form-item label="状态" prop="status">
         <el-select v-model="orderQuery.status" placeholder="请选择状态" clearable class="!w-240px">
           <el-option label="待满足" value="OPEN" />
@@ -185,6 +172,7 @@ import type {
   RdOrderStockCandidateVO
 } from '@/api/rd/order/fulfillment'
 import AllocationForm from './AllocationForm.vue'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdOrderFulfillment' })
 

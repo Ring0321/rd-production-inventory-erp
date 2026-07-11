@@ -8,6 +8,8 @@ import com.ruiding.erp.dal.mysql.order.RdOrderFulfillmentMapper;
 import com.ruiding.erp.dal.mysql.order.RdSaleOrderMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdOrderStatusEnum;
+import com.ruiding.erp.service.masterdata.RdCustomerProductPair;
+import com.ruiding.erp.service.masterdata.RdCustomerProductService;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
@@ -46,19 +48,24 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     private RdSaleOrderMapper saleOrderMapper;
     @Resource
     private RdOrderFulfillmentMapper fulfillmentMapper;
+    @Resource
+    private RdCustomerProductService customerProductService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = RdLogRecordConstants.SALE_ORDER_TYPE,
             subType = RdLogRecordConstants.SALE_ORDER_CREATE_SUB_TYPE,
             bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
             success = RdLogRecordConstants.SALE_ORDER_CREATE_SUCCESS)
     public Long createSaleOrder(RdSaleOrderSaveReqVO createReqVO) {
         validateOrderNoUnique(null, createReqVO.getOrderNo());
+        RdCustomerProductPair pair = customerProductService.recordPair(
+                createReqVO.getCustomerName(), createReqVO.getProductModel());
         RdSaleOrderDO saleOrder = new RdSaleOrderDO()
                 .setOrderNo(createReqVO.getOrderNo())
                 .setOrderDate(createReqVO.getOrderDate())
-                .setCustomerName(createReqVO.getCustomerName())
-                .setProductModel(createReqVO.getProductModel())
+                .setCustomerName(pair.getCustomerName())
+                .setProductModel(pair.getProductModel())
                 .setRequiredQty(createReqVO.getRequiredQty())
                 .setActualOutputQty(zeroIfNull(createReqVO.getActualOutputQty()))
                 .setAllocatedQty(BigDecimal.ZERO)
@@ -72,16 +79,19 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = RdLogRecordConstants.SALE_ORDER_TYPE,
             subType = RdLogRecordConstants.SALE_ORDER_UPDATE_SUB_TYPE,
             bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.SALE_ORDER_UPDATE_SUCCESS)
     public void updateSaleOrder(RdSaleOrderSaveReqVO updateReqVO) {
         RdSaleOrderDO saleOrder = validateSaleOrderEditable(updateReqVO.getId());
         validateOrderNoUnique(updateReqVO.getId(), updateReqVO.getOrderNo());
+        RdCustomerProductPair pair = customerProductService.recordPair(
+                updateReqVO.getCustomerName(), updateReqVO.getProductModel());
         saleOrder.setOrderNo(updateReqVO.getOrderNo())
                 .setOrderDate(updateReqVO.getOrderDate())
-                .setCustomerName(updateReqVO.getCustomerName())
-                .setProductModel(updateReqVO.getProductModel())
+                .setCustomerName(pair.getCustomerName())
+                .setProductModel(pair.getProductModel())
                 .setRequiredQty(updateReqVO.getRequiredQty())
                 .setActualOutputQty(zeroIfNull(updateReqVO.getActualOutputQty()))
                 .setRemark(updateReqVO.getRemark());

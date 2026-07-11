@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruiding.erp.dal.mysql.stockmatrix.RdStockMatrixMapper">
+
+    <sql id="matrixCte">
+        WITH matrix_data AS (
+            SELECT t.stock_lot_id,
+                   l.location_code, l.customer_name, l.product_model, l.furnace_no, l.furnace_layer,
+                   l.package_weight,
+                   SUM(CASE WHEN t.biz_date &lt; #{req.startDate} THEN t.quantity ELSE 0 END) AS opening_qty,
+                   SUM(CASE WHEN t.biz_date BETWEEN #{req.startDate} AND #{req.endDate}
+                            AND t.transaction_type IN ('OPENING','PRODUCTION_IN','INBOUND','ADJUST_IN')
+                            THEN t.quantity ELSE 0 END) AS inbound_qty,
+                   SUM(CASE WHEN t.biz_date BETWEEN #{req.startDate} AND #{req.endDate}
+                            AND t.transaction_type IN ('OUTBOUND','ADJUST_OUT')
+                            THEN t.quantity ELSE 0 END) AS outbound_qty,
+                   SUM(CASE WHEN t.biz_date BETWEEN #{req.startDate} AND #{req.endDate}
+                            AND t.transaction_type IN ('TRANSFER_IN','TRANSFER_OUT')
+                            THEN t.quantity ELSE 0 END) AS transfer_qty,
+                   SUM(CASE WHEN t.biz_date BETWEEN #{req.startDate} AND #{req.endDate}
+                            AND t.transaction_type = 'RETURN_IN'
+                            THEN t.quantity ELSE 0 END) AS return_qty,
+                   SUM(CASE WHEN t.biz_date &lt;= #{req.endDate} THEN t.quantity ELSE 0 END) AS warehouse_qty
+            FROM rd_stock_transaction t
+            INNER JOIN rd_stock_lot l ON l.id = t.stock_lot_id
+                AND l.tenant_id = #{tenantId} AND l.deleted = b'0'
+            WHERE t.tenant_id = #{tenantId} AND t.deleted = b'0'
+              AND t.stock_lot_id IS NOT NULL AND t.biz_date &lt;= #{req.endDate}
+            <if test="req.locationCode != null and req.locationCode != ''">
+              AND l.location_code LIKE CONCAT('%', #{req.locationCode}, '%')
+            </if>
+            <if test="req.customerName != null and req.customerName != ''">
+              AND l.customer_name = #{req.customerName}
+            </if>
+            <if test="req.productModel != null and req.productModel != ''">
+              AND l.product_model = #{req.productModel}
+            </if>
+            <if test="req.furnaceNo != null and req.furnaceNo != ''">
+              AND l.furnace_no LIKE CONCAT('%', #{req.furnaceNo}, '%')
+            </if>
+            GROUP BY t.stock_lot_id, l.location_code, l.customer_name, l.product_model,
+                     l.furnace_no, l.furnace_layer, l.package_weight
+            HAVING opening_qty != 0 OR inbound_qty != 0 OR outbound_qty != 0
+                OR transfer_qty != 0 OR return_qty != 0
+        )
+    </sql>
+
+    <select id="selectMatrixCount" resultType="java.lang.Long">
+        <include refid="matrixCte"/>
+        SELECT COUNT(*) FROM matrix_data
+    </select>
+
+    <select id="selectMatrixPage" resultType="com.ruiding.erp.dal.dataobject.stockmatrix.RdStockMatrixAggregateDO">
+        <include refid="matrixCte"/>
+        SELECT stock_lot_id, location_code, customer_name, product_model, furnace_no, furnace_layer,
+               opening_qty, transfer_qty, inbound_qty, outbound_qty, return_qty, warehouse_qty,
+               package_weight, warehouse_qty * package_weight AS stock_weight
+        FROM matrix_data
+        ORDER BY location_code, customer_name, product_model, furnace_no, furnace_layer, stock_lot_id
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="selectMatrixTotals" resultType="com.ruiding.erp.dal.dataobject.stockmatrix.RdStockMatrixAggregateDO">
+        <include refid="matrixCte"/>
+        SELECT SUM(opening_qty) AS opening_qty,
+               SUM(transfer_qty) AS transfer_qty,
+               SUM(inbound_qty) AS inbound_qty,
+               SUM(outbound_qty) AS outbound_qty,
+               SUM(return_qty) AS return_qty,
+               SUM(warehouse_qty) AS warehouse_qty,
+               SUM(warehouse_qty * package_weight) AS stock_weight
+        FROM matrix_data
+    </select>
+
+    <select id="selectDailyMovements" resultType="com.ruiding.erp.dal.dataobject.stockmatrix.RdStockMatrixDailyDO">
+        SELECT stock_lot_id, biz_date,
+               SUM(CASE WHEN transaction_type IN ('OPENING','PRODUCTION_IN','INBOUND','ADJUST_IN')
+                        THEN quantity ELSE 0 END) AS inbound_qty,
+               SUM(CASE WHEN transaction_type IN ('OUTBOUND','ADJUST_OUT')
+                        THEN quantity ELSE 0 END) AS outbound_qty,
+               SUM(CASE WHEN transaction_type IN ('TRANSFER_IN','TRANSFER_OUT')
+                        THEN quantity ELSE 0 END) AS transfer_qty,
+               SUM(CASE WHEN transaction_type = 'RETURN_IN' THEN quantity ELSE 0 END) AS return_qty
+        FROM rd_stock_transaction
+        WHERE tenant_id = #{tenantId} AND deleted = b'0'
+          AND biz_date BETWEEN #{startDate} AND #{endDate}
+          AND stock_lot_id IN
+          <foreach collection="stockLotIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        GROUP BY stock_lot_id, biz_date
+        ORDER BY stock_lot_id, biz_date
+    </select>
+
+    <select id="selectDailyTotals" resultType="com.ruiding.erp.dal.dataobject.stockmatrix.RdStockMatrixDailyDO">
+        SELECT t.biz_date,
+               SUM(CASE WHEN t.transaction_type IN ('OPENING','PRODUCTION_IN','INBOUND','ADJUST_IN')
+                        THEN t.quantity ELSE 0 END) AS inbound_qty,
+               SUM(CASE WHEN t.transaction_type IN ('OUTBOUND','ADJUST_OUT')
+                        THEN t.quantity ELSE 0 END) AS outbound_qty,
+               SUM(CASE WHEN t.transaction_type IN ('TRANSFER_IN','TRANSFER_OUT')
+                        THEN t.quantity ELSE 0 END) AS transfer_qty,
+               SUM(CASE WHEN t.transaction_type = 'RETURN_IN' THEN t.quantity ELSE 0 END) AS return_qty
+        FROM rd_stock_transaction t
+        INNER JOIN rd_stock_lot l ON l.id = t.stock_lot_id
+          AND l.tenant_id = #{tenantId} AND l.deleted = b'0'
+        WHERE t.tenant_id = #{tenantId} AND t.deleted = b'0'
+          AND t.biz_date BETWEEN #{req.startDate} AND #{req.endDate}
+        <if test="req.locationCode != null and req.locationCode != ''">
+          AND l.location_code LIKE CONCAT('%', #{req.locationCode}, '%')
+        </if>
+        <if test="req.customerName != null and req.customerName != ''">
+          AND l.customer_name = #{req.customerName}
+        </if>
+        <if test="req.productModel != null and req.productModel != ''">
+          AND l.product_model = #{req.productModel}
+        </if>
+        <if test="req.furnaceNo != null and req.furnaceNo != ''">
+          AND l.furnace_no LIKE CONCAT('%', #{req.furnaceNo}, '%')
+        </if>
+        GROUP BY t.biz_date
+        ORDER BY t.biz_date
+    </select>
+</mapper>

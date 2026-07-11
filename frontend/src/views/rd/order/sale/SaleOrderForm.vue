@@ -19,12 +19,10 @@
           class="!w-1/1"
         />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input v-model="formData.customerName" placeholder="请输入客户" />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input v-model="formData.productModel" placeholder="请输入型号" />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="formData.customerName"
+        v-model:product-model="formData.productModel"
+      />
       <el-form-item label="订单量" prop="requiredQty">
         <el-input-number
           v-model="formData.requiredQty"
@@ -70,6 +68,7 @@ import { useMessage } from '@/hooks/web/useMessage'
 import { formatDate } from '@/utils/formatTime'
 import { RdSaleOrderApi } from '@/api/rd/order/sale'
 import type { RdSaleOrderVO } from '@/api/rd/order/sale'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdSaleOrderForm' })
 

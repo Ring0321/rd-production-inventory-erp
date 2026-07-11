@@ -959,6 +959,98 @@ CREATE TABLE `rd_sale_order_extend` (
   KEY `idx_rd_sale_order_status_date` (`tenant_id`,`status`,`deleted`,`order_date`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD sales order fulfillment extension';
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `rd_customer_product`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rd_customer_product` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Customer product relation ID',
+  `tenant_id` bigint NOT NULL DEFAULT '1' COMMENT 'Tenant ID',
+  `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Customer',
+  `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Product model',
+  `source_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'BUSINESS' COMMENT 'EXCEL/BUSINESS',
+  `last_used_time` datetime DEFAULT NULL COMMENT 'Last successful business use time',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '0 enabled, 1 disabled',
+  `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_customer_product` (`tenant_id`,`customer_name`,`product_model`,`deleted`),
+  KEY `idx_rd_customer_product_customer` (`tenant_id`,`status`,`deleted`,`customer_name`),
+  KEY `idx_rd_customer_product_model` (`tenant_id`,`status`,`deleted`,`product_model`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD customer and product model options';
+
+INSERT INTO `rd_customer_product`
+(`tenant_id`, `customer_name`, `product_model`, `source_type`, `last_used_time`, `status`,
+ `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
+(1, '江苏贝特瑞', '026', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '035JC', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '038/CC-H', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '038', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '041', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '052', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '080', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞', '092', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品一部', '015', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品一部', '052', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品一部', '13031', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品二部', '027', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品二部', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品二部', '035JC', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品二部', '092', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品二部', '001', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品二部', '001D1L', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品三部', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品三部', '065', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞安贝特瑞', '031', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '恒鼎新材', '027', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '恒鼎新材', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '恒鼎新材', 'A1-GR-ZC-001J', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '恒鼎新材', 'A1-GR-ZC-001-K', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '湖州启源金灿', 'YG15', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '恒鼎新材/江苏贝特瑞', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '5PA', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1CC-2M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1CY-2M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1CY-2H', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1CF-2H', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1SO-3G-M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1SI-3G-M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1SA-2G-M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1SL-3G-M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1C083-2M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1C090-2H', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1SC-5G-M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '中科星城', '1S139-3G-M', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '湖北皇恩烨', 'S11石墨化-混011&02', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '重庆渝盛星', 'CC-H', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '重庆渝盛星', 'NGC15', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '重庆渝盛星', 'C1', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '云南坤天', '石墨化A料XJ-11', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '四川坤天', '石墨化A料P6-9', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '湖南镕锂', 'G-PC071', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '026', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '035JC', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '038', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '038/CC-H', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '041', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '049', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '052', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '062', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '065', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '077', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '081', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '13031', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '磁性物', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '混合料', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '瑞鼎新材料', '破碎料', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '贝特瑞产品三部退货', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞退货', '035', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0'),
+(1, '江苏贝特瑞退货', '041', 'EXCEL', NOW(), 0, 'system', NOW(), 'system', NOW(), b'0');
+
 DROP TABLE IF EXISTS `rd_stock_lot`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1035,7 +1127,8 @@ CREATE TABLE `rd_stock_transaction` (
   KEY `idx_rd_stock_txn_date_type` (`tenant_id`,`biz_date`,`transaction_type`,`deleted`,`id`),
   KEY `idx_rd_stock_txn_lot_time` (`tenant_id`,`stock_lot_id`,`deleted`,`create_time`,`id`),
   KEY `idx_rd_stock_txn_source` (`tenant_id`,`source_type`,`source_no`,`deleted`),
-  KEY `idx_rd_stock_txn_order` (`tenant_id`,`related_order_id`,`deleted`,`biz_date`,`id`)
+  KEY `idx_rd_stock_txn_order` (`tenant_id`,`related_order_id`,`deleted`,`biz_date`,`id`),
+  KEY `idx_rd_stock_txn_matrix` (`tenant_id`,`customer_name`,`product_model`,`biz_date`,`stock_lot_id`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inventory movement ledger';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `rd_transfer_order`;
@@ -1101,6 +1194,7 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600210, '出库单确认', 'rd:outbound-order:confirm', 3, 30, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600211, '出库单撤销', 'rd:outbound-order:cancel', 3, 40, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600212, '出库单导出', 'rd:outbound-order:export', 3, 50, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600213, '库存动态明细', 'rd:stock-matrix:query', 2, 25, 600200, 'matrix', 'ep:grid', 'rd/stock/matrix/index', 'RdStockMatrix', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600301, '销售订单', 'rd:sale-order:query', 2, 10, 600300, 'sale', 'ep:document', 'rd/order/sale/index', 'RdSaleOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600302, '销售订单新增', 'rd:sale-order:create', 3, 10, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
@@ -1126,7 +1220,8 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600220, '库存 Excel 导入', 'rd:excel-import:query', 2, 40, 600200, 'import', 'ep:upload-filled', 'rd/stock/import/index', 'RdStockImport', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600221, '库存 Excel 预检', 'rd:excel-import:create', 3, 10, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600222, '确认库存 Excel 导入', 'rd:excel-import:confirm', 3, 20, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
-(600223, '导出库存 Excel 错误', 'rd:excel-import:export', 3, 30, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0')
+(600223, '导出库存 Excel 错误', 'rd:excel-import:export', 3, 30, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600224, '客户型号选项查询', 'rd:customer-product:query', 3, 90, 600000, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `permission` = VALUES(`permission`),
@@ -1287,8 +1382,8 @@ INSERT INTO `system_user_post` (`id`, `user_id`, `post_id`, `creator`, `create_t
 ON DUPLICATE KEY UPDATE `user_id`=VALUES(`user_id`), `post_id`=VALUES(`post_id`), `tenant_id`=1, `deleted`=b'0';
 
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
-SELECT 600001, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600500,600501)
-UNION ALL SELECT 600002, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600200,600201,600202,600203,600204,600205,600206,600207,600208,600209,600210,600211,600212,600220,600221,600222,600223,600400,600401,600402,600403,600404,600405,600406,600500,600501,600502,600503)
-UNION ALL SELECT 600003, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600300,600301,600302,600303,600304,600305,600306,600310,600311,600312,600313,600400,600401,600402,600403,600404,600405,600406,600500,600501)
-UNION ALL SELECT 600004, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (1,108,500,501,1040,1042,1043,1045,600000,600010,600100,600101,600200,600201,600203,600207,600300,600301,600310,600400,600401,600500,600501,600502,600503)
-UNION ALL SELECT 600005, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600200,600201,600203,600207,600220,600300,600301,600310,600400,600401,600500,600501);
+SELECT 600001, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600224,600500,600501)
+UNION ALL SELECT 600002, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600200,600201,600202,600203,600204,600205,600206,600207,600208,600209,600210,600211,600212,600213,600220,600221,600222,600223,600224,600400,600401,600402,600403,600404,600405,600406,600500,600501,600502,600503)
+UNION ALL SELECT 600003, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600224,600300,600301,600302,600303,600304,600305,600306,600310,600311,600312,600313,600400,600401,600402,600403,600404,600405,600406,600500,600501)
+UNION ALL SELECT 600004, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (1,108,500,501,1040,1042,1043,1045,600000,600010,600100,600101,600200,600201,600203,600207,600213,600224,600300,600301,600310,600400,600401,600500,600501,600502,600503)
+UNION ALL SELECT 600005, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600200,600201,600203,600207,600213,600220,600224,600300,600301,600310,600400,600401,600500,600501);

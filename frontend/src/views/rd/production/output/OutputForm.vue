@@ -19,12 +19,10 @@
       <el-form-item label="货位" prop="locationCode">
         <el-input v-model="formData.locationCode" placeholder="请输入货位" />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input v-model="formData.customerName" placeholder="请输入客户" />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input v-model="formData.productModel" placeholder="请输入型号" />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="formData.customerName"
+        v-model:product-model="formData.productModel"
+      />
       <el-form-item label="生产炉号" prop="furnaceNo">
         <el-input v-model="formData.furnaceNo" placeholder="请输入生产炉号" />
       </el-form-item>
@@ -67,6 +65,7 @@
 import { reactive, ref } from 'vue'
 import { useMessage } from '@/hooks/web/useMessage'
 import { RdProductionOutputApi, RdProductionOutputVO } from '@/api/rd/production/output'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdProductionOutputForm' })
 

@@ -17,24 +17,11 @@
           class="!w-240px"
         />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input
-          v-model="queryParams.customerName"
-          placeholder="请输入客户"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input
-          v-model="queryParams.productModel"
-          placeholder="请输入型号"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="queryParams.customerName"
+        v-model:product-model="queryParams.productModel"
+        query-mode
+      />
       <el-form-item label="货位" prop="locationCode">
         <el-input
           v-model="queryParams.locationCode"
@@ -144,6 +131,7 @@ import type {
   RdDailyStockSummaryVO,
   RdDailyStockTrendVO
 } from '@/api/rd/report/daily'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdDailyStockSummary' })
 

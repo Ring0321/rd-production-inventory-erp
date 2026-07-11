@@ -41,24 +41,11 @@
           class="!w-240px"
         />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input
-          v-model="queryParams.customerName"
-          placeholder="请输入客户"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input
-          v-model="queryParams.productModel"
-          placeholder="请输入型号"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="queryParams.customerName"
+        v-model:product-model="queryParams.productModel"
+        query-mode
+      />
       <el-form-item label="炉号" prop="furnaceNo">
         <el-input
           v-model="queryParams.furnaceNo"
@@ -148,6 +135,7 @@ import download from '@/utils/download'
 import { useMessage } from '@/hooks/web/useMessage'
 import { RdStockTransactionApi } from '@/api/rd/stock/transaction'
 import type { RdStockTransactionVO } from '@/api/rd/stock/transaction'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdStockTransaction' })
 

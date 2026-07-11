@@ -10,6 +10,8 @@ import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
 import com.ruiding.erp.service.stock.RdStockLotService;
+import com.ruiding.erp.service.masterdata.RdCustomerProductPair;
+import com.ruiding.erp.service.masterdata.RdCustomerProductService;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
@@ -40,14 +42,20 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
     private RdProductionOutputMapper productionOutputMapper;
     @Resource
     private RdStockLotService stockLotService;
+    @Resource
+    private RdCustomerProductService customerProductService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
             subType = RdLogRecordConstants.PRODUCTION_CREATE_SUB_TYPE,
             bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
             success = RdLogRecordConstants.PRODUCTION_CREATE_SUCCESS)
     public Long createProductionOutput(RdProductionOutputSaveReqVO createReqVO) {
+        RdCustomerProductPair pair = customerProductService.recordPair(
+                createReqVO.getCustomerName(), createReqVO.getProductModel());
         RdProductionOutputDO productionOutput = BeanUtils.toBean(createReqVO, RdProductionOutputDO.class);
+        productionOutput.setCustomerName(pair.getCustomerName()).setProductModel(pair.getProductModel());
         fillCalculatedFields(productionOutput);
         productionOutputMapper.insert(productionOutput);
         LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, productionOutput.getId());
@@ -55,6 +63,7 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
             subType = RdLogRecordConstants.PRODUCTION_UPDATE_SUB_TYPE,
             bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.PRODUCTION_UPDATE_SUCCESS)
@@ -64,6 +73,9 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
             throw exception(PRODUCTION_OUTPUT_UPDATE_FAIL_INBOUNDED);
         }
         RdProductionOutputDO updateObj = BeanUtils.toBean(updateReqVO, RdProductionOutputDO.class);
+        RdCustomerProductPair pair = customerProductService.recordPair(
+                updateReqVO.getCustomerName(), updateReqVO.getProductModel());
+        updateObj.setCustomerName(pair.getCustomerName()).setProductModel(pair.getProductModel());
         if (StrUtil.isBlank(updateObj.getStatus())) {
             updateObj.setStatus(oldProductionOutput.getStatus());
         }

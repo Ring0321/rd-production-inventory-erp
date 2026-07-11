@@ -26,24 +26,11 @@
           class="!w-240px"
         />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input
-          v-model="queryParams.customerName"
-          placeholder="请输入客户"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input
-          v-model="queryParams.productModel"
-          placeholder="请输入型号"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="queryParams.customerName"
+        v-model:product-model="queryParams.productModel"
+        query-mode
+      />
       <el-form-item label="炉号" prop="furnaceNo">
         <el-input
           v-model="queryParams.furnaceNo"
@@ -166,6 +153,7 @@ import type { RdStockLotVO } from '@/api/rd/stock/lot'
 import StockTransactionDrawer from './StockTransactionDrawer.vue'
 import OpeningForm from './OpeningForm.vue'
 import AdjustmentForm from './AdjustmentForm.vue'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdStockLot' })
 

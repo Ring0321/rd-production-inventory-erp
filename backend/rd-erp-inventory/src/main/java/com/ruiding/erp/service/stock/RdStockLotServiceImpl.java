@@ -11,6 +11,8 @@ import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdStockLotStatusEnum;
 import com.ruiding.erp.enums.RdStockTransactionTypeEnum;
+import com.ruiding.erp.service.masterdata.RdCustomerProductPair;
+import com.ruiding.erp.service.masterdata.RdCustomerProductService;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
@@ -50,17 +52,21 @@ public class RdStockLotServiceImpl implements RdStockLotService {
     private RdStockLotMapper stockLotMapper;
     @Resource
     private RdStockTransactionService stockTransactionService;
+    @Resource
+    private RdCustomerProductService customerProductService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public RdStockLotDO createProductionInbound(RdProductionOutputDO productionOutput) {
+        RdCustomerProductPair pair = customerProductService.recordPair(
+                productionOutput.getCustomerName(), productionOutput.getProductModel());
         BigDecimal quantity = productionOutput.getOutputQty();
         BigDecimal stockWeight = quantity.multiply(productionOutput.getPackageWeight());
         RdStockLotDO stockLot = new RdStockLotDO()
                 .setLocationId(productionOutput.getLocationId())
                 .setLocationCode(productionOutput.getLocationCode())
-                .setCustomerName(productionOutput.getCustomerName())
-                .setProductModel(productionOutput.getProductModel())
+                .setCustomerName(pair.getCustomerName())
+                .setProductModel(pair.getProductModel())
                 .setFurnaceNo(productionOutput.getFurnaceNo())
                 .setFurnaceLayer(productionOutput.getFurnaceLayer())
                 .setOpeningQty(BigDecimal.ZERO)
@@ -128,12 +134,14 @@ public class RdStockLotServiceImpl implements RdStockLotService {
     private Long createOpeningStock(RdStockOpeningCreateReqVO createReqVO,
                                     String sourceType, String sourceNo, String sourceLineNo,
                                     Long operatorId, String operatorName) {
+        RdCustomerProductPair pair = customerProductService.recordPair(
+                createReqVO.getCustomerName(), createReqVO.getProductModel());
         BigDecimal stockWeight = createReqVO.getQuantity().multiply(createReqVO.getPackageWeight());
         RdStockLotDO stockLot = new RdStockLotDO()
                 .setLocationId(createReqVO.getLocationId())
                 .setLocationCode(createReqVO.getLocationCode())
-                .setCustomerName(createReqVO.getCustomerName())
-                .setProductModel(createReqVO.getProductModel())
+                .setCustomerName(pair.getCustomerName())
+                .setProductModel(pair.getProductModel())
                 .setFurnaceNo(createReqVO.getFurnaceNo())
                 .setFurnaceLayer(createReqVO.getFurnaceLayer())
                 .setOpeningQty(createReqVO.getQuantity())

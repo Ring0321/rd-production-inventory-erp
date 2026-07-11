@@ -26,24 +26,11 @@
           class="!w-240px"
         />
       </el-form-item>
-      <el-form-item label="客户" prop="customerName">
-        <el-input
-          v-model="queryParams.customerName"
-          placeholder="请输入客户"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="型号" prop="productModel">
-        <el-input
-          v-model="queryParams.productModel"
-          placeholder="请输入型号"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
+      <RdCustomerProductFields
+        v-model:customer-name="queryParams.customerName"
+        v-model:product-model="queryParams.productModel"
+        query-mode
+      />
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable class="!w-240px">
           <el-option
@@ -196,6 +183,7 @@ import { RdSaleOrderApi } from '@/api/rd/order/sale'
 import type { RdSaleOrderVO } from '@/api/rd/order/sale'
 import SaleOrderForm from './SaleOrderForm.vue'
 import SaleOrderDetailDrawer from './SaleOrderDetailDrawer.vue'
+import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdSaleOrder' })
 
