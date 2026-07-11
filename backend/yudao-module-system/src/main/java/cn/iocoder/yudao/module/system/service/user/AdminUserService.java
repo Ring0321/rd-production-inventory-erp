@@ -72,6 +72,11 @@ public interface AdminUserService {
     void updateUserPassword(Long id, String password);
 
     /**
+     * 首次部署时初始化管理员密码，不生成依赖登录用户的操作日志。
+     */
+    void initializeUserPassword(Long id, String password);
+
+    /**
      * 修改状态
      *
      * @param id     用户编号

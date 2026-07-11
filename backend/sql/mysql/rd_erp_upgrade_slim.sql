@@ -71,8 +71,8 @@ DROP TABLE IF EXISTS `system_oauth2_code`;
 DROP TABLE IF EXISTS `system_oauth2_client`;
 
 UPDATE `system_tenant`
-SET `name` = '瑞鼎生产库存订单ERP', `package_id` = 1,
-    `status` = 0, `expire_time` = '2099-12-31 23:59:59',
+SET `name` = '瑞鼎生产库存订单ERP', `status` = 0,
+    `expire_time` = '2099-12-31 23:59:59',
     `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
 WHERE `id` = 1;
 
@@ -97,6 +97,16 @@ INSERT INTO `system_role`
 (600004, '审核报表', 'rd_audit', 40, 1, '', 0, 2, '审核、报表与日志查询', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1),
 (600005, '只读查询', 'rd_readonly', 50, 1, '', 0, 2, '业务数据只读', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `code`=VALUES(`code`), `sort`=VALUES(`sort`), `data_scope`=VALUES(`data_scope`), `status`=VALUES(`status`), `type`=VALUES(`type`), `remark`=VALUES(`remark`), `tenant_id`=1, `deleted`=b'0';
+
+DELETE FROM `system_role_menu`
+WHERE `tenant_id` = 1 AND `role_id` IN (600001,600002,600003,600004,600005);
+
+INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
+SELECT 600001, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600500,600501)
+UNION ALL SELECT 600002, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600200,600201,600202,600203,600204,600205,600206,600207,600208,600209,600210,600211,600212,600220,600221,600222,600223,600400,600401,600402,600403,600404,600405,600406,600500,600501,600502,600503)
+UNION ALL SELECT 600003, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600300,600301,600302,600303,600304,600305,600306,600310,600311,600312,600313,600400,600401,600402,600403,600404,600405,600406,600500,600501)
+UNION ALL SELECT 600004, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (1,108,500,501,1040,1042,1043,1045,600000,600010,600100,600101,600200,600201,600203,600207,600300,600301,600310,600400,600401,600500,600501,600502,600503)
+UNION ALL SELECT 600005, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600200,600201,600203,600207,600220,600300,600301,600310,600400,600401,600500,600501);
 
 COMMIT;
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;

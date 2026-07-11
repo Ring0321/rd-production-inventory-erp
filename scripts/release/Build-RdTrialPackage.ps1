@@ -28,7 +28,7 @@ if (-not $SkipBuild) {
     }
     Push-Location $backendRoot
     try {
-        & $maven -pl rd-erp-server -am -DskipTests package
+        & $maven -pl rd-erp-server -am -DskipTests clean package
         if ($LASTEXITCODE -ne 0) {
             throw "Backend package build failed"
         }

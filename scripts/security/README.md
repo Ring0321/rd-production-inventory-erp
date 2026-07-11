@@ -9,13 +9,14 @@ docker exec rd-erp-mysql mysql -uroot -prd_local_2026 rd_erp `
   -e "source /tmp/rd_inventory_week10_permissions.sql"
 ```
 
-With the local backend running, execute:
+With the local backend running, execute (the endpoint may be the backend port or the local
+frontend reverse proxy):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/security/Test-RdPermissions.ps1
 ```
 
-The test only accepts `127.0.0.1:48080`. It creates five temporary users using the local
+The test only accepts a `127.0.0.1` or `localhost` endpoint. It creates five temporary users using the local
 administrator password hash, validates allowed and denied APIs, then removes the users,
 role assignments, tokens, generated logs, and related Redis permission caches.
 

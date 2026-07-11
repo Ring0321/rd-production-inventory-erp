@@ -3,22 +3,27 @@ param(
     [string]$TenantId = "1",
     [string]$MySqlContainer = "rd-erp-mysql",
     [string]$RedisContainer = "rd-erp-redis",
+    [string]$Database = $(if ($env:RD_DB_NAME) { $env:RD_DB_NAME } else { "rd_erp" }),
     [string]$AdminPassword = $env:RD_TEST_PASSWORD,
-    [string]$DatabasePassword = $env:RD_DB_PASSWORD
+    [string]$DatabasePassword = $env:RD_DB_PASSWORD,
+    [string]$RedisPassword = $env:RD_REDIS_PASSWORD
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-if (-not $AdminPassword -or -not $DatabasePassword) { throw "Set RD_TEST_PASSWORD and RD_DB_PASSWORD" }
+if (-not $AdminPassword -or -not $DatabasePassword -or -not $RedisPassword) {
+    throw "Set RD_TEST_PASSWORD, RD_DB_PASSWORD and RD_REDIS_PASSWORD"
+}
+if ($Database -notmatch '^[A-Za-z0-9_]+$') { throw "Invalid database name" }
 $ApiBase = $ApiBase.TrimEnd("/")
 $apiUri = [Uri]$ApiBase
-if ($apiUri.Host -notin @("127.0.0.1", "localhost") -or $apiUri.Port -ne 48080) {
-    throw "This test only runs against the local backend on port 48080"
+if ($apiUri.Host -notin @("127.0.0.1", "localhost")) {
+    throw "This test only runs against a local ERP endpoint"
 }
 
 $testUsers = @(
     [pscustomobject]@{
-        userId = 602001; username = "rdpermwarehouse"; roleId = 601001
+        userId = 602001; username = "rdpermwarehouse"; roleId = 600002
         allowedPermission = "rd:stock-lot:query"
         allowedMethod = "Get"; allowedPath = "/rd/stock-lot/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:sale-order:create"
@@ -26,14 +31,14 @@ $testUsers = @(
         deniedBody = @{ orderNo = "PERM-DENIED-W"; orderDate = "2026-07-10"; customerName = "PERM"; productModel = "PERM"; requiredQty = 1; actualOutputQty = 0 }
     },
     [pscustomobject]@{
-        userId = 602002; username = "rdpermproduction"; roleId = 601002
+        userId = 602002; username = "rdpermproduction"; roleId = 600001
         allowedPermission = "rd:production-output:query"
         allowedMethod = "Get"; allowedPath = "/rd/production-output/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:sale-order:query"
         deniedMethod = "Get"; deniedPath = "/rd/sale-order/page?pageNo=1&pageSize=10"; deniedBody = $null
     },
     [pscustomobject]@{
-        userId = 602003; username = "rdpermorder"; roleId = 601003
+        userId = 602003; username = "rdpermorder"; roleId = 600003
         allowedPermission = "rd:sale-order:query"
         allowedMethod = "Get"; allowedPath = "/rd/sale-order/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:stock-lot:opening"
@@ -41,7 +46,7 @@ $testUsers = @(
         deniedBody = @{ bizDate = "2026-07-10"; locationId = 1; locationCode = "PERM"; customerName = "PERM"; productModel = "PERM"; furnaceNo = "PERM"; furnaceLayer = "PERM"; quantity = 1; packageWeight = 1000 }
     },
     [pscustomobject]@{
-        userId = 602004; username = "rdpermauditor"; roleId = 601004
+        userId = 602004; username = "rdpermauditor"; roleId = 600004
         allowedPermission = "rd:transfer-order:query"
         allowedMethod = "Get"; allowedPath = "/rd/transfer-order/page?pageNo=1&pageSize=10"; allowedBody = $null
         deniedPermission = "rd:production-output:create"
@@ -49,7 +54,7 @@ $testUsers = @(
         deniedBody = @{ productionDate = "2026-07-10"; locationCode = "PERM"; customerName = "PERM"; productModel = "PERM"; furnaceNo = "PERM"; furnaceLayer = "PERM"; outputQty = 1; packageWeight = 1000 }
     },
     [pscustomobject]@{
-        userId = 602005; username = "rdpermreadonly"; roleId = 601005
+        userId = 602005; username = "rdpermreadonly"; roleId = 600005
         allowedPermission = "rd:dashboard:query"
         allowedMethod = "Get"; allowedPath = "/rd/dashboard/overview?asOfDate=2026-07-10"; allowedBody = $null
         deniedPermission = "rd:production-output:create"
@@ -66,7 +71,7 @@ $accessTokens = @()
 
 function Invoke-LocalSql {
     param([string]$Sql)
-    & docker exec -e "MYSQL_PWD=$DatabasePassword" $MySqlContainer mysql -uroot rd_erp -e $Sql | Out-Null
+    & docker exec -e "MYSQL_PWD=$DatabasePassword" $MySqlContainer mysql -uroot $Database -e $Sql | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Local permission test SQL failed"
     }
@@ -87,12 +92,12 @@ DELETE FROM system_users WHERE id IN ($idList) OR username IN ($usernameList);
 
 function Remove-RedisPattern {
     param([string]$Pattern)
-    $keys = @(& docker exec $RedisContainer redis-cli --scan --pattern $Pattern)
+    $keys = @(& docker exec -e "REDISCLI_AUTH=$RedisPassword" $RedisContainer redis-cli --scan --pattern $Pattern)
     if ($LASTEXITCODE -ne 0) {
         throw "Redis scan failed for $Pattern"
     }
     if ($keys.Count -gt 0) {
-        & docker exec $RedisContainer redis-cli DEL $keys | Out-Null
+        & docker exec -e "REDISCLI_AUTH=$RedisPassword" $RedisContainer redis-cli DEL $keys | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "Redis cleanup failed for $Pattern"
         }
@@ -101,7 +106,7 @@ function Remove-RedisPattern {
 
 function Clear-PermissionCaches {
     Remove-RedisPattern -Pattern "menu_role_ids:${TenantId}:*"
-    Remove-RedisPattern -Pattern "role:${TenantId}:6010*"
+    Remove-RedisPattern -Pattern "role:${TenantId}:6000*"
     foreach ($userId in $userIds) {
         Remove-RedisPattern -Pattern "user_role_ids:$userId"
     }

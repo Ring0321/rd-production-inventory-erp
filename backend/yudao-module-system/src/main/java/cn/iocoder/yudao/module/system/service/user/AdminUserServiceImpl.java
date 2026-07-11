@@ -223,6 +223,12 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    public void initializeUserPassword(Long id, String password) {
+        validateUserExists(id);
+        userMapper.updateById(new AdminUserDO().setId(id).setPassword(encodePassword(password)));
+    }
+
+    @Override
     public void updateUserStatus(Long id, Integer status) {
         // 校验用户存在
         validateUserExists(id);
