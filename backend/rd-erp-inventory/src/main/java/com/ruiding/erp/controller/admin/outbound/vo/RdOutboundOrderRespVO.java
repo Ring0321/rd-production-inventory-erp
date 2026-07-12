@@ -45,6 +45,16 @@ public class RdOutboundOrderRespVO {
     private BigDecimal weight;
     @ExcelProperty("状态")
     private String status;
+    private Integer version;
+    private String submitterName;
+    private LocalDateTime submitTime;
+    private String reviewerName;
+    private LocalDateTime reviewTime;
+    private String posterName;
+    private LocalDateTime postTime;
+    private String reverserName;
+    private LocalDateTime reverseTime;
+    private String reverseReason;
     @ExcelProperty("备注")
     private String remark;
     @ExcelProperty("创建时间")

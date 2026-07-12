@@ -98,6 +98,15 @@ public interface ErrorCodeConstants {
     ErrorCode OUTBOUND_ORDER_STOCK_INSUFFICIENT = new ErrorCode(1_080_500_006, "已锁定库存不足，无法确认出库");
     ErrorCode OUTBOUND_ORDER_DRAFT_EXISTS = new ErrorCode(1_080_500_007, "该匹配记录已有出库草稿，请先处理原草稿");
     ErrorCode OUTBOUND_ORDER_REVERSE_INSUFFICIENT = new ErrorCode(1_080_500_008, "出库数量已被后续业务占用，无法撤销");
+    ErrorCode OUTBOUND_ORDER_STATUS_INVALID = new ErrorCode(1_080_500_009, "当前出库单状态不允许执行该操作");
+    ErrorCode OUTBOUND_PACKAGE_NOT_EXISTS = new ErrorCode(1_080_500_010, "包码不存在");
+    ErrorCode OUTBOUND_PACKAGE_STATUS_INVALID = new ErrorCode(1_080_500_011, "包码不是在库状态，不能扫描出库");
+    ErrorCode OUTBOUND_PACKAGE_DUPLICATE = new ErrorCode(1_080_500_012, "该包码已扫描，请勿重复扫描");
+    ErrorCode OUTBOUND_PACKAGE_MISMATCH = new ErrorCode(1_080_500_013, "包码与销售订单客户、型号或分配批次不一致");
+    ErrorCode OUTBOUND_ORDER_EMPTY = new ErrorCode(1_080_500_014, "出库单尚未扫描包码");
+    ErrorCode OUTBOUND_ORDER_SELF_REVIEW = new ErrorCode(1_080_500_015, "制单人不能审核本人提交的出库单");
+    ErrorCode OUTBOUND_ORDER_VERSION_CONFLICT = new ErrorCode(1_080_500_016, "出库单已被其他人员更新，请刷新后重试");
+    ErrorCode OUTBOUND_PACKAGE_REMOVE_INVALID = new ErrorCode(1_080_500_017, "当前状态不能移除已扫描包码");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

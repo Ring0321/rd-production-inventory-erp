@@ -3,7 +3,6 @@ package com.ruiding.erp.controller.admin.outbound.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
-import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
@@ -32,9 +31,7 @@ public class RdOutboundOrderSaveReqVO {
     @NotNull(message = "订单匹配记录不能为空")
     private Long fulfillmentId;
 
-    @Schema(description = "出库数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "20")
-    @NotNull(message = "出库数量不能为空")
-    @DecimalMin(value = "0.000001", message = "出库数量必须大于 0")
+    @Schema(description = "出库数量由扫描包码自动计算", example = "20")
     private BigDecimal quantity;
 
     @Schema(description = "备注")

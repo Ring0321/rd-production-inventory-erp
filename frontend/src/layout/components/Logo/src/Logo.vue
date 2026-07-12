@@ -71,10 +71,7 @@ watch(
       ]"
       to="/"
     >
-      <img
-        class="h-[calc(var(--logo-height)-10px)] w-[calc(var(--logo-height)-10px)]"
-        src="@/assets/imgs/logo.png"
-      />
+      <div class="rd-logo-mark">RD</div>
       <div
         v-if="show"
         :class="[
@@ -93,3 +90,19 @@ watch(
     </router-link>
   </div>
 </template>
+
+<style scoped>
+.rd-logo-mark {
+  display: grid;
+  width: calc(var(--logo-height) - 14px);
+  height: calc(var(--logo-height) - 14px);
+  flex: none;
+  place-items: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 6px;
+  background: #1f5a80;
+}
+</style>

@@ -1,96 +1,60 @@
 <template>
-  <el-drawer
-    v-model="drawerVisible"
-    :title="drawerTitle"
-    size="760px"
-    class="outbound-detail-drawer"
-  >
+  <el-drawer v-model="visible" title="出库单详情" size="min(760px, 100vw)">
     <div v-loading="loading">
-      <el-descriptions v-if="outboundOrder" :column="2" border>
-        <el-descriptions-item label="出库单号">{{ outboundOrder.outboundNo }}</el-descriptions-item>
-        <el-descriptions-item label="出库日期">{{ outboundOrder.outboundDate }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="statusMap[outboundOrder.status]?.type || 'info'">
-            {{ statusMap[outboundOrder.status]?.label || outboundOrder.status }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ outboundOrder.createTime || '-' }}</el-descriptions-item>
+      <el-descriptions v-if="detail" :column="2" border>
+        <el-descriptions-item label="出库单号">{{ detail.order.outboundNo }}</el-descriptions-item>
+        <el-descriptions-item label="状态">{{ detail.order.status }}</el-descriptions-item>
+        <el-descriptions-item label="出库日期">{{
+          detail.order.outboundDate
+        }}</el-descriptions-item>
+        <el-descriptions-item label="销售订单">{{
+          detail.order.orderNo || detail.order.orderId
+        }}</el-descriptions-item>
+        <el-descriptions-item label="客户">{{ detail.order.customerName }}</el-descriptions-item>
+        <el-descriptions-item label="型号">{{ detail.order.productModel }}</el-descriptions-item>
+        <el-descriptions-item label="包数">{{ detail.order.quantity }}</el-descriptions-item>
+        <el-descriptions-item label="重量">{{ detail.order.weight }} kg</el-descriptions-item>
+        <el-descriptions-item label="提交人">{{
+          detail.order.submitterName || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="审核人">{{
+          detail.order.reviewerName || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="过账人">{{
+          detail.order.posterName || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="撤销原因">{{
+          detail.order.reverseReason || '-'
+        }}</el-descriptions-item>
       </el-descriptions>
-
-      <el-divider content-position="left">订单与库存批次</el-divider>
-
-      <el-descriptions v-if="outboundOrder" :column="2" border>
-        <el-descriptions-item label="销售订单">{{ outboundOrder.orderNo || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="客户">{{ outboundOrder.customerName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="型号">{{ outboundOrder.productModel || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="货位">{{ outboundOrder.locationCode || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="生产炉号">{{ outboundOrder.furnaceNo || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="所在炉层">{{ outboundOrder.furnaceLayer || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="分配记录 ID">{{ outboundOrder.fulfillmentId }}</el-descriptions-item>
-        <el-descriptions-item label="库存批次 ID">{{ outboundOrder.stockLotId }}</el-descriptions-item>
-      </el-descriptions>
-
-      <el-divider content-position="left">出库数量</el-divider>
-
-      <el-descriptions v-if="outboundOrder" :column="3" border>
-        <el-descriptions-item label="出库数量">{{ outboundOrder.quantity }}</el-descriptions-item>
-        <el-descriptions-item label="单包重量">{{ outboundOrder.packageWeight }}</el-descriptions-item>
-        <el-descriptions-item label="出库重量">{{ outboundOrder.weight }}</el-descriptions-item>
-      </el-descriptions>
-
-      <el-divider content-position="left">备注</el-divider>
-      <div class="remark-block">{{ outboundOrder?.remark || '-' }}</div>
+      <el-divider content-position="left">扫描包码明细</el-divider>
+      <el-table :data="detail?.lines || []" max-height="500">
+        <el-table-column prop="packageCode" label="包码" min-width="150" />
+        <el-table-column prop="locationCode" label="货位" width="90" />
+        <el-table-column prop="furnaceNo" label="炉号" width="120" />
+        <el-table-column prop="furnaceLayer" label="炉层" width="100" />
+        <el-table-column prop="packageWeight" label="重量(kg)" width="110" align="right" />
+        <el-table-column prop="scannerName" label="扫描人" width="110" />
+      </el-table>
     </div>
   </el-drawer>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { RdOutboundOrderApi } from '@/api/rd/outbound'
-import type { RdOutboundOrderVO } from '@/api/rd/outbound'
-
-defineOptions({ name: 'RdOutboundOrderDetailDrawer' })
-
-const drawerVisible = ref(false)
+import { ref } from 'vue'
+import { RdOutboundOrderApi, type RdOutboundOrderDetailVO } from '@/api/rd/outbound'
+defineOptions({ name: 'RdOutboundDetailDrawer' })
+const visible = ref(false)
 const loading = ref(false)
-const outboundOrder = ref<RdOutboundOrderVO>()
-type StatusTagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
-const drawerTitle = computed(() => {
-  return outboundOrder.value ? `出库单 - ${outboundOrder.value.outboundNo}` : '出库单详情'
-})
-const statusOptions: Array<{ label: string; value: string; type: StatusTagType }> = [
-  { label: '草稿', value: 'DRAFT', type: 'info' },
-  { label: '已确认', value: 'CONFIRMED', type: 'success' },
-  { label: '已撤销', value: 'CANCELLED', type: 'danger' }
-]
-const statusMap = statusOptions.reduce(
-  (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: StatusTagType }>
-)
-
+const detail = ref<RdOutboundOrderDetailVO>()
 const open = async (id: number) => {
-  drawerVisible.value = true
+  visible.value = true
   loading.value = true
   try {
-    outboundOrder.value = await RdOutboundOrderApi.get(id)
+    detail.value = await RdOutboundOrderApi.getDetail(id)
   } finally {
     loading.value = false
   }
 }
 defineExpose({ open })
 </script>
-
-<style scoped>
-:global(.outbound-detail-drawer) {
-  max-width: 94%;
-}
-
-.remark-block {
-  min-height: 72px;
-  padding: 12px;
-  border: 1px solid var(--el-border-color-lighter);
-  color: var(--el-text-color-regular);
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-</style>

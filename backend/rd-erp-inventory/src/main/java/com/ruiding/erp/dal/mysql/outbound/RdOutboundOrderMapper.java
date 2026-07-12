@@ -22,7 +22,11 @@ public interface RdOutboundOrderMapper extends BaseMapperX<RdOutboundOrderDO> {
     default RdOutboundOrderDO selectDraftByFulfillmentId(Long fulfillmentId) {
         return selectOne(new LambdaQueryWrapperX<RdOutboundOrderDO>()
                 .eq(RdOutboundOrderDO::getFulfillmentId, fulfillmentId)
-                .eq(RdOutboundOrderDO::getStatus, RdOutboundOrderStatusEnum.DRAFT.getStatus()));
+                .in(RdOutboundOrderDO::getStatus,
+                        RdOutboundOrderStatusEnum.DRAFT.getStatus(),
+                        RdOutboundOrderStatusEnum.SCANNING.getStatus(),
+                        RdOutboundOrderStatusEnum.SUBMITTED.getStatus(),
+                        RdOutboundOrderStatusEnum.APPROVED.getStatus()));
     }
 
     default PageResult<RdOutboundOrderDO> selectPage(RdOutboundOrderPageReqVO reqVO) {

@@ -1003,7 +1003,21 @@ CREATE TABLE `rd_outbound_order` (
   `quantity` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Outbound quantity',
   `package_weight` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Single package weight',
   `weight` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Outbound weight',
-  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT/CONFIRMED/CANCELLED',
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT/SCANNING/SUBMITTED/APPROVED/POSTED/REVERSED/CANCELLED',
+  `version` int NOT NULL DEFAULT '0' COMMENT 'Optimistic version',
+  `submitter_id` bigint DEFAULT NULL COMMENT 'Submitter user ID',
+  `submitter_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Submitter name',
+  `submit_time` datetime DEFAULT NULL COMMENT 'Submit time',
+  `reviewer_id` bigint DEFAULT NULL COMMENT 'Reviewer user ID',
+  `reviewer_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Reviewer name',
+  `review_time` datetime DEFAULT NULL COMMENT 'Review time',
+  `poster_id` bigint DEFAULT NULL COMMENT 'Posting user ID',
+  `poster_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Posting user name',
+  `post_time` datetime DEFAULT NULL COMMENT 'Posting time',
+  `reverser_id` bigint DEFAULT NULL COMMENT 'Reversal user ID',
+  `reverser_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Reversal user name',
+  `reverse_time` datetime DEFAULT NULL COMMENT 'Reversal time',
+  `reverse_reason` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Reversal reason',
   `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Remark',
   `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1017,6 +1031,35 @@ CREATE TABLE `rd_outbound_order` (
   KEY `idx_rd_outbound_fulfillment_status` (`tenant_id`,`fulfillment_id`,`status`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD outbound order';
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `rd_outbound_order_line`;
+CREATE TABLE `rd_outbound_order_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Outbound line ID',
+  `tenant_id` bigint NOT NULL DEFAULT '1' COMMENT 'Tenant ID',
+  `order_id` bigint NOT NULL COMMENT 'Outbound order ID',
+  `package_id` bigint NOT NULL COMMENT 'Package unit ID',
+  `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Package code',
+  `stock_lot_id` bigint NOT NULL COMMENT 'Stock lot ID',
+  `stock_transaction_id` bigint DEFAULT NULL COMMENT 'Posting transaction ID',
+  `location_id` bigint DEFAULT NULL COMMENT 'Location ID',
+  `location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Location code',
+  `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Customer',
+  `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Product model',
+  `furnace_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Furnace number',
+  `furnace_layer` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Furnace layer',
+  `package_weight` decimal(24,6) NOT NULL COMMENT 'Actual package weight',
+  `scan_device` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Scan device',
+  `scanner_id` bigint DEFAULT NULL COMMENT 'Scanner user ID',
+  `scanner_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Scanner name',
+  `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_outbound_line_package` (`tenant_id`,`order_id`,`package_id`,`deleted`),
+  KEY `idx_rd_outbound_line_order` (`tenant_id`,`order_id`,`deleted`,`id`),
+  KEY `idx_rd_outbound_line_package` (`tenant_id`,`package_code`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD scanned outbound packages';
 DROP TABLE IF EXISTS `rd_production_output`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1323,6 +1366,11 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600210, '出库单确认', 'rd:outbound-order:confirm', 3, 30, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600211, '出库单撤销', 'rd:outbound-order:cancel', 3, 40, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600212, '出库单导出', 'rd:outbound-order:export', 3, 50, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600250, '出库扫码', 'rd:outbound-scan:scan', 3, 60, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600251, '出库提交', 'rd:outbound-scan:submit', 3, 70, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600252, '出库审核', 'rd:outbound-scan:approve', 3, 80, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600253, '出库过账', 'rd:outbound-scan:post', 3, 90, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600254, '出库反向撤销', 'rd:outbound-scan:reverse', 3, 100, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600213, '库存动态明细', 'rd:stock-matrix:query', 2, 25, 600200, 'matrix', 'ep:grid', 'rd/stock/matrix/index', 'RdStockMatrix', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600301, '销售订单', 'rd:sale-order:query', 2, 10, 600300, 'sale', 'ep:document', 'rd/order/sale/index', 'RdSaleOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
@@ -1573,3 +1621,19 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600006,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
 WHERE id IN (600000,600225,600226,600230,600233,600236,600240,600241,600242,600243);
+
+INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600007,'RD_WAREHOUSE_OPERATOR','库房操作岗',22,0,'包码扫码、出入库制单与盘点录入','system',NOW(),'system',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
+
+INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_dept_ids`,`status`,`type`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600007,'库房操作','rd_warehouse_operator',22,1,'',0,2,'扫码入库、扫码出库和盘点录入','system',NOW(),'system',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`deleted`=b'0',`tenant_id`=1;
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600007,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
+WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600236,600244,600250,600251);
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)
+UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600252,600254);

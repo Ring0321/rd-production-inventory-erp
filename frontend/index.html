@@ -1,18 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="keywords"
-      content="瑞鼎生产库存订单ERP"
-    />
-    <meta
-      name="description"
-      content="瑞鼎生产库存订单ERP"
-    />
+    <meta name="keywords" content="瑞鼎生产库存订单ERP" />
+    <meta name="description" content="瑞鼎生产库存订单ERP" />
     <title>%VITE_APP_TITLE%</title>
   </head>
   <body>
@@ -48,8 +42,15 @@
         }
 
         .app-loading .app-loading-logo {
-          width: 100px;
+          display: grid;
+          width: 64px;
+          height: 64px;
           margin: 0 auto 15px auto;
+          place-items: center;
+          color: #fff;
+          font-size: 24px;
+          border-radius: 8px;
+          background: #1f5a80;
         }
 
         .app-loading .app-loading-item {
@@ -136,7 +137,7 @@
       <div class="app-loading">
         <div class="app-loading-wrap">
           <div class="app-loading-title">
-            <img src="/logo.gif" class="app-loading-logo" alt="Logo" />
+            <div class="app-loading-logo" aria-label="瑞鼎 ERP">RD</div>
             <div class="app-loading-title">%VITE_APP_TITLE%</div>
           </div>
           <div class="app-loading-item">

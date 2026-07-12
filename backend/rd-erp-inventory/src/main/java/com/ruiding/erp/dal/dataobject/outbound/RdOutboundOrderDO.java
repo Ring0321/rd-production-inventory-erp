@@ -10,6 +10,7 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * RD outbound order DO.
@@ -32,6 +33,20 @@ public class RdOutboundOrderDO extends TenantBaseDO {
     private BigDecimal packageWeight;
     private BigDecimal weight;
     private String status;
+    private Integer version;
+    private Long submitterId;
+    private String submitterName;
+    private LocalDateTime submitTime;
+    private Long reviewerId;
+    private String reviewerName;
+    private LocalDateTime reviewTime;
+    private Long posterId;
+    private String posterName;
+    private LocalDateTime postTime;
+    private Long reverserId;
+    private String reverserName;
+    private LocalDateTime reverseTime;
+    private String reverseReason;
     private String remark;
 
 }

@@ -239,6 +239,27 @@ CREATE TABLE IF NOT EXISTS `rd_scan_event` (
   PRIMARY KEY (`id`), KEY `idx_rd_scan_package_time` (`tenant_id`,`package_code`,`scan_time`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+SET @outbound_workflow_columns = (SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'rd_outbound_order' AND column_name = 'submitter_id');
+SET @outbound_workflow_sql = IF(@outbound_workflow_columns = 0,
+  'ALTER TABLE rd_outbound_order ADD COLUMN version int NOT NULL DEFAULT 0 AFTER status, ADD COLUMN submitter_id bigint DEFAULT NULL AFTER version, ADD COLUMN submitter_name varchar(64) DEFAULT NULL AFTER submitter_id, ADD COLUMN submit_time datetime DEFAULT NULL AFTER submitter_name, ADD COLUMN reviewer_id bigint DEFAULT NULL AFTER submit_time, ADD COLUMN reviewer_name varchar(64) DEFAULT NULL AFTER reviewer_id, ADD COLUMN review_time datetime DEFAULT NULL AFTER reviewer_name, ADD COLUMN poster_id bigint DEFAULT NULL AFTER review_time, ADD COLUMN poster_name varchar(64) DEFAULT NULL AFTER poster_id, ADD COLUMN post_time datetime DEFAULT NULL AFTER poster_name, ADD COLUMN reverser_id bigint DEFAULT NULL AFTER post_time, ADD COLUMN reverser_name varchar(64) DEFAULT NULL AFTER reverser_id, ADD COLUMN reverse_time datetime DEFAULT NULL AFTER reverser_name, ADD COLUMN reverse_reason varchar(512) DEFAULT NULL AFTER reverse_time',
+  'SELECT 1');
+PREPARE outbound_workflow_stmt FROM @outbound_workflow_sql; EXECUTE outbound_workflow_stmt; DEALLOCATE PREPARE outbound_workflow_stmt;
+
+CREATE TABLE IF NOT EXISTS `rd_outbound_order_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `order_id` bigint NOT NULL,
+  `package_id` bigint NOT NULL, `package_code` varchar(32) NOT NULL, `stock_lot_id` bigint NOT NULL,
+  `stock_transaction_id` bigint DEFAULT NULL, `location_id` bigint DEFAULT NULL, `location_code` varchar(64) DEFAULT NULL,
+  `customer_name` varchar(128) NOT NULL, `product_model` varchar(128) NOT NULL, `furnace_no` varchar(64) NOT NULL,
+  `furnace_layer` varchar(32) NOT NULL, `package_weight` decimal(24,6) NOT NULL, `scan_device` varchar(64) DEFAULT NULL,
+  `scanner_id` bigint DEFAULT NULL, `scanner_name` varchar(64) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_rd_outbound_line_package` (`tenant_id`,`order_id`,`package_id`,`deleted`),
+  KEY `idx_rd_outbound_line_order` (`tenant_id`,`order_id`,`deleted`,`id`),
+  KEY `idx_rd_outbound_line_package` (`tenant_id`,`package_code`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET @stock_idem_index = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE()
   AND table_name = 'rd_stock_transaction' AND index_name = 'uk_rd_stock_txn_idempotency');
 SET @stock_idem_sql = IF(@stock_idem_index = 0,
@@ -376,10 +397,15 @@ INSERT INTO `system_menu`
 (600247,'入库单复核','rd:inbound-order:verify',3,247,600000,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
 (600248,'入库单过账','rd:inbound-order:post',3,248,600000,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
 (600249,'入库单撤销','rd:inbound-order:reverse',3,249,600000,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600250,'出库扫码','rd:outbound-scan:scan',3,250,600207,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600251,'出库提交','rd:outbound-scan:submit',3,251,600207,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600252,'出库审核','rd:outbound-scan:approve',3,252,600207,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600253,'出库过账','rd:outbound-scan:post',3,253,600207,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600254,'出库反向撤销','rd:outbound-scan:reverse',3,254,600207,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`deleted`=b'0',`update_time`=NOW();
 
 DELETE FROM `system_role_menu`
-WHERE `tenant_id` = 1 AND `role_id` IN (600001,600002,600003,600004,600005);
+WHERE `tenant_id` = 1 AND `role_id` IN (600001,600002,600003,600004,600005,600006,600007);
 
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
 SELECT 600001, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600224,600500,600501)
@@ -421,6 +447,22 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600006,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu
 WHERE id IN (600000,600225,600226,600230,600233,600236,600240,600241,600242,600243);
+
+INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600007,'RD_WAREHOUSE_OPERATOR','库房操作岗',22,0,'包码扫码、出入库制单与盘点录入','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
+
+INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_dept_ids`,`status`,`type`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600007,'库房操作','rd_warehouse_operator',22,1,'',0,2,'扫码入库、扫码出库和盘点录入','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`deleted`=b'0',`tenant_id`=1;
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600007,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu
+WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600236,600244,600250,600251);
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)
+UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600252,600254);
 
 COMMIT;
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;

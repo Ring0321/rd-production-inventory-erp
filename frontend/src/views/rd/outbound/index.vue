@@ -1,33 +1,11 @@
 <template>
   <ContentWrap>
-    <el-form
-      ref="queryFormRef"
-      :model="queryParams"
-      :inline="true"
-      class="-mb-15px"
-      label-width="68px"
-    >
-      <el-form-item label="出库日期" prop="outboundDate">
-        <el-date-picker
-          v-model="queryParams.outboundDate"
-          type="daterange"
-          value-format="YYYY-MM-DD"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="出库单号" prop="outboundNo">
-        <el-input
-          v-model="queryParams.outboundNo"
-          placeholder="请输入出库单号"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
+    <el-form ref="queryFormRef" :model="query" inline>
+      <el-form-item label="出库单号" prop="outboundNo"
+        ><el-input v-model="query.outboundNo" clearable
+      /></el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable class="!w-240px">
+        <el-select v-model="query.status" clearable class="!w-150px">
           <el-option
             v-for="item in statusOptions"
             :key="item.value"
@@ -37,205 +15,175 @@
         </el-select>
       </el-form-item>
       <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+        <el-button type="primary" @click="search"><Icon icon="ep:search" />查询</el-button>
+        <el-button @click="reset"><Icon icon="ep:refresh" />重置</el-button>
         <el-button
           type="primary"
           plain
-          @click="openForm('create')"
+          @click="formRef?.open('create')"
           v-hasPermi="['rd:outbound-order:create']"
         >
-          <Icon icon="ep:plus" class="mr-5px" /> 新增
-        </el-button>
-        <el-button
-          type="success"
-          plain
-          :loading="exportLoading"
-          @click="handleExport"
-          v-hasPermi="['rd:outbound-order:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
+          <Icon icon="ep:plus" />新建出库单
         </el-button>
       </el-form-item>
     </el-form>
   </ContentWrap>
-
   <ContentWrap>
-    <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="出库单号" prop="outboundNo" min-width="165" />
-      <el-table-column label="日期" prop="outboundDate" align="center" width="110" />
-      <el-table-column label="销售订单" prop="orderNo" min-width="150" />
-      <el-table-column label="客户" prop="customerName" min-width="140" />
-      <el-table-column label="型号" prop="productModel" min-width="120" />
-      <el-table-column label="货位" prop="locationCode" align="center" width="90" />
-      <el-table-column label="生产炉号" prop="furnaceNo" min-width="120" />
-      <el-table-column label="炉层" prop="furnaceLayer" align="center" width="90" />
-      <el-table-column label="出库数量" prop="quantity" align="right" width="105" />
-      <el-table-column label="出库重量" prop="weight" align="right" width="105" />
-      <el-table-column label="状态" prop="status" align="center" width="100">
-        <template #default="scope">
-          <el-tag :type="statusMap[scope.row.status]?.type || 'info'">
-            {{ statusMap[scope.row.status]?.label || scope.row.status }}
-          </el-tag>
-        </template>
+    <el-table v-loading="loading" :data="list">
+      <el-table-column prop="outboundNo" label="出库单号" min-width="155" fixed="left" />
+      <el-table-column prop="outboundDate" label="日期" width="110" />
+      <el-table-column prop="orderNo" label="销售订单" min-width="140" />
+      <el-table-column prop="customerName" label="客户" min-width="140" />
+      <el-table-column prop="productModel" label="型号" min-width="120" />
+      <el-table-column prop="locationCode" label="货位" width="90" />
+      <el-table-column prop="furnaceNo" label="炉号" width="115" />
+      <el-table-column prop="furnaceLayer" label="炉层" width="95" />
+      <el-table-column prop="quantity" label="包数" width="80" align="right" />
+      <el-table-column prop="weight" label="重量(kg)" width="115" align="right" />
+      <el-table-column label="状态" width="100">
+        <template #default="scope"
+          ><el-tag :type="statusMap[scope.row.status]?.type || 'info'">{{
+            statusMap[scope.row.status]?.label || scope.row.status
+          }}</el-tag></template
+        >
       </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="240">
+      <el-table-column label="操作" width="310" fixed="right">
         <template #default="scope">
+          <el-button link type="primary" @click="detailRef?.open(scope.row.id)">详情</el-button>
           <el-button
+            v-if="['DRAFT', 'SCANNING'].includes(scope.row.status)"
             link
             type="primary"
-            @click="openDetail(scope.row.id)"
-            v-hasPermi="['rd:outbound-order:query']"
+            @click="scanRef?.open(scope.row.id)"
+            v-hasPermi="['rd:outbound-scan:scan']"
+            >扫码</el-button
           >
-            详情
-          </el-button>
           <el-button
+            v-if="scope.row.status === 'DRAFT'"
             link
             type="primary"
-            :disabled="scope.row.status !== 'DRAFT'"
-            @click="openForm('update', scope.row.id)"
+            @click="formRef?.open('update', scope.row.id)"
             v-hasPermi="['rd:outbound-order:update']"
+            >编辑</el-button
           >
-            编辑
-          </el-button>
           <el-button
+            v-if="scope.row.status === 'SUBMITTED'"
             link
             type="success"
-            :disabled="scope.row.status !== 'DRAFT'"
-            @click="handleConfirm(scope.row)"
-            v-hasPermi="['rd:outbound-order:confirm']"
+            @click="approve(scope.row)"
+            v-hasPermi="['rd:outbound-scan:approve']"
+            >审核</el-button
           >
-            确认
-          </el-button>
           <el-button
+            v-if="scope.row.status === 'APPROVED'"
+            link
+            type="success"
+            @click="post(scope.row)"
+            v-hasPermi="['rd:outbound-scan:post']"
+            >过账</el-button
+          >
+          <el-button
+            v-if="scope.row.status === 'POSTED'"
             link
             type="danger"
-            :disabled="scope.row.status === 'CANCELLED'"
-            @click="handleCancel(scope.row)"
-            v-hasPermi="['rd:outbound-order:cancel']"
+            @click="reverse(scope.row)"
+            v-hasPermi="['rd:outbound-scan:reverse']"
+            >撤销</el-button
           >
-            撤销
-          </el-button>
         </template>
       </el-table-column>
     </el-table>
     <Pagination
       :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
+      v-model:page="query.pageNo"
+      v-model:limit="query.pageSize"
+      @pagination="load"
     />
   </ContentWrap>
-
-  <OutboundForm ref="formRef" @success="getList" />
-  <OutboundDetailDrawer ref="detailDrawerRef" />
+  <OutboundForm ref="formRef" @success="load" />
+  <OutboundScanDialog ref="scanRef" @success="load" />
+  <OutboundDetailDrawer ref="detailRef" />
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import download from '@/utils/download'
+import { ElMessageBox } from 'element-plus'
 import { useMessage } from '@/hooks/web/useMessage'
-import { RdOutboundOrderApi } from '@/api/rd/outbound'
-import type { RdOutboundOrderVO } from '@/api/rd/outbound'
+import { RdOutboundOrderApi, type RdOutboundOrderVO } from '@/api/rd/outbound'
 import OutboundForm from './OutboundForm.vue'
+import OutboundScanDialog from './OutboundScanDialog.vue'
 import OutboundDetailDrawer from './OutboundDetailDrawer.vue'
 
 defineOptions({ name: 'RdOutboundOrder' })
-
 const route = useRoute()
 const message = useMessage()
-const loading = ref(true)
-const exportLoading = ref(false)
+const loading = ref(false)
 const list = ref<RdOutboundOrderVO[]>([])
 const total = ref(0)
-const queryFormRef = ref()
 const formRef = ref()
-const detailDrawerRef = ref()
-type StatusTagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
-const queryParams = reactive({
+const scanRef = ref()
+const detailRef = ref()
+const queryFormRef = ref()
+const query = reactive({
   pageNo: 1,
   pageSize: 10,
-  outboundDate: [] as string[],
   outboundNo: undefined as string | undefined,
   status: undefined as string | undefined
 })
-const statusOptions: Array<{ label: string; value: string; type: StatusTagType }> = [
-  { label: '草稿', value: 'DRAFT', type: 'info' },
-  { label: '已确认', value: 'CONFIRMED', type: 'success' },
-  { label: '已撤销', value: 'CANCELLED', type: 'danger' }
-]
-const statusMap = statusOptions.reduce(
-  (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: StatusTagType }>
-)
-
-const getList = async () => {
+const statusOptions = [
+  { value: 'DRAFT', label: '草稿', type: 'info' },
+  { value: 'SCANNING', label: '扫码中', type: 'primary' },
+  { value: 'SUBMITTED', label: '待审核', type: 'warning' },
+  { value: 'APPROVED', label: '已审核', type: 'success' },
+  { value: 'POSTED', label: '已过账', type: 'success' },
+  { value: 'REVERSED', label: '已撤销', type: 'danger' }
+] as const
+const statusMap = Object.fromEntries(statusOptions.map((item) => [item.value, item])) as Record<
+  string,
+  any
+>
+const load = async () => {
   loading.value = true
   try {
-    const data = await RdOutboundOrderApi.getPage(queryParams)
+    const data = await RdOutboundOrderApi.getPage(query)
     list.value = data.list
     total.value = data.total
   } finally {
     loading.value = false
   }
 }
-
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
+const search = () => {
+  query.pageNo = 1
+  load()
 }
-
-const resetQuery = () => {
+const reset = () => {
   queryFormRef.value?.resetFields()
-  handleQuery()
+  search()
 }
-
-const openForm = (type: 'create' | 'update', id?: number, orderId?: number) => {
-  formRef.value?.open(type, id, orderId)
+const approve = async (row: RdOutboundOrderVO) => {
+  await message.confirm(`确认审核通过出库单 ${row.outboundNo} 吗？`)
+  await RdOutboundOrderApi.approve(row.id, row.version)
+  message.success('审核通过')
+  await load()
 }
-
-const openDetail = (id: number) => {
-  detailDrawerRef.value?.open(id)
+const post = async (row: RdOutboundOrderVO) => {
+  await message.confirm(`确认过账 ${row.quantity} 包吗？过账后将正式扣减库存。`)
+  await RdOutboundOrderApi.post(row.id, row.version)
+  message.success('出库过账完成')
+  await load()
 }
-
-const handleConfirm = async (outboundOrder: RdOutboundOrderVO) => {
-  await message.confirm(
-    `确认出库单 ${outboundOrder.outboundNo} 吗？确认后将扣减库存和锁定数量，并实时更新订单状态。`
-  )
-  await RdOutboundOrderApi.confirm(outboundOrder.id)
-  message.success('出库单确认成功')
-  await getList()
+const reverse = async (row: RdOutboundOrderVO) => {
+  const { value } = await ElMessageBox.prompt('请输入撤销原因', `撤销 ${row.outboundNo}`, {
+    inputValidator: (v) => !!v?.trim() || '撤销原因不能为空'
+  })
+  await RdOutboundOrderApi.reverse(row.id, value, row.version)
+  message.success('已生成反向库存流水')
+  await load()
 }
-
-const handleCancel = async (outboundOrder: RdOutboundOrderVO) => {
-  const content =
-    outboundOrder.status === 'CONFIRMED'
-      ? '该出库单已确认。撤销后系统将恢复库存和订单分配数量，并生成反向库存流水。确认继续吗？'
-      : '确认撤销该出库草稿吗？'
-  await message.confirm(content)
-  await RdOutboundOrderApi.cancel(outboundOrder.id)
-  message.success('出库单已撤销')
-  await getList()
-}
-
-const handleExport = async () => {
-  try {
-    await message.exportConfirm()
-    exportLoading.value = true
-    const data = await RdOutboundOrderApi.exportExcel(queryParams)
-    download.excel(data, '出库上线.xls')
-  } catch {
-  } finally {
-    exportLoading.value = false
-  }
-}
-
 onMounted(async () => {
-  await getList()
+  await load()
   const orderId = Number(route.query.orderId || 0)
-  if (orderId > 0) {
-    openForm('create', undefined, orderId)
-  }
+  if (orderId) formRef.value?.open('create', undefined, orderId)
 })
 </script>

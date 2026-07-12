@@ -5,7 +5,6 @@ import { useNow } from '@/hooks/web/useNow'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useUserStore } from '@/store/modules/user'
-import avatarImg from '@/assets/imgs/avatar.gif'
 
 const tagsViewStore = useTagsViewStore()
 
@@ -21,7 +20,7 @@ const showDate = ref(true)
 const { getPrefixCls } = useDesign()
 const prefixCls = getPrefixCls('lock-page')
 
-const avatar = computed(() => userStore.user.avatar || avatarImg)
+const avatar = computed(() => userStore.user.avatar || '')
 const userName = computed(() => userStore.user.nickname ?? 'Admin')
 
 const lockStore = useLockStore()

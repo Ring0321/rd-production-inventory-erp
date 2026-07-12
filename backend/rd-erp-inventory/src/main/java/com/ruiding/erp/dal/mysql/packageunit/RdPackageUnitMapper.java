@@ -16,6 +16,9 @@ public interface RdPackageUnitMapper extends BaseMapperX<RdPackageUnitDO> {
     @Select("SELECT * FROM rd_package_unit WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdPackageUnitDO selectByIdForUpdate(Long id);
 
+    @Select("SELECT * FROM rd_package_unit WHERE package_code = #{packageCode} AND deleted = 0 FOR UPDATE")
+    RdPackageUnitDO selectByPackageCodeForUpdate(String packageCode);
+
     default List<RdPackageUnitDO> selectListByProductionOutputId(Long productionOutputId) {
         return selectList(new LambdaQueryWrapperX<RdPackageUnitDO>()
                 .eq(RdPackageUnitDO::getProductionOutputId, productionOutputId)

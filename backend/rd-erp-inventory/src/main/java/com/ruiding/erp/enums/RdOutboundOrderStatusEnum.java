@@ -6,8 +6,13 @@ package com.ruiding.erp.enums;
 public enum RdOutboundOrderStatusEnum {
 
     DRAFT("DRAFT", "Draft"),
-    CONFIRMED("CONFIRMED", "Confirmed"),
-    CANCELLED("CANCELLED", "Cancelled");
+    SCANNING("SCANNING", "Scanning"),
+    SUBMITTED("SUBMITTED", "Submitted"),
+    APPROVED("APPROVED", "Approved"),
+    POSTED("POSTED", "Posted"),
+    REVERSED("REVERSED", "Reversed"),
+    CANCELLED("CANCELLED", "Cancelled"),
+    CONFIRMED("CONFIRMED", "Legacy confirmed");
 
     private final String status;
     private final String name;

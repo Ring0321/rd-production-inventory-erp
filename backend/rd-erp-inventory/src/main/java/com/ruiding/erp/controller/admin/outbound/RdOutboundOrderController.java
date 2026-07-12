@@ -9,6 +9,11 @@ import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderPageReqVO;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderRespVO;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderSaveReqVO;
+import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundActionReqVO;
+import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderDetailRespVO;
+import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundReverseReqVO;
+import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundScanReqVO;
+import com.ruiding.erp.dal.dataobject.outbound.RdOutboundOrderLineDO;
 import com.ruiding.erp.dal.dataobject.order.RdSaleOrderDO;
 import com.ruiding.erp.dal.dataobject.outbound.RdOutboundOrderDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
@@ -74,10 +79,71 @@ public class RdOutboundOrderController {
     @PutMapping("/confirm")
     @Operation(summary = "确认出库单")
     @Parameter(name = "id", description = "编号", required = true, example = "1")
-    @PreAuthorize("@ss.hasPermission('rd:outbound-order:confirm')")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:post')")
     public CommonResult<Boolean> confirmOutboundOrder(@RequestParam("id") Long id) {
-        outboundOrderService.confirmOutboundOrder(id, getLoginUserId(), getLoginUserNickname());
+        outboundOrderService.postOutboundOrder(id, null, getLoginUserId(), getLoginUserNickname());
         return success(true);
+    }
+
+    @PostMapping("/scan")
+    @Operation(summary = "扫描出库包码")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:scan')")
+    public CommonResult<RdOutboundOrderLineDO> scanPackage(@Valid @RequestBody RdOutboundScanReqVO reqVO) {
+        return success(outboundOrderService.scanPackage(reqVO, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PutMapping("/remove-scan")
+    @Operation(summary = "移除已扫描包码")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:scan')")
+    public CommonResult<Boolean> removeScannedPackage(@RequestParam("id") Long id,
+                                                       @RequestParam("packageId") Long packageId) {
+        outboundOrderService.removeScannedPackage(id, packageId);
+        return success(true);
+    }
+
+    @PostMapping("/submit")
+    @Operation(summary = "提交出库单")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:submit')")
+    public CommonResult<Boolean> submit(@Valid @RequestBody RdOutboundActionReqVO reqVO) {
+        outboundOrderService.submitOutboundOrder(reqVO.getId(), reqVO.getVersion(),
+                getLoginUserId(), getLoginUserNickname());
+        return success(true);
+    }
+
+    @PostMapping("/approve")
+    @Operation(summary = "审核出库单")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:approve')")
+    public CommonResult<Boolean> approve(@Valid @RequestBody RdOutboundActionReqVO reqVO) {
+        outboundOrderService.approveOutboundOrder(reqVO.getId(), reqVO.getVersion(),
+                getLoginUserId(), getLoginUserNickname());
+        return success(true);
+    }
+
+    @PostMapping("/post")
+    @Operation(summary = "过账出库单")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:post')")
+    public CommonResult<Boolean> post(@Valid @RequestBody RdOutboundActionReqVO reqVO) {
+        outboundOrderService.postOutboundOrder(reqVO.getId(), reqVO.getVersion(),
+                getLoginUserId(), getLoginUserNickname());
+        return success(true);
+    }
+
+    @PostMapping("/reverse")
+    @Operation(summary = "反向撤销已过账出库单")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-scan:reverse')")
+    public CommonResult<Boolean> reverse(@Valid @RequestBody RdOutboundReverseReqVO reqVO) {
+        outboundOrderService.reverseOutboundOrder(reqVO.getId(), reqVO.getVersion(), getLoginUserId(),
+                getLoginUserNickname(), reqVO.getReason());
+        return success(true);
+    }
+
+    @GetMapping("/detail")
+    @Operation(summary = "获得出库单及扫描明细")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-order:query')")
+    public CommonResult<RdOutboundOrderDetailRespVO> getDetail(@RequestParam("id") Long id) {
+        return success(new RdOutboundOrderDetailRespVO(
+                buildOutboundOrderRespVO(outboundOrderService.getOutboundOrder(id)),
+                outboundOrderService.getOutboundOrderLines(id)));
     }
 
     @PutMapping("/cancel")
