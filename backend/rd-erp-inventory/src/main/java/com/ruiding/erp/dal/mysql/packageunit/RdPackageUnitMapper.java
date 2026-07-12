@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -31,6 +32,13 @@ public interface RdPackageUnitMapper extends BaseMapperX<RdPackageUnitDO> {
 
     default RdPackageUnitDO selectByPackageCode(String packageCode) {
         return selectOne(RdPackageUnitDO::getPackageCode, packageCode);
+    }
+
+    default List<RdPackageUnitDO> selectListByLocationIdAndStatuses(Long locationId, Collection<String> statuses) {
+        return selectList(new LambdaQueryWrapperX<RdPackageUnitDO>()
+                .eq(RdPackageUnitDO::getLocationId, locationId)
+                .in(statuses != null && !statuses.isEmpty(), RdPackageUnitDO::getStatus, statuses)
+                .orderByAsc(RdPackageUnitDO::getPackageCode));
     }
 
     @Insert("INSERT INTO rd_package_code_sequence "

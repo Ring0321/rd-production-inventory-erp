@@ -22,6 +22,7 @@ public class RdWarehouseLocationDO extends TenantBaseDO {
     private BigDecimal capacityPackages;
     private String allowedCategory;
     private Boolean frozen;
+    private Long stocktakeOrderId;
     private Boolean enabled;
     private String remark;
 }

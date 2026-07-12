@@ -18,7 +18,9 @@ public final class RdPackageStatusMachine {
         allow(RdPackageStatusEnum.QC_REJECTED, RdPackageStatusEnum.QC_PENDING, RdPackageStatusEnum.VOIDED);
         allow(RdPackageStatusEnum.QC_PASSED, RdPackageStatusEnum.INBOUND_PENDING, RdPackageStatusEnum.VOIDED);
         allow(RdPackageStatusEnum.INBOUND_PENDING, RdPackageStatusEnum.IN_STOCK, RdPackageStatusEnum.QC_PASSED);
-        allow(RdPackageStatusEnum.IN_STOCK, RdPackageStatusEnum.OUTBOUND_PENDING, RdPackageStatusEnum.QC_PASSED);
+        allow(RdPackageStatusEnum.IN_STOCK, RdPackageStatusEnum.OUTBOUND_PENDING,
+                RdPackageStatusEnum.QC_PASSED, RdPackageStatusEnum.STOCKTAKE_MISSING);
+        allow(RdPackageStatusEnum.STOCKTAKE_MISSING, RdPackageStatusEnum.IN_STOCK);
         allow(RdPackageStatusEnum.OUTBOUND_PENDING, RdPackageStatusEnum.OUTBOUNDED, RdPackageStatusEnum.IN_STOCK);
     }
 

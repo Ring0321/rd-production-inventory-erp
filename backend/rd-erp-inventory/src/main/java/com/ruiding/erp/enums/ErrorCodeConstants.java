@@ -108,6 +108,19 @@ public interface ErrorCodeConstants {
     ErrorCode OUTBOUND_ORDER_VERSION_CONFLICT = new ErrorCode(1_080_500_016, "出库单已被其他人员更新，请刷新后重试");
     ErrorCode OUTBOUND_PACKAGE_REMOVE_INVALID = new ErrorCode(1_080_500_017, "当前状态不能移除已扫描包码");
 
+    // ========== RD stocktake 1-080-510-000 ==========
+    ErrorCode STOCKTAKE_ORDER_NOT_EXISTS = new ErrorCode(1_080_510_000, "盘点单不存在");
+    ErrorCode STOCKTAKE_ORDER_STATUS_INVALID = new ErrorCode(1_080_510_001, "当前盘点单状态不允许该操作");
+    ErrorCode STOCKTAKE_ORDER_VERSION_CONFLICT = new ErrorCode(1_080_510_002, "盘点单已被其他人员更新，请刷新后重试");
+    ErrorCode STOCKTAKE_LOCATION_INVALID = new ErrorCode(1_080_510_003, "盘点货位不存在、已停用或编码不匹配");
+    ErrorCode STOCKTAKE_LOCATION_FROZEN_BY_OTHER = new ErrorCode(1_080_510_004, "当前货位已被其他盘点单冻结");
+    ErrorCode STOCKTAKE_PACKAGE_NOT_EXISTS = new ErrorCode(1_080_510_005, "盘点包码不存在");
+    ErrorCode STOCKTAKE_PACKAGE_STATUS_INVALID = new ErrorCode(1_080_510_006, "当前包码状态不允许盘点");
+    ErrorCode STOCKTAKE_PACKAGE_DUPLICATE = new ErrorCode(1_080_510_007, "该包码已扫描，请勿重复盘点");
+    ErrorCode STOCKTAKE_PACKAGE_LOCATION_MISMATCH = new ErrorCode(1_080_510_008, "包码不属于当前盘点货位");
+    ErrorCode STOCKTAKE_ORDER_SELF_REVIEW = new ErrorCode(1_080_510_009, "提交人不得审核本人的盘点单");
+    ErrorCode STOCKTAKE_ADJUST_BELOW_LOCKED = new ErrorCode(1_080_510_010, "盘点亏库后库存不能小于已锁定数量");
+
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");
     ErrorCode EXCEL_IMPORT_FILE_INVALID = new ErrorCode(1_080_600_001, "请上传不超过 20 MB 的 xlsx 文件");
