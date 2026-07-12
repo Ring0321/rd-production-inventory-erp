@@ -100,7 +100,7 @@
         :formatter="dateFormatter"
         width="180"
       />
-      <el-table-column label="操作" align="center" fixed="right" width="230">
+      <el-table-column label="操作" align="center" fixed="right" width="310">
         <template #default="scope">
           <el-button
             link
@@ -123,6 +123,15 @@
             v-hasPermi="['rd:production-output:inbound']"
           >
             转入库
+          </el-button>
+          <el-button
+            link
+            type="warning"
+            @click="handleGeneratePackage(scope.row)"
+            :disabled="scope.row.status !== 'CONFIRMED'"
+            v-hasPermi="['rd:package-unit:generate']"
+          >
+            生成包码
           </el-button>
           <el-button
             link
@@ -155,6 +164,7 @@ import { useMessage } from '@/hooks/web/useMessage'
 import OutputForm from './OutputForm.vue'
 import { RdProductionOutputApi } from '@/api/rd/production/output'
 import type { RdProductionOutputVO } from '@/api/rd/production/output'
+import { RdPackageUnitApi } from '@/api/rd/stock/package'
 import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
 
 defineOptions({ name: 'RdProductionOutput' })
@@ -227,6 +237,17 @@ const handleInbound = async (row: RdProductionOutputVO) => {
     await RdProductionOutputApi.inbound(row.id)
     message.success('入库成功')
     await getList()
+  } catch {}
+}
+
+const handleGeneratePackage = async (row: RdProductionOutputVO) => {
+  try {
+    await message.confirm(`确认按实际产额生成 ${row.outputQty} 个包码？生成后不可重复。`)
+    const packages = await RdPackageUnitApi.generate({
+      productionOutputId: row.id,
+      packageCount: row.outputQty
+    })
+    message.success(`已生成 ${packages.length} 个包码`)
   } catch {}
 }
 
