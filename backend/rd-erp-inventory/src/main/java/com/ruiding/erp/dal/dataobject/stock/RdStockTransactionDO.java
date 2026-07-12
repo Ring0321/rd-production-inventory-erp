@@ -32,6 +32,7 @@ public class RdStockTransactionDO extends TenantBaseDO {
     private LocalDate bizDate;
     private String transactionType;
     private Long stockLotId;
+    private Long packageId;
     private Long locationId;
     private String locationCode;
     private String customerName;
@@ -49,6 +50,10 @@ public class RdStockTransactionDO extends TenantBaseDO {
     private Long relatedOrderId;
     private Long operatorId;
     private String operatorName;
+    private String idempotencyKey;
+    private Long reversalTransactionId;
+    private Long reviewerId;
+    private String reviewerName;
     private String remark;
 
 }

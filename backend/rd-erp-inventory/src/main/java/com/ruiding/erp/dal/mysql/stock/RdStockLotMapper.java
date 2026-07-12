@@ -11,6 +11,7 @@ import com.ruiding.erp.enums.RdOrderFulfillmentStatusEnum;
 import com.ruiding.erp.enums.RdStockLotStatusEnum;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.Arrays;
 
@@ -22,6 +23,16 @@ public interface RdStockLotMapper extends BaseMapperX<RdStockLotDO> {
 
     @Select("SELECT * FROM rd_stock_lot WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdStockLotDO selectByIdForUpdate(Long id);
+
+    @Select("SELECT * FROM rd_stock_lot WHERE tenant_id = #{tenantId} AND location_code = #{locationCode} "
+            + "AND customer_name = #{customerName} AND product_model = #{productModel} "
+            + "AND furnace_no = #{furnaceNo} AND furnace_layer = #{furnaceLayer} AND deleted = 0 LIMIT 1 FOR UPDATE")
+    RdStockLotDO selectInboundLotForUpdate(@Param("tenantId") Long tenantId,
+                                           @Param("locationCode") String locationCode,
+                                           @Param("customerName") String customerName,
+                                           @Param("productModel") String productModel,
+                                           @Param("furnaceNo") String furnaceNo,
+                                           @Param("furnaceLayer") String furnaceLayer);
 
     default PageResult<RdStockLotDO> selectMatchCandidatePage(RdOrderStockCandidatePageReqVO reqVO,
                                                               RdSaleOrderDO saleOrder) {

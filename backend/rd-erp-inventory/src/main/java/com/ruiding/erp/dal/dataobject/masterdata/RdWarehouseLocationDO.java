@@ -1,0 +1,27 @@
+package com.ruiding.erp.dal.dataobject.masterdata;
+
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.math.BigDecimal;
+
+@TableName("rd_location")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class RdWarehouseLocationDO extends TenantBaseDO {
+    @TableId private Long id;
+    private String warehouseCode;
+    private String warehouseName;
+    private String areaCode;
+    private String areaName;
+    private String locationCode;
+    private String locationName;
+    private BigDecimal capacityPackages;
+    private String allowedCategory;
+    private Boolean frozen;
+    private Boolean enabled;
+    private String remark;
+}

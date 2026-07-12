@@ -6,12 +6,16 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputPageReqVO;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * RD furnace-layer production output Mapper.
  */
 @Mapper
 public interface RdProductionOutputMapper extends BaseMapperX<RdProductionOutputDO> {
+
+    @Select("SELECT * FROM rd_production_output WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    RdProductionOutputDO selectByIdForUpdate(Long id);
 
     default PageResult<RdProductionOutputDO> selectPage(RdProductionOutputPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<RdProductionOutputDO>()

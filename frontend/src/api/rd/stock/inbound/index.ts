@@ -40,6 +40,7 @@ export interface RdInboundOrderVO {
   version: number
   remark?: string
   createTime?: string
+  lines?: RdInboundOrderLineVO[]
 }
 
 export interface RdInboundOrderCreateReqVO {

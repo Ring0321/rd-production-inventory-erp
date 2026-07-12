@@ -37,6 +37,7 @@ export interface RdQualityInspectionVO {
   version: number
   remark?: string
   createTime?: string
+  items?: RdQualityInspectionItemVO[]
 }
 
 export interface RdQualityInspectionCreateReqVO {

@@ -167,7 +167,7 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="detailVisible" title="质检详情" width="700px">
+  <Dialog v-model="detailVisible" title="质检详情" width="920px">
     <el-descriptions v-if="detail" :column="2" border>
       <el-descriptions-item label="检验单号">{{ detail.inspectionNo }}</el-descriptions-item>
       <el-descriptions-item label="包ID">{{ detail.packageId }}</el-descriptions-item>
@@ -184,6 +184,21 @@
       }}</el-descriptions-item>
       <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
     </el-descriptions>
+    <el-table v-if="detail?.items?.length" :data="detail.items" border class="mt-16px">
+      <el-table-column label="检测项目" prop="itemName" min-width="140" />
+      <el-table-column label="项目编码" prop="itemCode" width="110" />
+      <el-table-column label="下限" prop="standardMin" width="90" align="right" />
+      <el-table-column label="实测值" prop="measuredValue" width="100" align="right" />
+      <el-table-column label="上限" prop="standardMax" width="90" align="right" />
+      <el-table-column label="单位" prop="unit" width="80" />
+      <el-table-column label="判定" width="90" align="center">
+        <template #default="scope">
+          <el-tag :type="scope.row.qualified ? 'success' : 'danger'">
+            {{ scope.row.qualified ? '合格' : '不合格' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+    </el-table>
   </Dialog>
 </template>
 

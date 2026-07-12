@@ -318,7 +318,7 @@ const escapeHtml = (value: unknown) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char] || char
   )
 const buildPrintHtml = (item: RdPackageUnitVO, qrUrl: string) =>
-  `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(item.packageCode)}</title><style>@page{size:100mm 70mm;margin:4mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,"Microsoft YaHei",sans-serif;color:#111}.card{border:2px solid #111;width:92mm;height:62mm;padding:3mm}.title{text-align:center;font-size:18px;font-weight:700;border-bottom:1px solid #111;padding-bottom:2mm}.body{display:grid;grid-template-columns:1fr 28mm;gap:2mm;padding-top:2mm}.row{display:grid;grid-template-columns:22mm 1fr;border-bottom:1px solid #aaa;font-size:11px;line-height:5.2mm}.row span{color:#555}.row strong{overflow-wrap:anywhere}.qr{width:27mm;height:27mm;margin-top:5mm}.code{text-align:center;font-size:9px;overflow-wrap:anywhere}</style></head><body><div class="card"><div class="title">瑞鼎货品标识卡</div><div class="body"><div><div class="row"><span>客户名称</span><strong>${escapeHtml(item.customerName)}</strong></div><div class="row"><span>产品名称</span><strong>${escapeHtml(item.productName || item.productModel)}</strong></div><div class="row"><span>产品型号</span><strong>${escapeHtml(item.productModel)}</strong></div><div class="row"><span>生产日期</span><strong>${escapeHtml(item.productionDate)}</strong></div><div class="row"><span>出炉日期</span><strong>${escapeHtml(item.furnaceOutDate)}</strong></div><div class="row"><span>班次</span><strong>${escapeHtml(item.shiftCode)}</strong></div><div class="row"><span>炉号/炉层</span><strong>${escapeHtml(item.furnaceNo)} / ${escapeHtml(item.furnaceLayer)}</strong></div><div class="row"><span>单包重量</span><strong>${escapeHtml(item.packageWeight)}</strong></div></div><div><img class="qr" src="${qrUrl}"><div class="code">${escapeHtml(item.packageCode)}</div></div></div></div><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}<\/script></body></html>`
+  `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(item.packageCode)}</title><style>@page{size:100mm 76mm;margin:4mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,"Microsoft YaHei",sans-serif;color:#111}.card{border:2px solid #111;width:92mm;height:68mm;padding:3mm}.title{text-align:center;font-size:18px;font-weight:700;border-bottom:1px solid #111;padding-bottom:2mm}.body{display:grid;grid-template-columns:1fr 28mm;gap:2mm;padding-top:2mm}.row{display:grid;grid-template-columns:22mm 1fr;border-bottom:1px solid #aaa;font-size:10px;line-height:4.8mm}.row span{color:#555}.row strong{overflow-wrap:anywhere}.qr{width:27mm;height:27mm;margin-top:8mm}.code{text-align:center;font-size:9px;overflow-wrap:anywhere}</style></head><body><div class="card"><div class="title">瑞鼎货品标识卡</div><div class="body"><div><div class="row"><span>单据日期</span><strong>${escapeHtml(item.productionDate)}</strong></div><div class="row"><span>来源单据</span><strong>SC${escapeHtml(item.productionOutputId)}</strong></div><div class="row"><span>序列号</span><strong>${escapeHtml(item.packageCode)}</strong></div><div class="row"><span>客户名称</span><strong>${escapeHtml(item.customerName)}</strong></div><div class="row"><span>产品名称</span><strong>${escapeHtml(item.productName || item.productModel)}</strong></div><div class="row"><span>产品型号</span><strong>${escapeHtml(item.productModel)}</strong></div><div class="row"><span>出炉日期</span><strong>${escapeHtml(item.furnaceOutDate)}</strong></div><div class="row"><span>生产班别</span><strong>${escapeHtml(item.shiftCode)}</strong></div><div class="row"><span>炉号/炉层</span><strong>${escapeHtml(item.furnaceNo)} / ${escapeHtml(item.furnaceLayer)}</strong></div><div class="row"><span>单包重量</span><strong>${escapeHtml(item.packageWeight)} kg</strong></div></div><div><img class="qr" src="${qrUrl}"><div class="code">${escapeHtml(item.packageCode)}</div></div></div></div><script>window.onload=()=>{window.print()}<\/script></body></html>`
 const printLabel = async (item: RdPackageUnitVO, reprint: boolean) => {
   let reason: string | undefined
   if (reprint) {
@@ -335,8 +335,6 @@ const printLabel = async (item: RdPackageUnitVO, reprint: boolean) => {
     return
   }
   try {
-    if (reprint) await RdPackageUnitApi.reprint({ packageId: item.id, reprintReason: reason })
-    else await RdPackageUnitApi.print({ packageId: item.id })
     const qrUrl = await QRCode.toDataURL(item.qrCode || item.packageCode, {
       width: 360,
       margin: 1,
@@ -345,6 +343,9 @@ const printLabel = async (item: RdPackageUnitVO, reprint: boolean) => {
     printWindow.document.open()
     printWindow.document.write(buildPrintHtml(item, qrUrl))
     printWindow.document.close()
+    await message.confirm('打印窗口已打开。请确认标签已经成功打印，再登记本次打印记录。')
+    if (reprint) await RdPackageUnitApi.reprint({ packageId: item.id, reprintReason: reason })
+    else await RdPackageUnitApi.print({ packageId: item.id })
     message.success(reprint ? '补打记录已登记' : '打印记录已登记')
     previewVisible.value = false
     await handleQuery()

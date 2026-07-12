@@ -827,8 +827,14 @@ CREATE TABLE `rd_location` (
   `tenant_id` bigint NOT NULL DEFAULT '0' COMMENT 'Tenant ID',
   `location_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Location code, e.g. 3-22',
   `location_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Location name',
+  `warehouse_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'FINISHED' COMMENT 'Warehouse code',
   `warehouse_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Warehouse name',
+  `area_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Area code',
   `area_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Area name',
+  `capacity_packages` decimal(24,6) DEFAULT NULL COMMENT 'Capacity in packages',
+  `allowed_category` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Allowed product category',
+  `frozen` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Whether inbound/outbound is frozen',
+  `enabled` bit(1) NOT NULL DEFAULT b'1' COMMENT 'Whether location is enabled',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT 'Status: 0 enabled, 1 disabled',
   `sort` int NOT NULL DEFAULT '0' COMMENT 'Sort',
   `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Remark',
@@ -841,6 +847,122 @@ CREATE TABLE `rd_location` (
   UNIQUE KEY `uk_rd_location_code` (`tenant_id`,`location_code`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD warehouse location';
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `rd_product_master`;
+CREATE TABLE `rd_product_master` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `product_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `product_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL, `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `unit` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '包',
+  `default_package_weight` decimal(24,6) NOT NULL, `quality_standard` text COLLATE utf8mb4_unicode_ci,
+  `enabled` bit(1) NOT NULL DEFAULT b'1', `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_product_master_code` (`tenant_id`,`product_code`,`deleted`),
+  KEY `idx_rd_product_master_option` (`tenant_id`,`enabled`,`deleted`,`customer_name`,`product_model`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD product master';
+
+DROP TABLE IF EXISTS `rd_package_unit`;
+DROP TABLE IF EXISTS `rd_package_code_sequence`;
+CREATE TABLE `rd_package_code_sequence` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL DEFAULT '1',
+  `biz_date` date NOT NULL,
+  `current_value` int NOT NULL DEFAULT '0',
+  `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_package_sequence_date` (`tenant_id`,`biz_date`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD package daily code sequence';
+
+CREATE TABLE `rd_package_unit` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL, `qr_code` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `production_output_id` bigint NOT NULL, `production_date` date NOT NULL, `furnace_out_date` date DEFAULT NULL,
+  `shift_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `product_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `furnace_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `furnace_layer` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `package_weight` decimal(24,6) NOT NULL, `location_id` bigint DEFAULT NULL, `location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `stock_lot_id` bigint DEFAULT NULL, `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL, `version` int NOT NULL DEFAULT 0,
+  `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_package_code` (`tenant_id`,`package_code`,`deleted`), UNIQUE KEY `uk_rd_package_qr` (`tenant_id`,`qr_code`,`deleted`),
+  KEY `idx_rd_package_production` (`tenant_id`,`production_output_id`,`deleted`,`status`),
+  KEY `idx_rd_package_stock` (`tenant_id`,`stock_lot_id`,`location_code`,`status`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD package unit';
+
+DROP TABLE IF EXISTS `rd_quality_inspection`;
+CREATE TABLE `rd_quality_inspection` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `inspection_no` varchar(64) NOT NULL,
+  `package_id` bigint NOT NULL, `status` varchar(32) NOT NULL, `conclusion` varchar(32) DEFAULT NULL, `reject_reason` varchar(512) DEFAULT NULL,
+  `submitter_id` bigint DEFAULT NULL, `submitter_name` varchar(64) DEFAULT NULL, `submit_time` datetime DEFAULT NULL,
+  `reviewer_id` bigint DEFAULT NULL, `reviewer_name` varchar(64) DEFAULT NULL, `review_time` datetime DEFAULT NULL,
+  `version` int NOT NULL DEFAULT 0, `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_quality_no` (`tenant_id`,`inspection_no`,`deleted`), KEY `idx_rd_quality_package` (`tenant_id`,`package_id`,`status`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD quality inspection';
+
+DROP TABLE IF EXISTS `rd_quality_inspection_item`;
+CREATE TABLE `rd_quality_inspection_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `inspection_id` bigint NOT NULL,
+  `item_code` varchar(64) NOT NULL, `item_name` varchar(128) NOT NULL, `standard_min` decimal(24,6) DEFAULT NULL,
+  `standard_max` decimal(24,6) DEFAULT NULL, `measured_value` decimal(24,6) DEFAULT NULL, `unit` varchar(32) DEFAULT NULL,
+  `qualified` bit(1) DEFAULT NULL, `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), KEY `idx_rd_quality_item` (`tenant_id`,`inspection_id`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD quality inspection item';
+
+DROP TABLE IF EXISTS `rd_inbound_order`;
+CREATE TABLE `rd_inbound_order` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `order_no` varchar(64) NOT NULL, `biz_date` date NOT NULL,
+  `source_type` varchar(32) DEFAULT NULL, `production_output_id` bigint DEFAULT NULL, `total_packages` decimal(24,6) NOT NULL DEFAULT 0,
+  `total_weight` decimal(24,6) NOT NULL DEFAULT 0, `status` varchar(32) NOT NULL, `submitter_id` bigint DEFAULT NULL,
+  `submitter_name` varchar(64) DEFAULT NULL, `submit_time` datetime DEFAULT NULL, `reviewer_id` bigint DEFAULT NULL,
+  `reviewer_name` varchar(64) DEFAULT NULL, `review_time` datetime DEFAULT NULL, `poster_id` bigint DEFAULT NULL,
+  `poster_name` varchar(64) DEFAULT NULL, `post_time` datetime DEFAULT NULL, `reverser_id` bigint DEFAULT NULL,
+  `reverser_name` varchar(64) DEFAULT NULL, `reverse_time` datetime DEFAULT NULL, `reverse_reason` varchar(512) DEFAULT NULL,
+  `version` int NOT NULL DEFAULT 0, `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), UNIQUE KEY `uk_rd_inbound_no` (`tenant_id`,`order_no`,`deleted`),
+  KEY `idx_rd_inbound_status_date` (`tenant_id`,`status`,`biz_date`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inbound order';
+
+DROP TABLE IF EXISTS `rd_inbound_order_line`;
+CREATE TABLE `rd_inbound_order_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `order_id` bigint NOT NULL, `package_id` bigint NOT NULL,
+  `location_id` bigint DEFAULT NULL, `location_code` varchar(64) NOT NULL, `quantity` decimal(24,6) NOT NULL DEFAULT 1,
+  `weight` decimal(24,6) NOT NULL, `stock_lot_id` bigint DEFAULT NULL, `stock_transaction_id` bigint DEFAULT NULL,
+  `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), UNIQUE KEY `uk_rd_inbound_package` (`tenant_id`,`package_id`,`deleted`),
+  KEY `idx_rd_inbound_line_order` (`tenant_id`,`order_id`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inbound order line';
+
+DROP TABLE IF EXISTS `rd_label_print_log`;
+CREATE TABLE `rd_label_print_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `package_id` bigint NOT NULL,
+  `template_code` varchar(64) NOT NULL, `print_sequence` int NOT NULL, `reprint` bit(1) NOT NULL DEFAULT b'0',
+  `reprint_reason` varchar(512) DEFAULT NULL, `printer_id` bigint DEFAULT NULL, `printer_name` varchar(64) DEFAULT NULL,
+  `print_time` datetime NOT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), KEY `idx_rd_label_package` (`tenant_id`,`package_id`,`deleted`,`print_sequence`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD label print log';
+
+DROP TABLE IF EXISTS `rd_scan_event`;
+CREATE TABLE `rd_scan_event` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `biz_type` varchar(32) NOT NULL,
+  `biz_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL, `package_code` varchar(32) NOT NULL, `device_code` varchar(64) DEFAULT NULL,
+  `operator_id` bigint DEFAULT NULL, `operator_name` varchar(64) DEFAULT NULL, `success` bit(1) NOT NULL, `error_message` varchar(512) DEFAULT NULL,
+  `scan_time` datetime NOT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), KEY `idx_rd_scan_package_time` (`tenant_id`,`package_code`,`scan_time`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD scan event';
+
 DROP TABLE IF EXISTS `rd_order_fulfillment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1100,6 +1222,7 @@ CREATE TABLE `rd_stock_transaction` (
   `biz_date` date NOT NULL COMMENT 'Business date',
   `transaction_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'OPENING/PRODUCTION_IN/INBOUND/OUTBOUND/TRANSFER_IN/TRANSFER_OUT/RETURN_IN/ADJUST_IN/ADJUST_OUT',
   `stock_lot_id` bigint DEFAULT NULL COMMENT 'Stock lot ID',
+  `package_id` bigint DEFAULT NULL COMMENT 'Package unit ID',
   `location_id` bigint DEFAULT NULL COMMENT 'Location ID',
   `location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Location code',
   `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Customer',
@@ -1117,6 +1240,10 @@ CREATE TABLE `rd_stock_transaction` (
   `related_order_id` bigint DEFAULT NULL COMMENT 'Related sales order ID',
   `operator_id` bigint DEFAULT NULL COMMENT 'Operator user ID',
   `operator_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Operator name',
+  `idempotency_key` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Posting idempotency key',
+  `reversal_transaction_id` bigint DEFAULT NULL COMMENT 'Original transaction ID reversed by this row',
+  `reviewer_id` bigint DEFAULT NULL COMMENT 'Reviewer user ID',
+  `reviewer_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Reviewer name',
   `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Remark',
   `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1129,6 +1256,8 @@ CREATE TABLE `rd_stock_transaction` (
   KEY `idx_rd_stock_txn_source` (`tenant_id`,`source_type`,`source_no`,`deleted`),
   KEY `idx_rd_stock_txn_order` (`tenant_id`,`related_order_id`,`deleted`,`biz_date`,`id`),
   KEY `idx_rd_stock_txn_matrix` (`tenant_id`,`customer_name`,`product_model`,`biz_date`,`stock_lot_id`,`deleted`)
+  ,UNIQUE KEY `uk_rd_stock_txn_idempotency` (`tenant_id`,`idempotency_key`,`deleted`)
+  ,KEY `idx_rd_stock_txn_package` (`tenant_id`,`package_id`,`biz_date`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD inventory movement ledger';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `rd_transfer_order`;
@@ -1381,9 +1510,66 @@ INSERT INTO `system_user_post` (`id`, `user_id`, `post_id`, `creator`, `create_t
 (1, 1, 5, 'system', NOW(), 'system', NOW(), b'0', 1)
 ON DUPLICATE KEY UPDATE `user_id`=VALUES(`user_id`), `post_id`=VALUES(`post_id`), `tenant_id`=1, `deleted`=b'0';
 
+INSERT INTO `system_menu`
+(`id`,`name`,`permission`,`type`,`sort`,`parent_id`,`path`,`icon`,`component`,`component_name`,`status`,`visible`,`keep_alive`,`always_show`,`creator`,`create_time`,`updater`,`update_time`,`deleted`) VALUES
+(600230,'产品资料查询','rd:product-master:query',3,230,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600231,'产品资料新增','rd:product-master:create',3,231,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600232,'产品资料修改','rd:product-master:update',3,232,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600233,'仓库货位查询','rd:warehouse-location:query',3,233,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600234,'仓库货位新增','rd:warehouse-location:create',3,234,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600235,'仓库货位修改','rd:warehouse-location:update',3,235,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600236,'包码查询','rd:package-unit:query',3,236,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600237,'包码生成','rd:package-unit:generate',3,237,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600238,'标签打印','rd:label-print:print',3,238,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600239,'标签补打','rd:label-print:reprint',3,239,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600240,'质检查询','rd:quality-inspection:query',3,240,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600241,'质检创建','rd:quality-inspection:create',3,241,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600242,'质检提交','rd:quality-inspection:submit',3,242,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600243,'质检审核','rd:quality-inspection:approve',3,243,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600244,'入库单查询','rd:inbound-order:query',3,244,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600245,'入库单创建','rd:inbound-order:create',3,245,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600246,'入库单提交','rd:inbound-order:submit',3,246,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600247,'入库单复核','rd:inbound-order:verify',3,247,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600248,'入库单过账','rd:inbound-order:post',3,248,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600249,'入库单撤销','rd:inbound-order:reverse',3,249,600000,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0');
+
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
 SELECT 600001, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600224,600500,600501)
 UNION ALL SELECT 600002, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600200,600201,600202,600203,600204,600205,600206,600207,600208,600209,600210,600211,600212,600213,600220,600221,600222,600223,600224,600400,600401,600402,600403,600404,600405,600406,600500,600501,600502,600503)
 UNION ALL SELECT 600003, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600224,600300,600301,600302,600303,600304,600305,600306,600310,600311,600312,600313,600400,600401,600402,600403,600404,600405,600406,600500,600501)
 UNION ALL SELECT 600004, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (1,108,500,501,1040,1042,1043,1045,600000,600010,600100,600101,600200,600201,600203,600207,600213,600224,600300,600301,600310,600400,600401,600500,600501,600502,600503)
 UNION ALL SELECT 600005, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600200,600201,600203,600207,600213,600220,600224,600300,600301,600310,600400,600401,600500,600501);
+
+INSERT INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600001,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600230,600233,600236,600237,600238,600239,600240,600241,600242,600244,600245,600246)
+UNION ALL SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600230 AND 600249
+UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600230,600233,600236,600240,600243,600244,600247,600248,600249)
+UNION ALL SELECT 600005,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600230,600233,600236,600240,600244);
+
+INSERT INTO `system_menu`
+(`id`,`name`,`permission`,`type`,`sort`,`parent_id`,`path`,`icon`,`component`,`component_name`,`status`,`visible`,`keep_alive`,`always_show`,`creator`,`create_time`,`updater`,`update_time`,`deleted`) VALUES
+(600225,'基础资料','',1,60,600000,'masterdata','ep:files',NULL,NULL,0,b'1',b'1',b'1','system',NOW(),'system',NOW(),b'0'),
+(600226,'质量管理','',1,70,600000,'quality','ep:checked',NULL,NULL,0,b'1',b'1',b'1','system',NOW(),'system',NOW(),b'0')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`type`=VALUES(`type`),`sort`=VALUES(`sort`),`parent_id`=VALUES(`parent_id`),`path`=VALUES(`path`),`icon`=VALUES(`icon`),`status`=0,`visible`=b'1',`deleted`=b'0',`update_time`=NOW();
+
+UPDATE `system_menu` SET `name`='产品资料',`type`=2,`sort`=10,`parent_id`=600225,`path`='product',`icon`='ep:goods',`component`='rd/masterdata/product/index',`component_name`='RdProductMaster',`visible`=b'1',`keep_alive`=b'1' WHERE `id`=600230;
+UPDATE `system_menu` SET `name`='仓库货位',`type`=2,`sort`=20,`parent_id`=600225,`path`='location',`icon`='ep:location',`component`='rd/masterdata/location/index',`component_name`='RdWarehouseLocation',`visible`=b'1',`keep_alive`=b'1' WHERE `id`=600233;
+UPDATE `system_menu` SET `name`='包码库存',`type`=2,`sort`=35,`parent_id`=600200,`path`='package',`icon`='ep:postcard',`component`='rd/stock/package/index',`component_name`='RdPackageUnit',`visible`=b'1',`keep_alive`=b'1' WHERE `id`=600236;
+UPDATE `system_menu` SET `name`='质量检验',`type`=2,`sort`=10,`parent_id`=600226,`path`='inspection',`icon`='ep:circle-check',`component`='rd/quality/inspection/index',`component_name`='RdQualityInspection',`visible`=b'1',`keep_alive`=b'1' WHERE `id`=600240;
+UPDATE `system_menu` SET `name`='入库单',`type`=2,`sort`=40,`parent_id`=600200,`path`='inbound',`icon`='ep:download',`component`='rd/stock/inbound/index',`component_name`='RdInboundOrder',`visible`=b'1',`keep_alive`=b'1' WHERE `id`=600244;
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT role_id, menu_id, 'system', NOW(), 'system', NOW(), b'0', 1
+FROM (SELECT 600001 role_id,600225 menu_id UNION ALL SELECT 600001,600226 UNION ALL SELECT 600002,600225 UNION ALL SELECT 600002,600226 UNION ALL SELECT 600004,600225 UNION ALL SELECT 600004,600226 UNION ALL SELECT 600005,600225 UNION ALL SELECT 600005,600226) x;
+
+INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600006,'RD_QUALITY','质量检验岗',25,0,'质量数据录入、提交、审核与追溯','system',NOW(),'system',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
+
+INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_dept_ids`,`status`,`type`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600006,'质量管理','rd_quality',25,1,'',0,2,'质量检验录入、审核与追溯','system',NOW(),'system',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`deleted`=b'0',`tenant_id`=1;
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600006,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
+WHERE id IN (600000,600225,600226,600230,600233,600236,600240,600241,600242,600243);

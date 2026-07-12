@@ -7,9 +7,11 @@ import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputPageReqV
 import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputSaveReqVO;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
+import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
 import com.ruiding.erp.service.stock.RdStockLotService;
+import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.service.masterdata.RdCustomerProductPair;
 import com.ruiding.erp.service.masterdata.RdCustomerProductService;
 import com.mzt.logapi.context.LogRecordContext;
@@ -26,7 +28,9 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_CANCEL_
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_CANCEL_FAIL_INBOUNDED;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_INBOUND_FAIL_CANCELLED;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_INBOUND_FAIL_INBOUNDED;
-import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_INBOUND_FAIL_LOCATION_EMPTY;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_PACKAGE_REQUIRED;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_PACKAGE_LOCKED;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_USE_INBOUND_ORDER;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_NOT_EXISTS;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_STATUS_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_UPDATE_FAIL_INBOUNDED;
@@ -42,6 +46,8 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
     private RdProductionOutputMapper productionOutputMapper;
     @Resource
     private RdStockLotService stockLotService;
+    @Resource
+    private RdPackageUnitMapper packageUnitMapper;
     @Resource
     private RdCustomerProductService customerProductService;
 
@@ -69,6 +75,7 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
             bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.PRODUCTION_UPDATE_SUCCESS)
     public void updateProductionOutput(RdProductionOutputSaveReqVO updateReqVO) {
         RdProductionOutputDO oldProductionOutput = validateProductionOutputExists(updateReqVO.getId());
+        validatePackageNotGenerated(updateReqVO.getId());
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(oldProductionOutput.getStatus())) {
             throw exception(PRODUCTION_OUTPUT_UPDATE_FAIL_INBOUNDED);
         }
@@ -89,6 +96,7 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
             bizNo = "{{#id}}", success = RdLogRecordConstants.PRODUCTION_CANCEL_SUCCESS)
     public void cancelProductionOutput(Long id) {
         RdProductionOutputDO productionOutput = validateProductionOutputExists(id);
+        validatePackageNotGenerated(id);
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(productionOutput.getStatus())) {
             throw exception(PRODUCTION_OUTPUT_CANCEL_FAIL_INBOUNDED);
         }
@@ -113,14 +121,11 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
         if (RdProductionOutputStatusEnum.CANCELLED.getStatus().equals(productionOutput.getStatus())) {
             throw exception(PRODUCTION_OUTPUT_INBOUND_FAIL_CANCELLED);
         }
-        if (StrUtil.isBlank(productionOutput.getLocationCode())) {
-            throw exception(PRODUCTION_OUTPUT_INBOUND_FAIL_LOCATION_EMPTY);
+        long packageCount = packageUnitMapper == null ? 0 : packageUnitMapper.selectCountByProductionOutputId(id);
+        if (packageCount == 0) {
+            throw exception(PRODUCTION_OUTPUT_PACKAGE_REQUIRED);
         }
-        stockLotService.createProductionInbound(productionOutput);
-        productionOutputMapper.updateById(new RdProductionOutputDO()
-                .setId(id)
-                .setInboundQty(productionOutput.getOutputQty())
-                .setStatus(RdProductionOutputStatusEnum.INBOUNDED.getStatus()));
+        throw exception(PRODUCTION_OUTPUT_USE_INBOUND_ORDER);
     }
 
     private RdProductionOutputDO validateProductionOutputExists(Long id) {
@@ -129,6 +134,12 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
             throw exception(PRODUCTION_OUTPUT_NOT_EXISTS);
         }
         return productionOutput;
+    }
+
+    private void validatePackageNotGenerated(Long productionOutputId) {
+        if (packageUnitMapper.selectCountByProductionOutputId(productionOutputId) > 0) {
+            throw exception(PRODUCTION_OUTPUT_PACKAGE_LOCKED);
+        }
     }
 
     @Override

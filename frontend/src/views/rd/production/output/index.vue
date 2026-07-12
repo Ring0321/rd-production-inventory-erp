@@ -113,19 +113,6 @@
           </el-button>
           <el-button
             link
-            type="success"
-            @click="handleInbound(scope.row)"
-            :disabled="
-              scope.row.status === 'INBOUNDED' ||
-              scope.row.status === 'CANCELLED' ||
-              !scope.row.locationCode
-            "
-            v-hasPermi="['rd:production-output:inbound']"
-          >
-            转入库
-          </el-button>
-          <el-button
-            link
             type="warning"
             @click="handleGeneratePackage(scope.row)"
             :disabled="scope.row.status !== 'CONFIRMED'"
@@ -185,7 +172,11 @@ const queryParams = reactive({
   furnaceNo: undefined as string | undefined,
   status: undefined as string | undefined
 })
-const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
+const statusOptions: Array<{
+  label: string
+  value: string
+  type: 'success' | 'warning' | 'info' | 'danger'
+}> = [
   { label: '草稿', value: 'DRAFT', type: 'info' },
   { label: '已确认', value: 'CONFIRMED', type: 'warning' },
   { label: '已入库', value: 'INBOUNDED', type: 'success' },
@@ -193,7 +184,10 @@ const statusOptions: Array<{ label: string; value: string; type: 'success' | 'wa
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
+  {} as Record<
+    string,
+    { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }
+  >
 )
 
 const getList = async () => {
@@ -227,15 +221,6 @@ const handleCancel = async (id: number) => {
     await message.confirm('确认作废该生产炉层产量吗？作废后不会删除历史记录。')
     await RdProductionOutputApi.cancel(id)
     message.success('作废成功')
-    await getList()
-  } catch {}
-}
-
-const handleInbound = async (row: RdProductionOutputVO) => {
-  try {
-    await message.confirm('确认将该生产炉层产量转入库存吗？入库后会生成库存批次和入库流水。')
-    await RdProductionOutputApi.inbound(row.id)
-    message.success('入库成功')
     await getList()
   } catch {}
 }

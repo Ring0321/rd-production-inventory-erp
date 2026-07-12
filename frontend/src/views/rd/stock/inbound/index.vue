@@ -196,7 +196,7 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="detailVisible" title="入库单详情" width="760px">
+  <Dialog v-model="detailVisible" title="入库单详情" width="980px">
     <el-descriptions v-if="detail" :column="2" border>
       <el-descriptions-item label="入库单号" :span="2">{{ detail.orderNo }}</el-descriptions-item>
       <el-descriptions-item label="业务日期">{{ detail.bizDate }}</el-descriptions-item>
@@ -220,6 +220,15 @@
       }}</el-descriptions-item>
       <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
     </el-descriptions>
+    <el-table v-if="detail?.lines?.length" :data="detail.lines" border class="mt-16px">
+      <el-table-column label="包ID" prop="packageId" width="100" align="center" />
+      <el-table-column label="货位" prop="locationCode" min-width="130" />
+      <el-table-column label="数量（包）" prop="quantity" width="110" align="right" />
+      <el-table-column label="重量（kg）" prop="weight" width="120" align="right" />
+      <el-table-column label="库存批次ID" prop="stockLotId" width="120" align="center" />
+      <el-table-column label="库存流水ID" prop="stockTransactionId" width="120" align="center" />
+      <el-table-column label="备注" prop="remark" min-width="140" />
+    </el-table>
   </Dialog>
 </template>
 

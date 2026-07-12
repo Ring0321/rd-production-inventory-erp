@@ -18,6 +18,9 @@ public interface ErrorCodeConstants {
     ErrorCode PRODUCTION_OUTPUT_INBOUND_FAIL_INBOUNDED = new ErrorCode(1_080_100_005, "生产炉层产量已入库，不能重复入库");
     ErrorCode PRODUCTION_OUTPUT_INBOUND_FAIL_CANCELLED = new ErrorCode(1_080_100_006, "生产炉层产量已作废，无法入库");
     ErrorCode PRODUCTION_OUTPUT_INBOUND_FAIL_LOCATION_EMPTY = new ErrorCode(1_080_100_007, "生产炉层产量货位为空，无法入库");
+    ErrorCode PRODUCTION_OUTPUT_PACKAGE_REQUIRED = new ErrorCode(1_080_100_008, "请先生成包码并完成质检、入库单流程，禁止生产记录直接入库");
+    ErrorCode PRODUCTION_OUTPUT_USE_INBOUND_ORDER = new ErrorCode(1_080_100_009, "生产记录已有包码，请通过质检合格后的入库单完成入库");
+    ErrorCode PRODUCTION_OUTPUT_PACKAGE_LOCKED = new ErrorCode(1_080_100_010, "生产记录已生成包码，不能修改或作废");
 
     // ========== RD stock lot 1-080-200-000 ==========
     ErrorCode STOCK_LOT_NOT_EXISTS = new ErrorCode(1_080_200_000, "库存批次不存在");
@@ -28,6 +31,34 @@ public interface ErrorCodeConstants {
 
     // ========== RD stock transaction 1-080-210-000 ==========
     ErrorCode STOCK_TRANSACTION_NOT_EXISTS = new ErrorCode(1_080_210_000, "库存流水不存在");
+
+    // ========== RD package 1-080-220-000 ==========
+    ErrorCode PACKAGE_NOT_EXISTS = new ErrorCode(1_080_220_000, "包码不存在");
+    ErrorCode PACKAGE_STATUS_INVALID = new ErrorCode(1_080_220_001, "包码当前状态不允许该操作");
+    ErrorCode PACKAGE_ALREADY_GENERATED = new ErrorCode(1_080_220_002, "该生产记录已生成包码，不能重复生成");
+    ErrorCode PACKAGE_COUNT_MISMATCH = new ErrorCode(1_080_220_003, "拆包数量必须等于生产记录产量包数");
+    ErrorCode PACKAGE_DAILY_SEQUENCE_EXHAUSTED = new ErrorCode(1_080_220_004, "当日包码流水已达到 999，请联系管理员调整编码规则");
+    ErrorCode LABEL_REPRINT_REASON_REQUIRED = new ErrorCode(1_080_220_005, "补打标签必须填写补打原因");
+
+    // ========== RD quality 1-080-230-000 ==========
+    ErrorCode QUALITY_INSPECTION_NOT_EXISTS = new ErrorCode(1_080_230_000, "质检单不存在");
+    ErrorCode QUALITY_INSPECTION_STATUS_INVALID = new ErrorCode(1_080_230_001, "质检单当前状态不允许该操作");
+    ErrorCode QUALITY_INSPECTION_SELF_REVIEW = new ErrorCode(1_080_230_002, "制单人不得审核本人质检单");
+    ErrorCode QUALITY_INSPECTION_ITEMS_NOT_QUALIFIED = new ErrorCode(1_080_230_003, "存在未填写或不合格的检测项目，不能审核通过");
+
+    // ========== RD inbound 1-080-240-000 ==========
+    ErrorCode INBOUND_ORDER_NOT_EXISTS = new ErrorCode(1_080_240_000, "入库单不存在");
+    ErrorCode INBOUND_ORDER_STATUS_INVALID = new ErrorCode(1_080_240_001, "入库单当前状态不允许该操作");
+    ErrorCode INBOUND_ORDER_SELF_REVIEW = new ErrorCode(1_080_240_002, "制单人不得复核本人入库单");
+    ErrorCode INBOUND_PACKAGE_QC_REQUIRED = new ErrorCode(1_080_240_003, "仅质检合格包码允许加入入库单");
+    ErrorCode INBOUND_REVERSE_STOCK_USED = new ErrorCode(1_080_240_004, "入库库存已被后续业务占用，无法撤销");
+    ErrorCode INBOUND_PACKAGE_PRODUCTION_MISMATCH = new ErrorCode(1_080_240_005, "包码不属于当前生产记录");
+    ErrorCode INBOUND_LOCATION_INVALID = new ErrorCode(1_080_240_006, "入库货位不存在、已停用、已冻结或编码不匹配");
+
+    // ========== RD master data 1-080-250-000 ==========
+    ErrorCode PRODUCT_MASTER_NOT_EXISTS = new ErrorCode(1_080_250_000, "产品资料不存在");
+    ErrorCode WAREHOUSE_LOCATION_NOT_EXISTS = new ErrorCode(1_080_250_001, "仓库货位不存在");
+    ErrorCode WAREHOUSE_LOCATION_FROZEN = new ErrorCode(1_080_250_002, "仓库货位已冻结，不能入库");
 
     // ========== RD sale order 1-080-300-000 ==========
     ErrorCode SALE_ORDER_NOT_EXISTS = new ErrorCode(1_080_300_000, "销售订单不存在");

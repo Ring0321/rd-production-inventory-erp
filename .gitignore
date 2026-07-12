@@ -2,6 +2,10 @@
 target/
 dist/
 build/
+!frontend/build/
+!frontend/build/vite/
+!frontend/build/vite/index.ts
+!frontend/build/vite/optimize.ts
 .output/
 .vite/
 .cache/
