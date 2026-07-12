@@ -18,6 +18,7 @@ import com.ruiding.erp.enums.RdOutboundOrderStatusEnum;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.service.order.RdSaleOrderService;
 import com.ruiding.erp.service.packageunit.RdScanEventService;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -46,6 +47,7 @@ class RdOutboundScanServiceImplTest {
     @Mock private RdStockTransactionMapper transactionMapper;
     @Mock private RdSaleOrderService saleOrderService;
     @Mock private RdScanEventService scanEventService;
+    @Mock private RdWarehouseLocationFreezeGuard locationFreezeGuard;
     @InjectMocks private RdOutboundOrderServiceImpl service;
 
     @Test

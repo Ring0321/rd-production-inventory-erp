@@ -12,6 +12,7 @@ import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdOrderFulfillmentStatusEnum;
 import com.ruiding.erp.enums.RdStockLotStatusEnum;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,8 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
     private RdStockLotMapper stockLotMapper;
     @Resource
     private RdSaleOrderService saleOrderService;
+    @Resource
+    private RdWarehouseLocationFreezeGuard locationFreezeGuard;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -56,6 +59,7 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
         BigDecimal quantity = allocateReqVO.getQuantity();
         RdSaleOrderDO saleOrder = saleOrderService.changeAllocatedQty(allocateReqVO.getOrderId(), quantity);
         RdStockLotDO stockLot = stockLotMapper.selectByIdForUpdate(allocateReqVO.getStockLotId());
+        locationFreezeGuard.requireMovable(stockLot == null ? null : stockLot.getLocationId());
         validateStockLot(saleOrder, stockLot, quantity);
         if (fulfillmentMapper.selectActive(saleOrder.getId(), stockLot.getId()) != null) {
             throw exception(ORDER_FULFILLMENT_DUPLICATE);
@@ -137,6 +141,7 @@ public class RdOrderFulfillmentServiceImpl implements RdOrderFulfillmentService 
             throw exception(ORDER_FULFILLMENT_STATUS_CANNOT_CANCEL);
         }
         RdStockLotDO stockLot = stockLotMapper.selectByIdForUpdate(fulfillment.getStockLotId());
+        locationFreezeGuard.requireMovable(stockLot == null ? null : stockLot.getLocationId());
         if (stockLot == null) {
             throw exception(STOCK_LOT_NOT_EXISTS);
         }

@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="visible" title="差异查看" width="1080px">
+  <Dialog v-model="visible" title="差异查看" width="min(1080px, calc(100vw - 24px))">
     <div v-loading="loading">
       <el-descriptions v-if="detail" :column="3" border class="mb-16px">
         <el-descriptions-item label="盘点单号">{{ detail.order.stocktakeNo || '-' }}</el-descriptions-item>
@@ -75,8 +75,7 @@ const open = async (id: number) => {
   visible.value = true
   loading.value = true
   try {
-    const response = await RdStocktakeApi.getDifference(id)
-    detail.value = normalizeStocktakeDetail(response)
+    detail.value = normalizeStocktakeDetail(await RdStocktakeApi.getDifference(id))
   } finally {
     loading.value = false
   }

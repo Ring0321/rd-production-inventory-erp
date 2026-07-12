@@ -16,6 +16,7 @@ import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
 import com.ruiding.erp.enums.RdInboundOrderStatusEnum;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,6 +45,7 @@ class RdInboundOrderServiceImplTest {
     @Mock private RdStockTransactionMapper transactionMapper;
     @Mock private RdProductionOutputMapper productionMapper;
     @Mock private RdWarehouseLocationMapper locationMapper;
+    @Mock private RdWarehouseLocationFreezeGuard locationFreezeGuard;
     @InjectMocks private RdInboundOrderServiceImpl service;
 
     @Test

@@ -16,6 +16,7 @@ import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockTransactionMapper;
 import com.ruiding.erp.enums.*;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ public class RdInboundOrderServiceImpl implements RdInboundOrderService {
     @Resource private RdStockTransactionMapper transactionMapper;
     @Resource private RdProductionOutputMapper productionMapper;
     @Resource private RdWarehouseLocationMapper locationMapper;
+    @Resource private RdWarehouseLocationFreezeGuard locationFreezeGuard;
 
     @Override @Transactional(rollbackFor = Exception.class)
     public Long create(LocalDate bizDate, Long productionOutputId, List<RdInboundOrderLineDO> lines, String remark) {
@@ -127,6 +129,7 @@ public class RdInboundOrderServiceImpl implements RdInboundOrderService {
         if (unit == null || !RdPackageStatusEnum.INBOUND_PENDING.getStatus().equals(unit.getStatus())) {
             throw exception(INBOUND_PACKAGE_QC_REQUIRED);
         }
+        locationFreezeGuard.requireMovable(line.getLocationId());
         Long tenantId = TenantContextHolder.getTenantId() == null ? 1L : TenantContextHolder.getTenantId();
         RdStockLotDO lot = stockLotMapper.selectInboundLotForUpdate(tenantId, line.getLocationCode(),
                 unit.getCustomerName(), unit.getProductModel(), unit.getFurnaceNo(), unit.getFurnaceLayer());
@@ -178,6 +181,7 @@ public class RdInboundOrderServiceImpl implements RdInboundOrderService {
             if (unit == null || !RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())) {
                 throw exception(INBOUND_REVERSE_STOCK_USED);
             }
+            locationFreezeGuard.requireMovable(unit.getLocationId());
             RdStockLotDO lot = stockLotMapper.selectByIdForUpdate(line.getStockLotId());
             BigDecimal before = zero(lot.getWarehouseQty());
             BigDecimal after = before.subtract(BigDecimal.ONE);

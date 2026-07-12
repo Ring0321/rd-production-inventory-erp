@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="visible" title="新建库存盘点单" width="620px">
+  <Dialog v-model="visible" title="新建库存盘点单" width="min(620px, calc(100vw - 24px))">
     <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px">
       <el-form-item label="盘点货位" prop="locationId">
         <el-select

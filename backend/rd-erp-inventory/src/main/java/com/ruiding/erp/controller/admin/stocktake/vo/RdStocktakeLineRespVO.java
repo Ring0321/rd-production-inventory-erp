@@ -23,4 +23,5 @@ public class RdStocktakeLineRespVO {
     private String result;
     private String scannerName;
     private LocalDateTime scanTime;
+    private Long stockTransactionId;
 }

@@ -22,6 +22,8 @@ public class RdStocktakeOrderRespVO {
     private BigDecimal surplusQty;
     private BigDecimal bookWeight;
     private BigDecimal countedWeight;
+    private Long businessCreatorId;
+    private String businessCreatorName;
     private String submitterName;
     private LocalDateTime submitTime;
     private String reviewerName;
@@ -30,5 +32,7 @@ public class RdStocktakeOrderRespVO {
     private LocalDateTime adjustTime;
     private String closerName;
     private LocalDateTime closeTime;
+    private String cancellerName;
+    private LocalDateTime cancelTime;
     private String remark;
 }

@@ -3,15 +3,12 @@ import request from '@/config/axios'
 export type RdStocktakeStatus =
   | 'DRAFT'
   | 'FROZEN'
-  | 'SCANNING'
   | 'COUNTING'
   | 'SUBMITTED'
   | 'APPROVED'
-  | 'REVIEWED'
   | 'ADJUSTED'
   | 'CLOSED'
   | 'CANCELLED'
-  | 'CANCELED'
 
 export interface RdStocktakeOrderVO {
   id: number
@@ -28,6 +25,8 @@ export interface RdStocktakeOrderVO {
   surplusQty: number
   bookWeight: number
   countedWeight: number
+  businessCreatorId?: number
+  businessCreatorName?: string
   submitterName?: string
   submitTime?: string
   reviewerName?: string
@@ -36,6 +35,8 @@ export interface RdStocktakeOrderVO {
   adjustTime?: string
   closerName?: string
   closeTime?: string
+  cancellerName?: string
+  cancelTime?: string
   remark?: string
 }
 
@@ -56,6 +57,7 @@ export interface RdStocktakeLineVO {
   result?: string
   scannerName?: string
   scanTime?: string
+  stockTransactionId?: number
 }
 
 export interface RdStocktakeDetailVO {
@@ -92,7 +94,7 @@ export const RdStocktakeApi = {
   getDetail: (id: number) =>
     request.get<RdStocktakeDetailVO>({ url: '/rd/stocktake/detail', params: { id } }),
   getDifference: (id: number) =>
-    request.get<RdStocktakeDetailVO | RdStocktakeLineVO[]>({
+    request.get<RdStocktakeDetailVO>({
       url: '/rd/stocktake/difference',
       params: { id }
     }),
@@ -101,7 +103,7 @@ export const RdStocktakeApi = {
   freeze: (data: RdStocktakeActionReqVO) =>
     request.post<boolean>({ url: '/rd/stocktake/freeze', data }),
   scan: (data: RdStocktakeScanReqVO) =>
-    request.post<boolean>({ url: '/rd/stocktake/scan', data }),
+    request.post<RdStocktakeLineVO>({ url: '/rd/stocktake/scan', data }),
   submit: (data: RdStocktakeActionReqVO) =>
     request.post<boolean>({ url: '/rd/stocktake/submit', data }),
   approve: (data: RdStocktakeActionReqVO) =>

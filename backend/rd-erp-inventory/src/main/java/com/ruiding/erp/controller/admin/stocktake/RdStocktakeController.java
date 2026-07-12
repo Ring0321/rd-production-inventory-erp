@@ -22,8 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.validation.Valid;
-import java.util.List;
-
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserNickname;
@@ -38,7 +36,8 @@ public class RdStocktakeController {
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermission('rd:stocktake:create')")
     public CommonResult<Long> create(@Valid @RequestBody RdStocktakeCreateReqVO reqVO) {
-        return success(stocktakeOrderService.create(reqVO.getLocationId(), reqVO.getStocktakeDate(), reqVO.getRemark()));
+        return success(stocktakeOrderService.create(reqVO.getLocationId(), reqVO.getStocktakeDate(), reqVO.getRemark(),
+                getLoginUserId(), getLoginUserNickname()));
     }
 
     @PostMapping("/freeze")
@@ -107,7 +106,9 @@ public class RdStocktakeController {
 
     @GetMapping("/difference")
     @PreAuthorize("@ss.hasPermission('rd:stocktake:query')")
-    public CommonResult<List<RdStocktakeLineRespVO>> difference(@RequestParam("id") Long id) {
-        return success(BeanUtils.toBean(stocktakeOrderService.getDifference(id), RdStocktakeLineRespVO.class));
+    public CommonResult<RdStocktakeDetailRespVO> difference(@RequestParam("id") Long id) {
+        return success(new RdStocktakeDetailRespVO(
+                BeanUtils.toBean(stocktakeOrderService.get(id), RdStocktakeOrderRespVO.class),
+                BeanUtils.toBean(stocktakeOrderService.getDifference(id), RdStocktakeLineRespVO.class)));
     }
 }

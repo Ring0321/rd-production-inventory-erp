@@ -21,6 +21,7 @@ import com.ruiding.erp.enums.RdStockTransactionTypeEnum;
 import com.ruiding.erp.enums.RdStocktakeOrderStatusEnum;
 import com.ruiding.erp.service.packageunit.RdPackageStatusMachine;
 import com.ruiding.erp.service.packageunit.RdScanEventService;
+import com.ruiding.erp.service.stock.RdStockTransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,10 +60,12 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
     @Resource private RdStockTransactionMapper transactionMapper;
     @Resource private RdWarehouseLocationMapper locationMapper;
     @Resource private RdScanEventService scanEventService;
+    @Resource private RdStockTransactionService stockTransactionService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long create(Long locationId, LocalDate stocktakeDate, String remark) {
+    public Long create(Long locationId, LocalDate stocktakeDate, String remark,
+                       Long creatorId, String creatorName) {
         RdWarehouseLocationDO location = requiredLocation(locationId);
         RdStocktakeOrderDO order = new RdStocktakeOrderDO()
                 .setStocktakeNo("PD" + stocktakeDate.toString().replace("-", "")
@@ -78,6 +81,8 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
                 .setSurplusQty(ZERO)
                 .setBookWeight(ZERO)
                 .setCountedWeight(ZERO)
+                .setBusinessCreatorId(creatorId)
+                .setBusinessCreatorName(creatorName)
                 .setRemark(remark);
         orderMapper.insert(order);
         return order.getId();
@@ -95,6 +100,11 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
         }
         List<RdPackageUnitDO> units = packageMapper.selectListByLocationIdAndStatuses(
                 order.getLocationId(), List.of(RdPackageStatusEnum.IN_STOCK.getStatus()));
+        if (!packageMapper.selectListByLocationIdAndStatuses(order.getLocationId(), List.of(
+                RdPackageStatusEnum.OUTBOUND_PENDING.getStatus(),
+                RdPackageStatusEnum.INBOUND_PENDING.getStatus())).isEmpty()) {
+            throw exception(STOCKTAKE_PACKAGE_STATUS_INVALID);
+        }
         BigDecimal bookWeight = ZERO;
         for (RdPackageUnitDO unit : units) {
             lineMapper.insert(new RdStocktakeOrderLineDO()
@@ -127,10 +137,17 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public RdStocktakeOrderLineDO scan(RdStocktakeScanReqVO reqVO, Long operatorId, String operatorName) {
-        RdStocktakeOrderDO order = requiredForUpdate(reqVO.getId());
-        if (!RdStocktakeOrderStatusEnum.FROZEN.getStatus().equals(order.getStatus())
-                && !RdStocktakeOrderStatusEnum.COUNTING.getStatus().equals(order.getStatus())) {
-            throw exception(STOCKTAKE_ORDER_STATUS_INVALID);
+        RdStocktakeOrderDO order;
+        try {
+            order = requiredForUpdate(reqVO.getId());
+            if (!RdStocktakeOrderStatusEnum.FROZEN.getStatus().equals(order.getStatus())
+                    && !RdStocktakeOrderStatusEnum.COUNTING.getStatus().equals(order.getStatus())) {
+                throw exception(STOCKTAKE_ORDER_STATUS_INVALID);
+            }
+        } catch (RuntimeException ex) {
+            scanEventService.record("STOCKTAKE", reqVO.getId(), null, reqVO.getPackageCode(),
+                    reqVO.getDeviceCode(), operatorId, operatorName, false, ex.getMessage());
+            throw ex;
         }
         RdPackageUnitDO unit = packageMapper.selectByPackageCodeForUpdate(reqVO.getPackageCode().trim());
         if (unit == null) {
@@ -155,7 +172,8 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
         RdStocktakeOrderLineDO line = lineMapper.selectByOrderIdAndPackageId(order.getId(), unit.getId());
         if (line != null && zero(line.getCountedQty()).compareTo(ONE) >= 0) {
             scanEventService.record("STOCKTAKE", order.getId(), unit.getId(), unit.getPackageCode(),
-                    reqVO.getDeviceCode(), operatorId, operatorName, false, null);
+                    reqVO.getDeviceCode(), operatorId, operatorName, false,
+                    exception(STOCKTAKE_PACKAGE_DUPLICATE).getMessage());
             throw exception(STOCKTAKE_PACKAGE_DUPLICATE);
         }
         if (line == null) {
@@ -188,7 +206,12 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
                 .setScannerName(operatorName)
                 .setScanTime(LocalDateTime.now());
         lineMapper.updateById(line);
+        Summary summary = summarize(lineMapper.selectListByOrderId(order.getId()));
         order.setStatus(RdStocktakeOrderStatusEnum.COUNTING.getStatus())
+                .setCountedPackageQty(summary.countedPackageQty)
+                .setShortageQty(summary.shortageQty)
+                .setSurplusQty(summary.surplusQty)
+                .setCountedWeight(summary.countedWeight)
                 .setVersion(nextVersion(order));
         orderMapper.updateById(order);
         scanEventService.record("STOCKTAKE", order.getId(), unit.getId(), unit.getPackageCode(),
@@ -226,7 +249,8 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
         RdStocktakeOrderDO order = requiredForUpdate(id);
         requireStatus(order, RdStocktakeOrderStatusEnum.SUBMITTED);
         requireVersion(order, version);
-        if (Objects.equals(reviewerId, order.getSubmitterId())) {
+        if (Objects.equals(reviewerId, order.getSubmitterId())
+                || Objects.equals(reviewerId, order.getBusinessCreatorId())) {
             throw exception(STOCKTAKE_ORDER_SELF_REVIEW);
         }
         order.setStatus(RdStocktakeOrderStatusEnum.APPROVED.getStatus())
@@ -281,16 +305,17 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
     @Transactional(rollbackFor = Exception.class)
     public void cancel(Long id, Integer version, Long operatorId, String operatorName) {
         RdStocktakeOrderDO order = requiredForUpdate(id);
-        if (RdStocktakeOrderStatusEnum.ADJUSTED.getStatus().equals(order.getStatus())
-                || RdStocktakeOrderStatusEnum.CLOSED.getStatus().equals(order.getStatus())) {
+        if (!RdStocktakeOrderStatusEnum.DRAFT.getStatus().equals(order.getStatus())
+                && !RdStocktakeOrderStatusEnum.FROZEN.getStatus().equals(order.getStatus())
+                && !RdStocktakeOrderStatusEnum.COUNTING.getStatus().equals(order.getStatus())) {
             throw exception(STOCKTAKE_ORDER_STATUS_INVALID);
         }
         requireVersion(order, version);
         releaseLocationIfMatched(order);
         order.setStatus(RdStocktakeOrderStatusEnum.CANCELLED.getStatus())
-                .setCloserId(operatorId)
-                .setCloserName(operatorName)
-                .setCloseTime(LocalDateTime.now())
+                .setCancellerId(operatorId)
+                .setCancellerName(operatorName)
+                .setCancelTime(LocalDateTime.now())
                 .setVersion(nextVersion(order));
         orderMapper.updateById(order);
     }
@@ -333,7 +358,10 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
     private void adjustShortage(RdStocktakeOrderDO order, RdStocktakeOrderLineDO line,
                                 Long operatorId, String operatorName) {
         String key = "STOCKTAKE:" + order.getId() + ":" + line.getPackageId() + ":OUT";
-        if (transactionMapper.selectByIdempotencyKey(key) != null) {
+        RdStockTransactionDO existing = transactionMapper.selectByIdempotencyKey(key);
+        if (existing != null) {
+            line.setStockTransactionId(existing.getId());
+            lineMapper.updateById(line);
             return;
         }
         RdPackageUnitDO unit = packageMapper.selectByIdForUpdate(line.getPackageId());
@@ -346,10 +374,14 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
         }
         lot.setWarehouseQty(after)
                 .setStockWeight(zero(lot.getStockWeight()).subtract(zero(unit.getPackageWeight())))
+                .setLastBizDate(maxBizDate(lot.getLastBizDate(), order.getStocktakeDate()))
                 .setStatus(resolveStockStatus(after, locked));
         stockLotMapper.updateById(lot);
-        transactionMapper.insert(buildTransaction(order, line, unit, RdStockTransactionTypeEnum.ADJUST_OUT.getType(),
-                ONE.negate(), before, after, key, operatorId, operatorName));
+        Long transactionId = stockTransactionService.createStockTransaction(buildTransaction(order, line, unit,
+                RdStockTransactionTypeEnum.ADJUST_OUT.getType(), ONE.negate(), before, after,
+                key, operatorId, operatorName));
+        line.setStockTransactionId(transactionId);
+        lineMapper.updateById(line);
         RdPackageStatusMachine.requireTransition(RdPackageStatusEnum.valueOf(unit.getStatus()),
                 RdPackageStatusEnum.STOCKTAKE_MISSING);
         unit.setStatus(RdPackageStatusEnum.STOCKTAKE_MISSING.getStatus());
@@ -359,7 +391,10 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
     private void adjustSurplus(RdStocktakeOrderDO order, RdStocktakeOrderLineDO line,
                                Long operatorId, String operatorName) {
         String key = "STOCKTAKE:" + order.getId() + ":" + line.getPackageId() + ":IN";
-        if (transactionMapper.selectByIdempotencyKey(key) != null) {
+        RdStockTransactionDO existing = transactionMapper.selectByIdempotencyKey(key);
+        if (existing != null) {
+            line.setStockTransactionId(existing.getId());
+            lineMapper.updateById(line);
             return;
         }
         RdPackageUnitDO unit = packageMapper.selectByIdForUpdate(line.getPackageId());
@@ -369,10 +404,14 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
         BigDecimal after = before.add(ONE);
         lot.setWarehouseQty(after)
                 .setStockWeight(zero(lot.getStockWeight()).add(zero(unit.getPackageWeight())))
+                .setLastBizDate(maxBizDate(lot.getLastBizDate(), order.getStocktakeDate()))
                 .setStatus(resolveStockStatus(after, locked));
         stockLotMapper.updateById(lot);
-        transactionMapper.insert(buildTransaction(order, line, unit, RdStockTransactionTypeEnum.ADJUST_IN.getType(),
-                ONE, before, after, key, operatorId, operatorName));
+        Long transactionId = stockTransactionService.createStockTransaction(buildTransaction(order, line, unit,
+                RdStockTransactionTypeEnum.ADJUST_IN.getType(), ONE, before, after,
+                key, operatorId, operatorName));
+        line.setStockTransactionId(transactionId);
+        lineMapper.updateById(line);
         RdPackageStatusMachine.requireTransition(RdPackageStatusEnum.valueOf(unit.getStatus()),
                 RdPackageStatusEnum.IN_STOCK);
         unit.setStatus(RdPackageStatusEnum.IN_STOCK.getStatus());
@@ -451,7 +490,7 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
     }
 
     private void requireVersion(RdStocktakeOrderDO order, Integer version) {
-        if (version != null && !Objects.equals(order.getVersion(), version)) {
+        if (!Objects.equals(order.getVersion(), version)) {
             throw exception(STOCKTAKE_ORDER_VERSION_CONFLICT);
         }
     }
@@ -494,6 +533,10 @@ public class RdStocktakeOrderServiceImpl implements RdStocktakeOrderService {
 
     private static BigDecimal zero(BigDecimal value) {
         return value == null ? ZERO : value;
+    }
+
+    private static LocalDate maxBizDate(LocalDate current, LocalDate candidate) {
+        return current == null || candidate.isAfter(current) ? candidate : current;
     }
 
     private static String resolveStockStatus(BigDecimal warehouseQty, BigDecimal lockedQty) {

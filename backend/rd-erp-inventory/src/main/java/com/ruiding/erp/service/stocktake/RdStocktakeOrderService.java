@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface RdStocktakeOrderService {
-    Long create(Long locationId, LocalDate stocktakeDate, String remark);
+    Long create(Long locationId, LocalDate stocktakeDate, String remark, Long creatorId, String creatorName);
     void freeze(Long id, Integer version);
     RdStocktakeOrderLineDO scan(RdStocktakeScanReqVO reqVO, Long operatorId, String operatorName);
     void submit(Long id, Integer version, Long operatorId, String operatorName);

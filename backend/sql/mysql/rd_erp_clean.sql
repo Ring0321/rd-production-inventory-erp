@@ -834,6 +834,7 @@ CREATE TABLE `rd_location` (
   `capacity_packages` decimal(24,6) DEFAULT NULL COMMENT 'Capacity in packages',
   `allowed_category` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Allowed product category',
   `frozen` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Whether inbound/outbound is frozen',
+  `stocktake_order_id` bigint DEFAULT NULL COMMENT 'Active stocktake order owning the freeze',
   `enabled` bit(1) NOT NULL DEFAULT b'1' COMMENT 'Whether location is enabled',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT 'Status: 0 enabled, 1 disabled',
   `sort` int NOT NULL DEFAULT '0' COMMENT 'Sort',
@@ -962,6 +963,48 @@ CREATE TABLE `rd_scan_event` (
   `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), KEY `idx_rd_scan_package_time` (`tenant_id`,`package_code`,`scan_time`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD scan event';
+
+DROP TABLE IF EXISTS `rd_stocktake_order_line`;
+DROP TABLE IF EXISTS `rd_stocktake_order`;
+CREATE TABLE `rd_stocktake_order` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `stocktake_no` varchar(64) NOT NULL, `stocktake_date` date NOT NULL, `location_id` bigint NOT NULL,
+  `location_code` varchar(64) NOT NULL, `status` varchar(32) NOT NULL, `version` int NOT NULL DEFAULT 0,
+  `snapshot_time` datetime DEFAULT NULL, `book_package_qty` decimal(24,6) NOT NULL DEFAULT 0,
+  `counted_package_qty` decimal(24,6) NOT NULL DEFAULT 0, `shortage_qty` decimal(24,6) NOT NULL DEFAULT 0,
+  `surplus_qty` decimal(24,6) NOT NULL DEFAULT 0, `book_weight` decimal(24,6) NOT NULL DEFAULT 0,
+  `counted_weight` decimal(24,6) NOT NULL DEFAULT 0, `business_creator_id` bigint DEFAULT NULL,
+  `business_creator_name` varchar(64) DEFAULT NULL, `submitter_id` bigint DEFAULT NULL,
+  `submitter_name` varchar(64) DEFAULT NULL, `submit_time` datetime DEFAULT NULL, `reviewer_id` bigint DEFAULT NULL,
+  `reviewer_name` varchar(64) DEFAULT NULL, `review_time` datetime DEFAULT NULL, `adjuster_id` bigint DEFAULT NULL,
+  `adjuster_name` varchar(64) DEFAULT NULL, `adjust_time` datetime DEFAULT NULL, `closer_id` bigint DEFAULT NULL,
+  `closer_name` varchar(64) DEFAULT NULL, `close_time` datetime DEFAULT NULL, `canceller_id` bigint DEFAULT NULL,
+  `canceller_name` varchar(64) DEFAULT NULL, `cancel_time` datetime DEFAULT NULL, `remark` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_stocktake_no` (`tenant_id`,`stocktake_no`,`deleted`),
+  KEY `idx_rd_stocktake_status_date` (`tenant_id`,`status`,`stocktake_date`,`deleted`),
+  KEY `idx_rd_stocktake_location` (`tenant_id`,`location_id`,`status`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD stocktake order';
+
+CREATE TABLE `rd_stocktake_order_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `order_id` bigint NOT NULL,
+  `package_id` bigint NOT NULL, `package_code` varchar(32) NOT NULL, `stock_lot_id` bigint NOT NULL,
+  `customer_name` varchar(128) NOT NULL,
+  `product_model` varchar(128) NOT NULL, `furnace_no` varchar(64) NOT NULL, `furnace_layer` varchar(32) NOT NULL,
+  `package_weight` decimal(24,6) NOT NULL, `book_qty` decimal(24,6) NOT NULL DEFAULT 0,
+  `counted_qty` decimal(24,6) NOT NULL DEFAULT 0, `difference_qty` decimal(24,6) NOT NULL DEFAULT 0,
+  `result` varchar(32) NOT NULL DEFAULT 'PENDING', `scanner_id` bigint DEFAULT NULL,
+  `scanner_name` varchar(64) DEFAULT NULL, `scan_time` datetime DEFAULT NULL, `stock_transaction_id` bigint DEFAULT NULL,
+  `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_stocktake_package` (`tenant_id`,`order_id`,`package_id`,`deleted`),
+  KEY `idx_rd_stocktake_line_order` (`tenant_id`,`order_id`,`result`,`deleted`,`id`),
+  KEY `idx_rd_stocktake_line_package` (`tenant_id`,`package_code`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD stocktake package line';
 
 DROP TABLE IF EXISTS `rd_order_fulfillment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1331,6 +1374,24 @@ CREATE TABLE `rd_transfer_order` (
   KEY `idx_rd_transfer_link` (`tenant_id`,`to_order_id`,`from_stock_lot_id`,`status`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD order transfer';
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `rd_transfer_order_package`;
+CREATE TABLE `rd_transfer_order_package` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Transfer package link ID',
+  `tenant_id` bigint NOT NULL DEFAULT '1' COMMENT 'Tenant ID',
+  `transfer_order_id` bigint NOT NULL COMMENT 'Transfer order ID',
+  `package_id` bigint NOT NULL COMMENT 'Package ID',
+  `package_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Package code',
+  `from_stock_lot_id` bigint NOT NULL COMMENT 'Source stock lot ID',
+  `to_stock_lot_id` bigint NOT NULL COMMENT 'Target stock lot ID',
+  `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_transfer_package` (`tenant_id`,`transfer_order_id`,`package_id`,`deleted`),
+  KEY `idx_rd_transfer_package_code` (`tenant_id`,`package_code`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD transfer package trace';
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -1398,7 +1459,16 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600221, '库存 Excel 预检', 'rd:excel-import:create', 3, 10, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600222, '确认库存 Excel 导入', 'rd:excel-import:confirm', 3, 20, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600223, '导出库存 Excel 错误', 'rd:excel-import:export', 3, 30, 600220, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
-(600224, '客户型号选项查询', 'rd:customer-product:query', 3, 90, 600000, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
+(600224, '客户型号选项查询', 'rd:customer-product:query', 3, 90, 600000, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600214, '库存盘点', 'rd:stocktake:query', 2, 45, 600200, 'stocktake', 'ep:document-checked', 'rd/stock/stocktake/index', 'RdStocktake', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600260, '盘点单新增', 'rd:stocktake:create', 3, 10, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600261, '盘点冻结', 'rd:stocktake:freeze', 3, 20, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600262, '盘点扫码', 'rd:stocktake:scan', 3, 30, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600263, '盘点提交', 'rd:stocktake:submit', 3, 40, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600264, '盘点审核', 'rd:stocktake:approve', 3, 50, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600265, '盘点差异调整', 'rd:stocktake:adjust', 3, 60, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600266, '盘点关闭', 'rd:stocktake:close', 3, 70, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600267, '盘点取消', 'rd:stocktake:cancel', 3, 80, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `permission` = VALUES(`permission`),
@@ -1583,10 +1653,10 @@ INSERT INTO `system_menu`
 
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
 SELECT 600001, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600224,600500,600501)
-UNION ALL SELECT 600002, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600200,600201,600202,600203,600204,600205,600206,600207,600208,600209,600210,600211,600212,600213,600220,600221,600222,600223,600224,600400,600401,600402,600403,600404,600405,600406,600500,600501,600502,600503)
+UNION ALL SELECT 600002, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600200,600201,600202,600203,600204,600205,600206,600207,600208,600209,600210,600211,600212,600213,600214,600220,600221,600222,600223,600224,600260,600261,600262,600263,600264,600265,600266,600267,600400,600401,600402,600403,600404,600405,600406,600500,600501,600502,600503)
 UNION ALL SELECT 600003, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600224,600300,600301,600302,600303,600304,600305,600306,600310,600311,600312,600313,600400,600401,600402,600403,600404,600405,600406,600500,600501)
-UNION ALL SELECT 600004, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (1,108,500,501,1040,1042,1043,1045,600000,600010,600100,600101,600200,600201,600203,600207,600213,600224,600300,600301,600310,600400,600401,600500,600501,600502,600503)
-UNION ALL SELECT 600005, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600200,600201,600203,600207,600213,600220,600224,600300,600301,600310,600400,600401,600500,600501);
+UNION ALL SELECT 600004, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (1,108,500,501,1040,1042,1043,1045,600000,600010,600100,600101,600200,600201,600203,600207,600213,600214,600224,600300,600301,600310,600400,600401,600500,600501,600502,600503)
+UNION ALL SELECT 600005, id, 'system', NOW(), 'system', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600200,600201,600203,600207,600213,600214,600220,600224,600300,600301,600310,600400,600401,600500,600501);
 
 INSERT INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600001,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600230,600233,600236,600237,600238,600239,600240,600241,600242,600244,600245,600246)
@@ -1632,7 +1702,7 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600007,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
-WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600236,600244,600250,600251);
+WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600214,600236,600244,600250,600251,600260,600261,600262,600263,600267);
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)

@@ -4,16 +4,22 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import com.ruiding.erp.controller.admin.transfer.vo.RdTransferOrderPageReqVO;
 import com.ruiding.erp.controller.admin.transfer.vo.RdTransferOrderSaveReqVO;
 import com.ruiding.erp.dal.dataobject.order.RdSaleOrderDO;
+import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.dataobject.transfer.RdTransferOrderDO;
+import com.ruiding.erp.dal.dataobject.transfer.RdTransferOrderPackageDO;
+import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.dal.mysql.transfer.RdTransferOrderMapper;
+import com.ruiding.erp.dal.mysql.transfer.RdTransferOrderPackageMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
+import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdStockLotStatusEnum;
 import com.ruiding.erp.enums.RdStockTransactionTypeEnum;
 import com.ruiding.erp.enums.RdTransferOrderStatusEnum;
 import com.ruiding.erp.service.order.RdSaleOrderService;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import com.ruiding.erp.service.stock.RdStockTransactionService;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
@@ -24,6 +30,9 @@ import org.springframework.validation.annotation.Validated;
 import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.ruiding.erp.enums.ErrorCodeConstants.STOCK_LOT_NOT_EXISTS;
@@ -31,6 +40,9 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_FROM_ORDER
 import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_MODEL_MISMATCH;
 import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_NOT_EXISTS;
 import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_NO_EXISTS;
+import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_PACKAGE_INSUFFICIENT;
+import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_PACKAGE_QTY_INVALID;
+import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_PACKAGE_REVERSE_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_REVERSE_INSUFFICIENT;
 import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_SAME_CUSTOMER;
 import static com.ruiding.erp.enums.ErrorCodeConstants.TRANSFER_ORDER_STATUS_CANNOT_CANCEL;
@@ -52,7 +64,13 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
     @Resource
     private RdStockLotMapper stockLotMapper;
     @Resource
+    private RdPackageUnitMapper packageUnitMapper;
+    @Resource
+    private RdTransferOrderPackageMapper transferOrderPackageMapper;
+    @Resource
     private RdStockTransactionService stockTransactionService;
+    @Resource
+    private RdWarehouseLocationFreezeGuard locationFreezeGuard;
     @Resource
     private RdSaleOrderService saleOrderService;
 
@@ -103,7 +121,9 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
         saleOrderService.changeTransferQty(
                 transferOrder.getFromOrderId(), transferOrder.getToOrderId(), transferOrder.getQuantity());
         RdStockLotDO fromStockLot = stockLotMapper.selectByIdForUpdate(transferOrder.getFromStockLotId());
+        locationFreezeGuard.requireMovable(fromStockLot == null ? null : fromStockLot.getLocationId());
         validateTransferBusiness(transferOrder, fromStockLot);
+        List<RdPackageUnitDO> packages = lockTransferPackages(fromStockLot.getId(), transferOrder.getQuantity());
 
         BigDecimal fromBeforeQty = fromStockLot.getWarehouseQty();
         BigDecimal fromAfterQty = fromBeforeQty.subtract(transferOrder.getQuantity());
@@ -118,6 +138,7 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
 
         RdSaleOrderDO toOrder = saleOrderService.getSaleOrder(transferOrder.getToOrderId());
         RdStockLotDO toStockLot = createTargetStockLot(transferOrder, fromStockLot, toOrder);
+        movePackagesToTarget(transferOrder, fromStockLot, toStockLot, toOrder, packages);
         createTransferTransaction(transferOrder, fromStockLot, RdStockTransactionTypeEnum.TRANSFER_OUT.getType(),
                 transferOrder.getQuantity().negate(), fromBeforeQty, fromAfterQty,
                 SOURCE_TYPE_TRANSFER_ORDER, transferOrder.getFromOrderId(), operatorId, operatorName);
@@ -155,7 +176,10 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
                 transferOrder.getFromOrderId(), transferOrder.getToOrderId(), transferOrder.getQuantity().negate());
         RdStockLotDO fromStockLot = stockLotMapper.selectByIdForUpdate(transferOrder.getFromStockLotId());
         RdStockLotDO toStockLot = stockLotMapper.selectByIdForUpdate(transferOrder.getToStockLotId());
+        locationFreezeGuard.requireMovable(fromStockLot == null ? null : fromStockLot.getLocationId());
+        locationFreezeGuard.requireMovable(toStockLot == null ? null : toStockLot.getLocationId());
         validateReverseStock(transferOrder, fromStockLot, toStockLot);
+        List<RdPackageUnitDO> packages = lockTransferredPackagesForReverse(transferOrder, toStockLot);
 
         LocalDate reverseDate = LocalDate.now();
         BigDecimal fromBeforeQty = fromStockLot.getWarehouseQty();
@@ -181,6 +205,7 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
             toStockLot.setStatus(RdStockLotStatusEnum.EMPTY.getStatus());
         }
         stockLotMapper.updateById(toStockLot);
+        movePackagesBackToSource(fromStockLot, packages);
 
         RdTransferOrderDO reverseTransfer = new RdTransferOrderDO()
                 .setId(transferOrder.getId())
@@ -351,6 +376,70 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
                 .setOperatorId(operatorId)
                 .setOperatorName(operatorName)
                 .setRemark(sourceType.equals(SOURCE_TYPE_TRANSFER_REVERSAL) ? "调拨撤销反向流水" : "调拨确认流水"));
+    }
+
+    private List<RdPackageUnitDO> lockTransferPackages(Long stockLotId, BigDecimal quantity) {
+        int packageCount = packageCount(quantity);
+        List<RdPackageUnitDO> packages = packageUnitMapper.selectListByStockLotIdForUpdate(
+                stockLotId, RdPackageStatusEnum.IN_STOCK.getStatus(), packageCount);
+        if (packages.size() != packageCount) {
+            throw exception(TRANSFER_ORDER_PACKAGE_INSUFFICIENT);
+        }
+        return packages;
+    }
+
+    private void movePackagesToTarget(RdTransferOrderDO transferOrder, RdStockLotDO fromStockLot,
+                                      RdStockLotDO toStockLot, RdSaleOrderDO toOrder,
+                                      List<RdPackageUnitDO> packages) {
+        for (RdPackageUnitDO unit : packages) {
+            unit.setStockLotId(toStockLot.getId())
+                    .setCustomerName(toOrder.getCustomerName())
+                    .setVersion(unit.getVersion() == null ? 1 : unit.getVersion() + 1);
+            packageUnitMapper.updateById(unit);
+            transferOrderPackageMapper.insert(new RdTransferOrderPackageDO()
+                    .setTransferOrderId(transferOrder.getId())
+                    .setPackageId(unit.getId())
+                    .setPackageCode(unit.getPackageCode())
+                    .setFromStockLotId(fromStockLot.getId())
+                    .setToStockLotId(toStockLot.getId()));
+        }
+    }
+
+    private List<RdPackageUnitDO> lockTransferredPackagesForReverse(RdTransferOrderDO transferOrder,
+                                                                    RdStockLotDO toStockLot) {
+        int packageCount = packageCount(transferOrder.getQuantity());
+        List<RdTransferOrderPackageDO> links = transferOrderPackageMapper
+                .selectListByTransferOrderId(transferOrder.getId());
+        if (links.size() != packageCount) {
+            throw exception(TRANSFER_ORDER_PACKAGE_REVERSE_INVALID);
+        }
+        List<RdPackageUnitDO> packages = new ArrayList<>(links.size());
+        for (RdTransferOrderPackageDO link : links) {
+            RdPackageUnitDO unit = packageUnitMapper.selectByIdForUpdate(link.getPackageId());
+            if (unit == null || !RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())
+                    || !Objects.equals(unit.getStockLotId(), toStockLot.getId())) {
+                throw exception(TRANSFER_ORDER_PACKAGE_REVERSE_INVALID);
+            }
+            packages.add(unit);
+        }
+        return packages;
+    }
+
+    private void movePackagesBackToSource(RdStockLotDO fromStockLot, List<RdPackageUnitDO> packages) {
+        for (RdPackageUnitDO unit : packages) {
+            unit.setStockLotId(fromStockLot.getId())
+                    .setCustomerName(fromStockLot.getCustomerName())
+                    .setVersion(unit.getVersion() == null ? 1 : unit.getVersion() + 1);
+            packageUnitMapper.updateById(unit);
+        }
+    }
+
+    private static int packageCount(BigDecimal quantity) {
+        try {
+            return quantity.intValueExact();
+        } catch (ArithmeticException ex) {
+            throw exception(TRANSFER_ORDER_PACKAGE_QTY_INVALID);
+        }
     }
 
     private static LocalDate maxBizDate(LocalDate currentBizDate, LocalDate newBizDate) {

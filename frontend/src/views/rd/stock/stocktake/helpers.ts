@@ -14,15 +14,12 @@ export const stocktakeStatusOptions: Array<{
 }> = [
   { value: 'DRAFT', label: '草稿', type: 'info' },
   { value: 'FROZEN', label: '已冻结', type: 'warning' },
-  { value: 'SCANNING', label: '扫码中', type: 'primary' },
   { value: 'COUNTING', label: '实盘中', type: 'primary' },
   { value: 'SUBMITTED', label: '待复核', type: 'warning' },
   { value: 'APPROVED', label: '已复核', type: 'success' },
-  { value: 'REVIEWED', label: '已复核', type: 'success' },
   { value: 'ADJUSTED', label: '已调整', type: 'success' },
   { value: 'CLOSED', label: '已关闭', type: 'info' },
-  { value: 'CANCELLED', label: '已取消', type: 'danger' },
-  { value: 'CANCELED', label: '已取消', type: 'danger' }
+  { value: 'CANCELLED', label: '已取消', type: 'danger' }
 ]
 
 export const stocktakeStatusMap = Object.fromEntries(
@@ -96,10 +93,10 @@ export const getDifferenceClass = (line: Pick<RdStocktakeLineVO, 'result' | 'dif
 const matches = (status: string, candidates: string[]) => candidates.includes(status)
 
 export const canFreeze = (status: string) => matches(status, ['DRAFT'])
-export const canScan = (status: string) => matches(status, ['FROZEN', 'SCANNING', 'COUNTING'])
-export const canSubmit = (status: string) => matches(status, ['FROZEN', 'SCANNING', 'COUNTING'])
+export const canScan = (status: string) => matches(status, ['FROZEN', 'COUNTING'])
+export const canSubmit = (status: string) => matches(status, ['FROZEN', 'COUNTING'])
 export const canApprove = (status: string) => matches(status, ['SUBMITTED'])
-export const canAdjust = (status: string) => matches(status, ['APPROVED', 'REVIEWED'])
+export const canAdjust = (status: string) => matches(status, ['APPROVED'])
 export const canClose = (status: string) => matches(status, ['ADJUSTED'])
 export const canCancel = (status: string) =>
-  !matches(status, ['ADJUSTED', 'CLOSED', 'CANCELLED', 'CANCELED'])
+  matches(status, ['DRAFT', 'FROZEN', 'COUNTING'])

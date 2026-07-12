@@ -7,5 +7,5 @@ import javax.validation.constraints.NotNull;
 @Data
 public class RdStocktakeActionReqVO {
     @NotNull private Long id;
-    private Integer version;
+    @NotNull private Integer version;
 }

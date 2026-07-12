@@ -13,6 +13,7 @@ import com.ruiding.erp.enums.RdStockLotStatusEnum;
 import com.ruiding.erp.enums.RdStockTransactionTypeEnum;
 import com.ruiding.erp.service.masterdata.RdCustomerProductPair;
 import com.ruiding.erp.service.masterdata.RdCustomerProductService;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import org.springframework.stereotype.Service;
@@ -54,10 +55,13 @@ public class RdStockLotServiceImpl implements RdStockLotService {
     private RdStockTransactionService stockTransactionService;
     @Resource
     private RdCustomerProductService customerProductService;
+    @Resource
+    private RdWarehouseLocationFreezeGuard locationFreezeGuard;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public RdStockLotDO createProductionInbound(RdProductionOutputDO productionOutput) {
+        locationFreezeGuard.requireMovable(productionOutput.getLocationId());
         RdCustomerProductPair pair = customerProductService.recordPair(
                 productionOutput.getCustomerName(), productionOutput.getProductModel());
         BigDecimal quantity = productionOutput.getOutputQty();
@@ -134,6 +138,7 @@ public class RdStockLotServiceImpl implements RdStockLotService {
     private Long createOpeningStock(RdStockOpeningCreateReqVO createReqVO,
                                     String sourceType, String sourceNo, String sourceLineNo,
                                     Long operatorId, String operatorName) {
+        locationFreezeGuard.requireMovable(createReqVO.getLocationId());
         RdCustomerProductPair pair = customerProductService.recordPair(
                 createReqVO.getCustomerName(), createReqVO.getProductModel());
         BigDecimal stockWeight = createReqVO.getQuantity().multiply(createReqVO.getPackageWeight());
@@ -200,6 +205,7 @@ public class RdStockLotServiceImpl implements RdStockLotService {
         if (stockLot == null) {
             throw exception(STOCK_LOT_NOT_EXISTS);
         }
+        locationFreezeGuard.requireMovable(stockLot.getLocationId());
         if (RdStockLotStatusEnum.CLOSED.getStatus().equals(stockLot.getStatus())) {
             throw exception(STOCK_LOT_ADJUST_CLOSED);
         }

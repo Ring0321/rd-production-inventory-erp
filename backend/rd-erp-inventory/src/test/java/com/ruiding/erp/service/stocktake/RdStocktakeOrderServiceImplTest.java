@@ -16,6 +16,7 @@ import com.ruiding.erp.dal.mysql.stocktake.RdStocktakeOrderMapper;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdStocktakeOrderStatusEnum;
 import com.ruiding.erp.service.packageunit.RdScanEventService;
+import com.ruiding.erp.service.stock.RdStockTransactionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,6 +45,7 @@ class RdStocktakeOrderServiceImplTest {
     @Mock private RdStockTransactionMapper transactionMapper;
     @Mock private RdWarehouseLocationMapper locationMapper;
     @Mock private RdScanEventService scanEventService;
+    @Mock private RdStockTransactionService stockTransactionService;
     @InjectMocks private RdStocktakeOrderServiceImpl service;
 
     @Test
@@ -78,15 +80,18 @@ class RdStocktakeOrderServiceImplTest {
         when(orderMapper.selectByIdForUpdate(1L)).thenReturn(order);
         when(packageMapper.selectByPackageCodeForUpdate("PK-ST-001")).thenReturn(unit);
         when(lineMapper.selectByOrderIdAndPackageId(1L, 30L)).thenReturn(line);
+        when(lineMapper.selectListByOrderId(1L)).thenReturn(List.of(line));
 
         RdStocktakeOrderLineDO result = service.scan(new RdStocktakeScanReqVO()
                 .setId(1L).setPackageCode("PK-ST-001").setDeviceCode("D-01"), 200L, "scanner");
 
         assertEquals(BigDecimal.ONE, result.getCountedQty());
-        verify(lineMapper).updateById(org.mockito.ArgumentMatchers.argThat((RdStocktakeOrderLineDO value) ->
+        verify(lineMapper, times(2)).updateById(org.mockito.ArgumentMatchers.argThat((RdStocktakeOrderLineDO value) ->
                 BigDecimal.ONE.equals(value.getCountedQty()) && "scanner".equals(value.getScannerName())));
         verify(orderMapper).updateById(org.mockito.ArgumentMatchers.argThat((RdStocktakeOrderDO value) ->
-                RdStocktakeOrderStatusEnum.COUNTING.getStatus().equals(value.getStatus())));
+                RdStocktakeOrderStatusEnum.COUNTING.getStatus().equals(value.getStatus())
+                        && assertBigDecimalEquals(BigDecimal.ONE, value.getCountedPackageQty())
+                        && assertBigDecimalEquals(new BigDecimal("1000"), value.getCountedWeight())));
         verify(scanEventService).record("STOCKTAKE", 1L, 30L, "PK-ST-001", "D-01", 200L, "scanner", true, null);
     }
 
@@ -100,7 +105,8 @@ class RdStocktakeOrderServiceImplTest {
         assertThrows(RuntimeException.class, () -> service.scan(new RdStocktakeScanReqVO()
                 .setId(1L).setPackageCode("PK-ST-001").setDeviceCode("D-01"), 200L, "scanner"));
 
-        verify(scanEventService).record("STOCKTAKE", 1L, 30L, "PK-ST-001", "D-01", 200L, "scanner", false, null);
+        verify(scanEventService).record("STOCKTAKE", 1L, 30L, "PK-ST-001", "D-01", 200L, "scanner",
+                false, "该包码已扫描，请勿重复盘点");
 
         when(packageMapper.selectByPackageCodeForUpdate("PK-ST-001"))
                 .thenReturn(inStockPackage().setLocationId(99L).setLocationCode("B-02"));
@@ -114,6 +120,30 @@ class RdStocktakeOrderServiceImplTest {
         when(orderMapper.selectByIdForUpdate(1L)).thenReturn(submittedOrder().setSubmitterId(100L));
 
         assertThrows(RuntimeException.class, () -> service.approve(1L, 2, 100L, "self"));
+    }
+
+    @Test
+    void shouldRejectBusinessCreatorReview() {
+        when(orderMapper.selectByIdForUpdate(1L)).thenReturn(submittedOrder()
+                .setSubmitterId(101L).setBusinessCreatorId(100L));
+
+        assertThrows(RuntimeException.class, () -> service.approve(1L, 2, 100L, "creator"));
+    }
+
+    @Test
+    void shouldRequireVersionForStateChange() {
+        when(orderMapper.selectByIdForUpdate(1L)).thenReturn(draftOrder());
+
+        assertThrows(RuntimeException.class, () -> service.freeze(1L, null));
+        verify(locationMapper, never()).selectByIdForUpdate(any());
+    }
+
+    @Test
+    void shouldRejectCancelAfterSubmission() {
+        when(orderMapper.selectByIdForUpdate(1L)).thenReturn(submittedOrder());
+
+        assertThrows(RuntimeException.class, () -> service.cancel(1L, 2, 500L, "operator"));
+        verify(locationMapper, never()).selectByIdForUpdate(any());
     }
 
     @Test
@@ -143,10 +173,41 @@ class RdStocktakeOrderServiceImplTest {
         service.adjust(1L, 3, 300L, "adjuster");
 
         verify(stockLotMapper, never()).updateById(any(RdStockLotDO.class));
-        verify(transactionMapper, never()).insert(any(RdStockTransactionDO.class));
+        verify(stockTransactionService, never()).createStockTransaction(any(RdStockTransactionDO.class));
         verify(orderMapper).updateById(org.mockito.ArgumentMatchers.argThat((RdStocktakeOrderDO value) ->
                 RdStocktakeOrderStatusEnum.ADJUSTED.getStatus().equals(value.getStatus())
                         && "adjuster".equals(value.getAdjusterName())));
+    }
+
+    @Test
+    void shouldPostShortageAndSurplusMovements() {
+        when(orderMapper.selectByIdForUpdate(1L)).thenReturn(approvedOrder());
+        when(lineMapper.selectListByOrderId(1L)).thenReturn(List.of(
+                expectedLine().setCountedQty(BigDecimal.ZERO), surplusLine()));
+        when(packageMapper.selectByIdForUpdate(30L)).thenReturn(inStockPackage());
+        when(packageMapper.selectByIdForUpdate(31L)).thenReturn(inStockPackage().setId(31L)
+                .setPackageCode("PK-ST-002").setStockLotId(51L)
+                .setStatus(RdPackageStatusEnum.STOCKTAKE_MISSING.getStatus()));
+        when(stockLotMapper.selectByIdForUpdate(50L)).thenReturn(new RdStockLotDO().setId(50L)
+                .setWarehouseQty(new BigDecimal("2")).setLockedQty(BigDecimal.ZERO)
+                .setStockWeight(new BigDecimal("2000")).setPackageWeight(new BigDecimal("1000")));
+        when(stockLotMapper.selectByIdForUpdate(51L)).thenReturn(new RdStockLotDO().setId(51L)
+                .setWarehouseQty(BigDecimal.ZERO).setLockedQty(BigDecimal.ZERO)
+                .setStockWeight(BigDecimal.ZERO).setPackageWeight(new BigDecimal("1000")));
+        when(stockTransactionService.createStockTransaction(any(RdStockTransactionDO.class)))
+                .thenReturn(101L, 102L);
+
+        service.adjust(1L, 3, 300L, "adjuster");
+
+        verify(stockTransactionService).createStockTransaction(org.mockito.ArgumentMatchers.argThat(
+                (RdStockTransactionDO value) -> BigDecimal.ONE.negate().equals(value.getQuantity())));
+        verify(stockTransactionService).createStockTransaction(org.mockito.ArgumentMatchers.argThat(
+                (RdStockTransactionDO value) -> BigDecimal.ONE.equals(value.getQuantity())));
+        verify(packageMapper, times(2)).updateById(any(RdPackageUnitDO.class));
+        verify(lineMapper).updateById(org.mockito.ArgumentMatchers.argThat(
+                (RdStocktakeOrderLineDO value) -> Long.valueOf(101L).equals(value.getStockTransactionId())));
+        verify(lineMapper).updateById(org.mockito.ArgumentMatchers.argThat(
+                (RdStocktakeOrderLineDO value) -> Long.valueOf(102L).equals(value.getStockTransactionId())));
     }
 
     @Test
@@ -173,7 +234,8 @@ class RdStocktakeOrderServiceImplTest {
         verify(locationMapper, never()).updateById(org.mockito.ArgumentMatchers.argThat((RdWarehouseLocationDO value) ->
                 Boolean.FALSE.equals(value.getFrozen())));
         verify(orderMapper).updateById(org.mockito.ArgumentMatchers.argThat((RdStocktakeOrderDO value) ->
-                RdStocktakeOrderStatusEnum.CANCELLED.getStatus().equals(value.getStatus())));
+                RdStocktakeOrderStatusEnum.CANCELLED.getStatus().equals(value.getStatus())
+                        && "canceller".equals(value.getCancellerName())));
     }
 
     private static RdStocktakeOrderDO draftOrder() {

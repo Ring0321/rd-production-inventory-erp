@@ -104,7 +104,7 @@
     <template #footer>
       <el-button
         type="primary"
-        :disabled="!detail || !detail.order.countedPackageQty"
+        :disabled="!detail || scannedLines.length === 0"
         @click="submitOrder"
       >
         提交复核
@@ -139,17 +139,21 @@ const feedback = ref('')
 const feedbackType = ref<'success' | 'error'>('success')
 const detail = ref<RdStocktakeDetailVO>()
 const scanInputRef = ref()
+const changed = ref(false)
 
 const scannedLines = computed(() =>
-  (detail.value?.lines || []).filter(
-    (line) => Number(line.countedQty || 0) > 0 || (line.result && line.result !== 'UNSCANNED')
-  )
+  (detail.value?.lines || []).filter((line) => Number(line.countedQty || 0) > 0)
 )
 
 const focus = () => nextTick(() => scanInputRef.value?.focus())
 
 watch(visible, (value) => {
-  if (value) focus()
+  if (value) {
+    focus()
+  } else if (changed.value) {
+    changed.value = false
+    emit('success')
+  }
 })
 
 const load = async () => {
@@ -162,6 +166,7 @@ const open = async (id: number) => {
   loading.value = true
   packageCode.value = ''
   feedback.value = ''
+  changed.value = false
   try {
     detail.value = await RdStocktakeApi.getDetail(id)
   } finally {
@@ -193,6 +198,7 @@ const scan = async () => {
     })
     feedbackType.value = 'success'
     feedback.value = `包码 ${code} 录入成功`
+    changed.value = true
     beep(true)
     packageCode.value = ''
     await load()
@@ -214,6 +220,7 @@ const submitOrder = async () => {
     version: detail.value.order.version
   })
   message.success('盘点单已提交复核')
+  changed.value = false
   visible.value = false
   emit('success')
 }

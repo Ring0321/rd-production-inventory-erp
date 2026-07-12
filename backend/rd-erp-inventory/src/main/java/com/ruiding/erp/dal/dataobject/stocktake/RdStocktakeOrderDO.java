@@ -34,6 +34,8 @@ public class RdStocktakeOrderDO extends TenantBaseDO {
     private BigDecimal surplusQty;
     private BigDecimal bookWeight;
     private BigDecimal countedWeight;
+    private Long businessCreatorId;
+    private String businessCreatorName;
     private Long submitterId;
     private String submitterName;
     private LocalDateTime submitTime;
@@ -46,5 +48,8 @@ public class RdStocktakeOrderDO extends TenantBaseDO {
     private Long closerId;
     private String closerName;
     private LocalDateTime closeTime;
+    private Long cancellerId;
+    private String cancellerName;
+    private LocalDateTime cancelTime;
     private String remark;
 }

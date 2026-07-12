@@ -36,4 +36,5 @@ public class RdStocktakeOrderLineDO extends TenantBaseDO {
     private Long scannerId;
     private String scannerName;
     private LocalDateTime scanTime;
+    private Long stockTransactionId;
 }

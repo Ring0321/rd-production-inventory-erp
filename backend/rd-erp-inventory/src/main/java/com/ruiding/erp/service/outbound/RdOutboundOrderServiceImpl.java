@@ -25,6 +25,7 @@ import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdStockLotStatusEnum;
 import com.ruiding.erp.enums.RdStockTransactionTypeEnum;
 import com.ruiding.erp.service.order.RdSaleOrderService;
+import com.ruiding.erp.service.masterdata.RdWarehouseLocationFreezeGuard;
 import com.ruiding.erp.service.packageunit.RdScanEventService;
 import com.ruiding.erp.service.stock.RdStockTransactionService;
 import com.mzt.logapi.context.LogRecordContext;
@@ -91,6 +92,8 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
     private RdStockTransactionService stockTransactionService;
     @Resource
     private RdScanEventService scanEventService;
+    @Resource
+    private RdWarehouseLocationFreezeGuard locationFreezeGuard;
 
     @Override
     @LogRecord(type = RdLogRecordConstants.OUTBOUND_TYPE,
@@ -144,6 +147,7 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
             if (!RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())) {
                 throw exception(OUTBOUND_PACKAGE_STATUS_INVALID);
             }
+            locationFreezeGuard.requireMovable(unit.getLocationId());
             if (outboundOrderLineMapper.selectByOrderIdAndPackageId(order.getId(), unit.getId()) != null) {
                 throw exception(OUTBOUND_PACKAGE_DUPLICATE);
             }
@@ -272,6 +276,7 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
                 || !Objects.equals(unit.getStockLotId(), line.getStockLotId())) {
             throw exception(OUTBOUND_PACKAGE_STATUS_INVALID);
         }
+        locationFreezeGuard.requireMovable(unit.getLocationId());
         RdStockLotDO lot = stockLotMapper.selectByIdForUpdate(line.getStockLotId());
         if (lot == null) throw exception(STOCK_LOT_NOT_EXISTS);
         BigDecimal before = zeroIfNull(lot.getWarehouseQty());
@@ -333,6 +338,7 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
         if (unit == null || !RdPackageStatusEnum.OUTBOUNDED.getStatus().equals(unit.getStatus())) {
             throw exception(OUTBOUND_ORDER_REVERSE_INSUFFICIENT);
         }
+        locationFreezeGuard.requireMovable(unit.getLocationId());
         RdStockLotDO lot = stockLotMapper.selectByIdForUpdate(line.getStockLotId());
         if (lot == null || RdStockLotStatusEnum.CLOSED.getStatus().equals(lot.getStatus())) {
             throw exception(OUTBOUND_ORDER_REVERSE_INSUFFICIENT);
@@ -378,6 +384,7 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
         saleOrderService.lockSaleOrderForOutbound(outboundOrder.getOrderId(), false);
         RdOrderFulfillmentDO fulfillment = fulfillmentMapper.selectByIdForUpdate(outboundOrder.getFulfillmentId());
         RdStockLotDO stockLot = stockLotMapper.selectByIdForUpdate(outboundOrder.getStockLotId());
+        locationFreezeGuard.requireMovable(stockLot == null ? null : stockLot.getLocationId());
         validateOutboundBusiness(outboundOrder, fulfillment, stockLot);
 
         RdOutboundQuantityCalculator.Result result = calculateConfirm(outboundOrder, fulfillment, stockLot);
@@ -422,6 +429,7 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
         saleOrderService.lockSaleOrderForOutbound(outboundOrder.getOrderId(), true);
         RdOrderFulfillmentDO fulfillment = fulfillmentMapper.selectByIdForUpdate(outboundOrder.getFulfillmentId());
         RdStockLotDO stockLot = stockLotMapper.selectByIdForUpdate(outboundOrder.getStockLotId());
+        locationFreezeGuard.requireMovable(stockLot == null ? null : stockLot.getLocationId());
         validateOutboundReferences(outboundOrder, fulfillment, stockLot);
         RdOutboundQuantityCalculator.Result result = calculateCancel(outboundOrder, fulfillment, stockLot);
         LocalDate reverseDate = LocalDate.now();

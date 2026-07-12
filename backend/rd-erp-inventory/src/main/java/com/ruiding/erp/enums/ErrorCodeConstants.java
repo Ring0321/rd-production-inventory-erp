@@ -87,6 +87,9 @@ public interface ErrorCodeConstants {
     ErrorCode TRANSFER_ORDER_SAME_CUSTOMER = new ErrorCode(1_080_400_006, "相同客户库存请使用订单匹配，无需调拨");
     ErrorCode TRANSFER_ORDER_FROM_ORDER_MISMATCH = new ErrorCode(1_080_400_007, "调出订单与调出库存客户或型号不一致");
     ErrorCode TRANSFER_ORDER_REVERSE_INSUFFICIENT = new ErrorCode(1_080_400_008, "调入库存已被占用或数量不足，无法撤销调拨");
+    ErrorCode TRANSFER_ORDER_PACKAGE_QTY_INVALID = new ErrorCode(1_080_400_009, "一包一码调拨数量必须为整数包");
+    ErrorCode TRANSFER_ORDER_PACKAGE_INSUFFICIENT = new ErrorCode(1_080_400_010, "调出批次可用包码数量不足");
+    ErrorCode TRANSFER_ORDER_PACKAGE_REVERSE_INVALID = new ErrorCode(1_080_400_011, "调拨包码已被后续业务占用，无法撤销调拨");
 
     // ========== RD outbound order 1-080-500-000 ==========
     ErrorCode OUTBOUND_ORDER_NOT_EXISTS = new ErrorCode(1_080_500_000, "出库单不存在");
