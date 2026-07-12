@@ -88,5 +88,6 @@ public class RdProductionOutputDO extends TenantBaseDO {
      * Remark.
      */
     private String remark;
+    private Integer version;
 
 }

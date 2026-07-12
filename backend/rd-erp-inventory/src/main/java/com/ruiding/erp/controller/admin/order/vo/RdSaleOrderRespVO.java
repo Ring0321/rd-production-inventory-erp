@@ -40,6 +40,12 @@ public class RdSaleOrderRespVO {
     @ExcelProperty("实际产额")
     private BigDecimal actualOutputQty;
 
+    @Schema(description = "Manual output quantity")
+    private BigDecimal manualOutputQty;
+
+    @Schema(description = "Split-bound output quantity")
+    private BigDecimal splitOutputQty;
+
     @ExcelProperty("调入量")
     private BigDecimal transferInQty;
 

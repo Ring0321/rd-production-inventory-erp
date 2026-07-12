@@ -7,6 +7,8 @@ export interface RdSaleOrderVO {
   customerName: string
   productModel: string
   requiredQty: number
+  manualOutputQty: number
+  splitOutputQty: number
   actualOutputQty: number
   transferInQty: number
   transferOutQty: number

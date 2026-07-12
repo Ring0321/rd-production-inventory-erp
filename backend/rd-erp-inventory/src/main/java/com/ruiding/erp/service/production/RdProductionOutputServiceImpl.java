@@ -7,7 +7,7 @@ import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputPageReqV
 import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputSaveReqVO;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
-import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
+import com.ruiding.erp.dal.mysql.ordersplit.RdOrderSplitOutputBindMapper;
 import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
 import com.ruiding.erp.service.stock.RdStockLotService;
@@ -34,6 +34,9 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_USE_INB
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_NOT_EXISTS;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_STATUS_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_UPDATE_FAIL_INBOUNDED;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_BOUND_LOCKED;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_CONFIRM_STATUS_INVALID;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PRODUCTION_OUTPUT_VERSION_CONFLICT;
 
 /**
  * RD furnace-layer production output Service implementation.
@@ -50,6 +53,8 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
     private RdPackageUnitMapper packageUnitMapper;
     @Resource
     private RdCustomerProductService customerProductService;
+    @Resource
+    private RdOrderSplitOutputBindMapper orderSplitOutputBindMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -74,7 +79,8 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
             subType = RdLogRecordConstants.PRODUCTION_UPDATE_SUB_TYPE,
             bizNo = "{{#updateReqVO.id}}", success = RdLogRecordConstants.PRODUCTION_UPDATE_SUCCESS)
     public void updateProductionOutput(RdProductionOutputSaveReqVO updateReqVO) {
-        RdProductionOutputDO oldProductionOutput = validateProductionOutputExists(updateReqVO.getId());
+        RdProductionOutputDO oldProductionOutput = lockProductionOutput(updateReqVO.getId(), updateReqVO.getVersion());
+        validateNotActivelyBound(updateReqVO.getId());
         validatePackageNotGenerated(updateReqVO.getId());
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(oldProductionOutput.getStatus())) {
             throw exception(PRODUCTION_OUTPUT_UPDATE_FAIL_INBOUNDED);
@@ -86,16 +92,19 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
         if (StrUtil.isBlank(updateObj.getStatus())) {
             updateObj.setStatus(oldProductionOutput.getStatus());
         }
+        updateObj.setVersion(oldProductionOutput.getVersion() + 1);
         fillCalculatedFields(updateObj);
         productionOutputMapper.updateById(updateObj);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = RdLogRecordConstants.PRODUCTION_TYPE,
             subType = RdLogRecordConstants.PRODUCTION_CANCEL_SUB_TYPE,
             bizNo = "{{#id}}", success = RdLogRecordConstants.PRODUCTION_CANCEL_SUCCESS)
-    public void cancelProductionOutput(Long id) {
-        RdProductionOutputDO productionOutput = validateProductionOutputExists(id);
+    public void cancelProductionOutput(Long id, Integer version) {
+        RdProductionOutputDO productionOutput = lockProductionOutput(id, version);
+        validateNotActivelyBound(id);
         validatePackageNotGenerated(id);
         if (RdProductionOutputStatusEnum.INBOUNDED.getStatus().equals(productionOutput.getStatus())) {
             throw exception(PRODUCTION_OUTPUT_CANCEL_FAIL_INBOUNDED);
@@ -105,7 +114,19 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
         }
         productionOutputMapper.updateById(new RdProductionOutputDO()
                 .setId(id)
-                .setStatus(RdProductionOutputStatusEnum.CANCELLED.getStatus()));
+                .setStatus(RdProductionOutputStatusEnum.CANCELLED.getStatus())
+                .setVersion(productionOutput.getVersion() + 1));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmProductionOutput(Long id, Integer version) {
+        RdProductionOutputDO productionOutput = lockProductionOutput(id, version);
+        if (!RdProductionOutputStatusEnum.DRAFT.getStatus().equals(productionOutput.getStatus())) {
+            throw exception(PRODUCTION_OUTPUT_CONFIRM_STATUS_INVALID);
+        }
+        productionOutputMapper.updateById(new RdProductionOutputDO().setId(id)
+                .setStatus(RdProductionOutputStatusEnum.CONFIRMED.getStatus()).setVersion(version + 1));
     }
 
     @Override
@@ -136,9 +157,27 @@ public class RdProductionOutputServiceImpl implements RdProductionOutputService 
         return productionOutput;
     }
 
+    private RdProductionOutputDO lockProductionOutput(Long id, Integer version) {
+        RdProductionOutputDO productionOutput = productionOutputMapper.selectByIdForUpdate(id);
+        if (productionOutput == null) {
+            throw exception(PRODUCTION_OUTPUT_NOT_EXISTS);
+        }
+        if (!java.util.Objects.equals(productionOutput.getVersion(), version)) {
+            throw exception(PRODUCTION_OUTPUT_VERSION_CONFLICT);
+        }
+        return productionOutput;
+    }
+
     private void validatePackageNotGenerated(Long productionOutputId) {
         if (packageUnitMapper.selectCountByProductionOutputId(productionOutputId) > 0) {
             throw exception(PRODUCTION_OUTPUT_PACKAGE_LOCKED);
+        }
+    }
+
+    private void validateNotActivelyBound(Long productionOutputId) {
+        if (orderSplitOutputBindMapper != null
+                && orderSplitOutputBindMapper.selectActiveByProductionOutputId(productionOutputId) != null) {
+            throw exception(PRODUCTION_OUTPUT_BOUND_LOCKED);
         }
     }
 

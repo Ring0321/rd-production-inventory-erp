@@ -77,7 +77,9 @@
       <el-table-column label="调出量" align="right" prop="transferOutQty" width="90" />
       <el-table-column label="差额" align="right" prop="differenceQty" width="100">
         <template #default="scope">
-          <span :class="differenceClass(scope.row.differenceQty)">{{ scope.row.differenceQty }}</span>
+          <span :class="differenceClass(scope.row.differenceQty)">{{
+            scope.row.differenceQty
+          }}</span>
         </template>
       </el-table-column>
       <el-table-column label="调拨后差额" align="right" prop="adjustedDifferenceQty" width="115">
@@ -95,8 +97,17 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="500">
+      <el-table-column label="操作" align="center" fixed="right" width="580">
         <template #default="scope">
+          <el-button
+            link
+            type="primary"
+            :disabled="!isEditable(scope.row)"
+            @click="openOrderSplit(scope.row.id)"
+            v-hasPermi="['rd:order-split:create']"
+          >
+            订单拆分
+          </el-button>
           <el-button
             link
             type="primary"
@@ -204,7 +215,11 @@ const queryParams = reactive({
   productModel: undefined as string | undefined,
   status: undefined as string | undefined
 })
-const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
+const statusOptions: Array<{
+  label: string
+  value: string
+  type: 'success' | 'warning' | 'info' | 'danger'
+}> = [
   { label: '待满足', value: 'OPEN', type: 'info' },
   { label: '部分满足', value: 'PARTIAL', type: 'warning' },
   { label: '已满足', value: 'FULFILLED', type: 'success' },
@@ -213,7 +228,10 @@ const statusOptions: Array<{ label: string; value: string; type: 'success' | 'wa
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
+  {} as Record<
+    string,
+    { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }
+  >
 )
 
 const getList = async () => {
@@ -248,6 +266,10 @@ const openDetail = (id: number) => {
 
 const openFulfillment = (orderId: number) => {
   router.push({ name: 'RdOrderFulfillment', query: { orderId } })
+}
+
+const openOrderSplit = (orderId: number) => {
+  router.push({ name: 'RdOrderSplit', query: { orderId } })
 }
 
 const openTransfer = (toOrderId: number) => {

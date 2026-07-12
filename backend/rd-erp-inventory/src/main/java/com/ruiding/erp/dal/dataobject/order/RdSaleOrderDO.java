@@ -29,6 +29,8 @@ public class RdSaleOrderDO extends TenantBaseDO {
     private String customerName;
     private String productModel;
     private BigDecimal requiredQty;
+    private BigDecimal manualOutputQty;
+    private BigDecimal splitOutputQty;
     private BigDecimal actualOutputQty;
     private BigDecimal differenceQty;
     private BigDecimal allocatedQty;

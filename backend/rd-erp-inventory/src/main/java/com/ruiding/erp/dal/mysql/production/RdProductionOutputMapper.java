@@ -8,6 +8,8 @@ import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 /**
  * RD furnace-layer production output Mapper.
  */
@@ -16,6 +18,10 @@ public interface RdProductionOutputMapper extends BaseMapperX<RdProductionOutput
 
     @Select("SELECT * FROM rd_production_output WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdProductionOutputDO selectByIdForUpdate(Long id);
+
+    @Select("SELECT * FROM rd_production_output WHERE customer_name = #{customerName} AND product_model = #{productModel} " +
+            "AND furnace_layer = #{furnaceLayer} AND status IN ('CONFIRMED', 'INBOUNDED') AND deleted = 0 ORDER BY production_date DESC, id DESC")
+    List<RdProductionOutputDO> selectBindingOptions(String customerName, String productModel, String furnaceLayer);
 
     default PageResult<RdProductionOutputDO> selectPage(RdProductionOutputPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<RdProductionOutputDO>()

@@ -1123,6 +1123,7 @@ CREATE TABLE `rd_production_output` (
   `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT/CONFIRMED/INBOUNDED/CANCELLED',
   `source_sheet` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Source sheet or Excel file',
   `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Remark',
+  `version` int NOT NULL DEFAULT '1' COMMENT 'Optimistic lock version',
   `creator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updater` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
@@ -1144,6 +1145,8 @@ CREATE TABLE `rd_sale_order_extend` (
   `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Customer',
   `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Product model',
   `required_qty` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Required order quantity',
+  `manual_output_qty` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Historical/manual output quantity',
+  `split_output_qty` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Output quantity from active split bindings',
   `actual_output_qty` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Actual production output quantity',
   `difference_qty` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'required_qty - actual_output_qty',
   `allocated_qty` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Allocated quantity from stock matching',
@@ -1167,6 +1170,71 @@ CREATE TABLE `rd_sale_order_extend` (
   KEY `idx_rd_sale_order_status_date` (`tenant_id`,`status`,`deleted`,`order_date`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD sales order fulfillment extension';
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `rd_order_split_output_bind`;
+DROP TABLE IF EXISTS `rd_order_split_result_line`;
+DROP TABLE IF EXISTS `rd_order_split_result`;
+DROP TABLE IF EXISTS `rd_order_split_rule_line`;
+DROP TABLE IF EXISTS `rd_order_split_rule`;
+CREATE TABLE `rd_order_split_rule` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `rule_code` varchar(64) NOT NULL, `rule_name` varchar(128) NOT NULL, `customer_name` varchar(128) NOT NULL,
+  `product_model` varchar(128) NOT NULL, `default_furnace_load_qty` decimal(24,6) NOT NULL,
+  `yield_rate_percent` decimal(12,6) NOT NULL, `enabled` bit(1) NOT NULL DEFAULT b'1', `version` int NOT NULL DEFAULT 1,
+  `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_split_rule_code` (`tenant_id`,`rule_code`,`deleted`),
+  KEY `idx_rd_split_rule_customer` (`tenant_id`,`customer_name`,`product_model`,`enabled`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Order split rule';
+CREATE TABLE `rd_order_split_rule_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `rule_id` bigint NOT NULL,
+  `sequence_no` int NOT NULL, `furnace_layer` varchar(32) NOT NULL, `allocation_type` varchar(16) NOT NULL,
+  `allocation_value` decimal(24,6) NOT NULL, `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_rd_split_rule_line_seq` (`tenant_id`,`rule_id`,`sequence_no`,`deleted`),
+  KEY `idx_rd_split_rule_line_rule` (`tenant_id`,`rule_id`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Order split rule line';
+CREATE TABLE `rd_order_split_result` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `split_no` varchar(64) NOT NULL,
+  `split_date` date NOT NULL, `sale_order_id` bigint NOT NULL, `sale_order_no` varchar(64) NOT NULL, `rule_id` bigint NOT NULL,
+  `rule_name_snapshot` varchar(128) NOT NULL, `customer_name_snapshot` varchar(128) NOT NULL,
+  `product_model_snapshot` varchar(128) NOT NULL, `furnace_load_qty` decimal(24,6) NOT NULL,
+  `yield_rate_percent` decimal(12,6) NOT NULL, `expected_output_qty` decimal(24,6) NOT NULL,
+  `final_planned_output_qty` decimal(24,6) NOT NULL, `variance_qty` decimal(24,6) NOT NULL,
+  `status` varchar(16) NOT NULL DEFAULT 'DRAFT', `version` int NOT NULL DEFAULT 1,
+  `confirmer_id` bigint DEFAULT NULL, `confirmer_name` varchar(64) DEFAULT NULL, `confirm_time` datetime DEFAULT NULL,
+  `canceller_id` bigint DEFAULT NULL, `canceller_name` varchar(64) DEFAULT NULL, `cancel_time` datetime DEFAULT NULL,
+  `cancel_reason` varchar(512) DEFAULT NULL, `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_rd_split_result_no` (`tenant_id`,`split_no`,`deleted`),
+  KEY `idx_rd_split_result_order` (`tenant_id`,`sale_order_id`,`status`,`deleted`,`split_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Order split result';
+CREATE TABLE `rd_order_split_result_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `result_id` bigint NOT NULL,
+  `sequence_no` int NOT NULL, `furnace_layer` varchar(32) NOT NULL, `allocation_type_snapshot` varchar(16) NOT NULL,
+  `allocation_value_snapshot` decimal(24,6) NOT NULL, `calculated_base_qty` decimal(24,6) NOT NULL,
+  `manual_adjustment_qty` decimal(24,6) NOT NULL DEFAULT 0, `final_planned_qty` decimal(24,6) NOT NULL,
+  `actual_bound_qty` decimal(24,6) NOT NULL DEFAULT 0, `adjustment_reason` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_rd_split_result_line_seq` (`tenant_id`,`result_id`,`sequence_no`,`deleted`),
+  KEY `idx_rd_split_result_line_result` (`tenant_id`,`result_id`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Order split result line';
+CREATE TABLE `rd_order_split_output_bind` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `sale_order_id` bigint NOT NULL,
+  `result_id` bigint NOT NULL, `result_line_id` bigint NOT NULL, `production_output_id` bigint NOT NULL,
+  `output_qty_snapshot` decimal(24,6) NOT NULL, `status` varchar(16) NOT NULL DEFAULT 'ACTIVE',
+  `binder_id` bigint DEFAULT NULL, `binder_name` varchar(64) DEFAULT NULL, `bind_time` datetime NOT NULL,
+  `unbinder_id` bigint DEFAULT NULL, `unbinder_name` varchar(64) DEFAULT NULL, `unbind_time` datetime DEFAULT NULL,
+  `unbind_reason` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_split_bind_output` (`tenant_id`,`production_output_id`,`deleted`),
+  KEY `idx_rd_split_bind_order` (`tenant_id`,`sale_order_id`,`status`,`deleted`),
+  KEY `idx_rd_split_bind_line` (`tenant_id`,`result_line_id`,`status`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Order split production output binding';
 DROP TABLE IF EXISTS `rd_customer_product`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1414,6 +1482,7 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600104, '生产炉层产量作废', 'rd:production-output:cancel', 3, 30, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600105, '生产炉层产量导出', 'rd:production-output:export', 3, 40, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600106, '生产炉层产量入库', 'rd:production-output:inbound', 3, 50, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600107, '生产炉层产量确认', 'rd:production-output:confirm', 3, 25, 600101, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600200, '仓库管理', '', 1, 20, 600000, 'stock', 'ep:house', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600201, '库存台账', 'rd:stock-lot:query', 2, 10, 600200, 'lot', 'ep:collection', 'rd/stock/lot/index', 'RdStockLot', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600202, '库存台账导出', 'rd:stock-lot:export', 3, 20, 600201, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
@@ -1444,6 +1513,14 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600311, '订单手动匹配', 'rd:order-fulfillment:allocate', 3, 10, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600312, '订单自动匹配', 'rd:order-fulfillment:auto', 3, 20, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600313, '订单取消匹配', 'rd:order-fulfillment:cancel', 3, 30, 600310, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600320, '订单拆分', 'rd:order-split:query', 2, 30, 600300, 'split', 'ep:share', 'rd/order/split/index', 'RdOrderSplit', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600321, '订单拆分新增', 'rd:order-split:create', 3, 10, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600322, '订单拆分调整', 'rd:order-split:adjust', 3, 20, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600323, '订单拆分确认', 'rd:order-split:confirm', 3, 30, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600324, '订单拆分取消', 'rd:order-split:cancel', 3, 40, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600325, '订单拆分绑定', 'rd:order-split:bind', 3, 50, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600326, '拆分规则查询', 'rd:order-split:rule-query', 3, 60, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600327, '拆分规则管理', 'rd:order-split:rule-manage', 3, 70, 600320, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600400, '调拨管理', '', 1, 40, 600000, 'transfer', 'ep:sort', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600401, '调拨单', 'rd:transfer-order:query', 2, 10, 600400, 'list', 'ep:switch', 'rd/transfer/index', 'RdTransferOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600402, '调拨单新增', 'rd:transfer-order:create', 3, 10, 600401, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
@@ -1707,3 +1784,8 @@ WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600214,600236,6002
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)
 UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600252,600254);
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600001,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600107)
+UNION ALL SELECT 600003,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600320,600321,600322,600323,600324,600325,600326,600327)
+UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600107,600320,600321,600322,600323,600324,600325,600326,600327);

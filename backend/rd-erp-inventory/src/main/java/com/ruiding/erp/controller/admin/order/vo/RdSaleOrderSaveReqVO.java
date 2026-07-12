@@ -41,6 +41,13 @@ public class RdSaleOrderSaveReqVO {
     @DecimalMin(value = "0.000000", message = "实际产额不能小于 0")
     private BigDecimal actualOutputQty;
 
+    @Schema(description = "Manual output quantity", example = "10")
+    @DecimalMin(value = "0.000000", message = "Manual output quantity cannot be negative")
+    private BigDecimal manualOutputQty;
+
+    @Schema(description = "Split-bound output quantity (read-only)", accessMode = Schema.AccessMode.READ_ONLY)
+    private BigDecimal splitOutputQty;
+
     @Schema(description = "备注")
     private String remark;
 

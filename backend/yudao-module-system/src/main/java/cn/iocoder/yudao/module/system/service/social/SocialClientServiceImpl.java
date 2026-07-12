@@ -116,9 +116,9 @@ public class SocialClientServiceImpl implements SocialClientService {
     @Autowired(required = false) // 由于 justauth.enable 配置项，可以关闭 AuthRequestFactory 的功能，所以这里只能不强制注入
     private AuthRequestFactory authRequestFactory;
 
-    @Resource
+    @Autowired(required = false)
     private WxMpService wxMpService;
-    @Resource
+    @Autowired(required = false)
     private WxMpProperties wxMpProperties;
     @Resource
     private StringRedisTemplate stringRedisTemplate; // WxMpService 需要使用到，所以在 Service 注入了它
@@ -142,9 +142,9 @@ public class SocialClientServiceImpl implements SocialClientService {
 
             });
 
-    @Resource
+    @Autowired(required = false)
     private WxMaService wxMaService;
-    @Resource
+    @Autowired(required = false)
     private WxMaProperties wxMaProperties;
     /**
      * 缓存 WxMaService 对象

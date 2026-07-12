@@ -14,6 +14,7 @@ export interface RdProductionOutputVO {
   outputWeight: number
   inboundQty: number
   status: string
+  version: number
   sourceSheet?: string
   remark?: string
   createTime?: string
@@ -32,8 +33,11 @@ export const RdProductionOutputApi = {
   update: async (data: Partial<RdProductionOutputVO>) => {
     return await request.put({ url: '/rd/production-output/update', data })
   },
-  cancel: async (id: number) => {
-    return await request.put({ url: '/rd/production-output/cancel', params: { id } })
+  confirm: async (data: { id: number; version: number }) => {
+    return await request.post({ url: '/rd/production-output/confirm', data })
+  },
+  cancel: async (data: { id: number; version: number }) => {
+    return await request.put({ url: '/rd/production-output/cancel', data })
   },
   inbound: async (id: number) => {
     return await request.put({ url: '/rd/production-output/inbound', params: { id } })

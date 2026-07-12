@@ -9,6 +9,7 @@ import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputPageReqVO;
 import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputRespVO;
 import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputSaveReqVO;
+import com.ruiding.erp.controller.admin.production.vo.RdProductionOutputActionReqVO;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.service.production.RdProductionOutputService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,8 +62,16 @@ public class RdProductionOutputController {
     @Operation(summary = "作废生产炉层产量")
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('rd:production-output:cancel')")
-    public CommonResult<Boolean> cancelProductionOutput(@RequestParam("id") Long id) {
-        productionOutputService.cancelProductionOutput(id);
+    public CommonResult<Boolean> cancelProductionOutput(@Valid @RequestBody RdProductionOutputActionReqVO reqVO) {
+        productionOutputService.cancelProductionOutput(reqVO.getId(), reqVO.getVersion());
+        return success(true);
+    }
+
+    @PostMapping("/confirm")
+    @Operation(summary = "确认生产炉层产量")
+    @PreAuthorize("@ss.hasPermission('rd:production-output:confirm')")
+    public CommonResult<Boolean> confirmProductionOutput(@Valid @RequestBody RdProductionOutputActionReqVO reqVO) {
+        productionOutputService.confirmProductionOutput(reqVO.getId(), reqVO.getVersion());
         return success(true);
     }
 

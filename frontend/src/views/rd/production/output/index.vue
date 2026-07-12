@@ -100,7 +100,7 @@
         :formatter="dateFormatter"
         width="180"
       />
-      <el-table-column label="操作" align="center" fixed="right" width="310">
+      <el-table-column label="操作" align="center" fixed="right" width="390">
         <template #default="scope">
           <el-button
             link
@@ -110,6 +110,15 @@
             v-hasPermi="['rd:production-output:update']"
           >
             编辑
+          </el-button>
+          <el-button
+            link
+            type="success"
+            @click="handleConfirm(scope.row)"
+            :disabled="scope.row.status !== 'DRAFT'"
+            v-hasPermi="['rd:production-output:confirm']"
+          >
+            确认产量
           </el-button>
           <el-button
             link
@@ -123,7 +132,7 @@
           <el-button
             link
             type="danger"
-            @click="handleCancel(scope.row.id)"
+            @click="handleCancel(scope.row)"
             :disabled="scope.row.status === 'INBOUNDED' || scope.row.status === 'CANCELLED'"
             v-hasPermi="['rd:production-output:cancel']"
           >
@@ -216,11 +225,22 @@ const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }
 
-const handleCancel = async (id: number) => {
+const handleCancel = async (row: RdProductionOutputVO) => {
   try {
     await message.confirm('确认作废该生产炉层产量吗？作废后不会删除历史记录。')
-    await RdProductionOutputApi.cancel(id)
+    await RdProductionOutputApi.cancel({ id: row.id, version: row.version })
     message.success('作废成功')
+    await getList()
+  } catch {}
+}
+
+const handleConfirm = async (row: RdProductionOutputVO) => {
+  try {
+    await message.confirm(
+      `确认生产炉号 ${row.furnaceNo}、炉层 ${row.furnaceLayer} 的实际产额 ${row.outputQty} 吗？确认后才能生成包码或绑定订单拆分结果。`
+    )
+    await RdProductionOutputApi.confirm({ id: row.id, version: row.version })
+    message.success('生产炉层产量确认成功')
     await getList()
   } catch {}
 }

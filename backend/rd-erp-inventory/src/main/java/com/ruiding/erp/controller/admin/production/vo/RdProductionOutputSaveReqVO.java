@@ -16,6 +16,9 @@ public class RdProductionOutputSaveReqVO {
     @Schema(description = "编号", example = "1")
     private Long id;
 
+    @Schema(description = "Version required for update", example = "1")
+    private Integer version;
+
     @Schema(description = "产出日期", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "产出日期不能为空")
     private LocalDate productionDate;

@@ -67,7 +67,8 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
                 .setCustomerName(pair.getCustomerName())
                 .setProductModel(pair.getProductModel())
                 .setRequiredQty(createReqVO.getRequiredQty())
-                .setActualOutputQty(zeroIfNull(createReqVO.getActualOutputQty()))
+                .setManualOutputQty(resolveSubmittedManual(createReqVO, BigDecimal.ZERO, BigDecimal.ZERO))
+                .setSplitOutputQty(BigDecimal.ZERO)
                 .setAllocatedQty(BigDecimal.ZERO)
                 .setTransferInQty(BigDecimal.ZERO)
                 .setTransferOutQty(BigDecimal.ZERO)
@@ -93,7 +94,8 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
                 .setCustomerName(pair.getCustomerName())
                 .setProductModel(pair.getProductModel())
                 .setRequiredQty(updateReqVO.getRequiredQty())
-                .setActualOutputQty(zeroIfNull(updateReqVO.getActualOutputQty()))
+                .setManualOutputQty(resolveSubmittedManual(updateReqVO,
+                        zeroIfNull(saleOrder.getManualOutputQty()), zeroIfNull(saleOrder.getSplitOutputQty())))
                 .setRemark(updateReqVO.getRemark());
         recalculateMetrics(saleOrder);
         saleOrderMapper.updateById(saleOrder);
@@ -280,7 +282,10 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
 
     private static void recalculateMetrics(RdSaleOrderDO saleOrder) {
         BigDecimal requiredQty = zeroIfNull(saleOrder.getRequiredQty());
-        BigDecimal actualOutputQty = zeroIfNull(saleOrder.getActualOutputQty());
+        BigDecimal manualOutputQty = saleOrder.getManualOutputQty() == null
+                ? zeroIfNull(saleOrder.getActualOutputQty()) : saleOrder.getManualOutputQty();
+        BigDecimal splitOutputQty = zeroIfNull(saleOrder.getSplitOutputQty());
+        BigDecimal actualOutputQty = manualOutputQty.add(splitOutputQty);
         BigDecimal allocatedQty = zeroIfNull(saleOrder.getAllocatedQty());
         BigDecimal transferInQty = zeroIfNull(saleOrder.getTransferInQty());
         BigDecimal transferOutQty = zeroIfNull(saleOrder.getTransferOutQty());
@@ -289,7 +294,9 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
             fulfilledQty = BigDecimal.ZERO;
         }
 
-        saleOrder.setActualOutputQty(actualOutputQty)
+        saleOrder.setManualOutputQty(manualOutputQty)
+                .setSplitOutputQty(splitOutputQty)
+                .setActualOutputQty(actualOutputQty)
                 .setAllocatedQty(allocatedQty)
                 .setTransferInQty(transferInQty)
                 .setTransferOutQty(transferOutQty)
@@ -311,6 +318,19 @@ public class RdSaleOrderServiceImpl implements RdSaleOrderService {
 
     private static BigDecimal zeroIfNull(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private static BigDecimal resolveSubmittedManual(RdSaleOrderSaveReqVO reqVO,
+                                                     BigDecimal existingManual,
+                                                     BigDecimal existingSplit) {
+        if (reqVO.getManualOutputQty() != null) {
+            return reqVO.getManualOutputQty();
+        }
+        if (reqVO.getActualOutputQty() == null) {
+            return existingManual;
+        }
+        BigDecimal compatibleManual = reqVO.getActualOutputQty().subtract(existingSplit);
+        return compatibleManual.signum() < 0 ? BigDecimal.ZERO : compatibleManual;
     }
 
 }

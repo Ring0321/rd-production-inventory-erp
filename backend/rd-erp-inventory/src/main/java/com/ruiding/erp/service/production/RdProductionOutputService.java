@@ -16,7 +16,9 @@ public interface RdProductionOutputService {
 
     void updateProductionOutput(@Valid RdProductionOutputSaveReqVO updateReqVO);
 
-    void cancelProductionOutput(Long id);
+    void cancelProductionOutput(Long id, Integer version);
+
+    void confirmProductionOutput(Long id, Integer version);
 
     void inboundProductionOutput(Long id);
 

@@ -19,6 +19,8 @@ public class RdProductionOutputRespVO {
     @ExcelProperty("编号")
     private Long id;
 
+    private Integer version;
+
     @Schema(description = "产出日期", requiredMode = Schema.RequiredMode.REQUIRED)
     @ExcelProperty("产出日期")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")

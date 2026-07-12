@@ -32,14 +32,20 @@
           placeholder="请输入订单量"
         />
       </el-form-item>
-      <el-form-item label="实际产额" prop="actualOutputQty">
+      <el-form-item label="手工产额" prop="manualOutputQty">
         <el-input-number
-          v-model="formData.actualOutputQty"
+          v-model="formData.manualOutputQty"
           :min="0"
           :precision="6"
           class="!w-1/1"
-          placeholder="请输入实际产额"
+          placeholder="请输入手工产额"
         />
+      </el-form-item>
+      <el-form-item label="拆分产额">
+        <el-input-number :model-value="formData.splitOutputQty || 0" :precision="6" disabled class="!w-1/1" />
+      </el-form-item>
+      <el-form-item label="实际总产额">
+        <el-input :model-value="actualOutputPreview" disabled />
       </el-form-item>
       <el-form-item label="当前差额">
         <el-input :model-value="differencePreview" disabled />
@@ -85,11 +91,17 @@ const formRules = reactive({
   customerName: [{ required: true, message: '客户不能为空', trigger: 'blur' }],
   productModel: [{ required: true, message: '型号不能为空', trigger: 'blur' }],
   requiredQty: [{ required: true, message: '订单量不能为空', trigger: 'blur' }],
-  actualOutputQty: [{ required: true, message: '实际产额不能为空', trigger: 'blur' }]
+  manualOutputQty: [{ required: true, message: '手工产额不能为空', trigger: 'blur' }]
 })
+const actualOutputPreview = computed(() =>
+  (
+    Number(formData.value.manualOutputQty || 0) + Number(formData.value.splitOutputQty || 0)
+  ).toFixed(6)
+)
 const differencePreview = computed(() => {
   const requiredQty = Number(formData.value.requiredQty || 0)
-  const actualOutputQty = Number(formData.value.actualOutputQty || 0)
+  const actualOutputQty =
+    Number(formData.value.manualOutputQty || 0) + Number(formData.value.splitOutputQty || 0)
   return (requiredQty - actualOutputQty).toFixed(6)
 })
 
@@ -101,6 +113,8 @@ const resetForm = () => {
     customerName: undefined,
     productModel: undefined,
     requiredQty: undefined,
+    manualOutputQty: 0,
+    splitOutputQty: 0,
     actualOutputQty: 0,
     remark: undefined
   }

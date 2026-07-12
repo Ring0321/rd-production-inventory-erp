@@ -21,6 +21,16 @@ public interface ErrorCodeConstants {
     ErrorCode PRODUCTION_OUTPUT_PACKAGE_REQUIRED = new ErrorCode(1_080_100_008, "请先生成包码并完成质检、入库单流程，禁止生产记录直接入库");
     ErrorCode PRODUCTION_OUTPUT_USE_INBOUND_ORDER = new ErrorCode(1_080_100_009, "生产记录已有包码，请通过质检合格后的入库单完成入库");
     ErrorCode PRODUCTION_OUTPUT_PACKAGE_LOCKED = new ErrorCode(1_080_100_010, "生产记录已生成包码，不能修改或作废");
+    ErrorCode PRODUCTION_OUTPUT_BOUND_LOCKED = new ErrorCode(1_080_100_011, "生产记录已绑定订单拆分，不能修改或作废");
+    ErrorCode PRODUCTION_OUTPUT_CONFIRM_STATUS_INVALID = new ErrorCode(1_080_100_012, "只有草稿生产记录可以确认");
+    ErrorCode PRODUCTION_OUTPUT_VERSION_CONFLICT = new ErrorCode(1_080_100_013, "生产记录已被其他人员更新，请刷新后重试");
+
+    ErrorCode ORDER_SPLIT_NOT_EXISTS = new ErrorCode(1_080_320_000, "订单拆分结果不存在");
+    ErrorCode ORDER_SPLIT_RULE_NOT_EXISTS = new ErrorCode(1_080_320_001, "订单拆分规则不存在");
+    ErrorCode ORDER_SPLIT_STATUS_INVALID = new ErrorCode(1_080_320_002, "订单拆分当前状态不允许该操作");
+    ErrorCode ORDER_SPLIT_VERSION_CONFLICT = new ErrorCode(1_080_320_003, "订单拆分已被其他人员更新，请刷新后重试");
+    ErrorCode ORDER_SPLIT_BIND_INVALID = new ErrorCode(1_080_320_004, "生产产出与订单拆分的客户、型号、炉层或状态不匹配");
+    ErrorCode ORDER_SPLIT_OUTPUT_BOUND = new ErrorCode(1_080_320_005, "生产产出已绑定订单拆分");
 
     // ========== RD stock lot 1-080-200-000 ==========
     ErrorCode STOCK_LOT_NOT_EXISTS = new ErrorCode(1_080_200_000, "库存批次不存在");

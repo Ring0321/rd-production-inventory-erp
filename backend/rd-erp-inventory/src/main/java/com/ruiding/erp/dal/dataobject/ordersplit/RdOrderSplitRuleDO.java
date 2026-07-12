@@ -1,0 +1,28 @@
+package com.ruiding.erp.dal.dataobject.ordersplit;
+
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import com.baomidou.mybatisplus.annotation.KeySequence;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.math.BigDecimal;
+
+@TableName("rd_order_split_rule")
+@KeySequence("rd_order_split_rule_seq")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class RdOrderSplitRuleDO extends TenantBaseDO {
+    @TableId
+    private Long id;
+    private String ruleCode;
+    private String ruleName;
+    private String customerName;
+    private String productModel;
+    private BigDecimal defaultFurnaceLoadQty;
+    private BigDecimal yieldRatePercent;
+    private Boolean enabled;
+    private Integer version;
+    private String remark;
+}
