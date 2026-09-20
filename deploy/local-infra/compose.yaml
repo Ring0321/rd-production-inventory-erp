@@ -6,7 +6,7 @@ services:
     container_name: rd-erp-mysql
     restart: unless-stopped
     ports:
-      - "3307:3306"
+      - "${RD_DB_PORT:-3307}:3306"
     environment:
       MYSQL_DATABASE: rd_erp
       MYSQL_ROOT_PASSWORD: ${RD_DB_PASSWORD:?set RD_DB_PASSWORD}
@@ -29,12 +29,14 @@ services:
     container_name: rd-erp-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+      - "${RD_REDIS_PORT:-6379}:6379"
+    environment:
+      RD_REDIS_PASSWORD: ${RD_REDIS_PASSWORD:?set RD_REDIS_PASSWORD}
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${RD_REDIS_PASSWORD}\""]
     volumes:
       - rd-erp-redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${RD_REDIS_PASSWORD}\" ping | grep PONG"]
       interval: 5s
       timeout: 3s
       retries: 20
