@@ -193,6 +193,33 @@ class RdPutawayTaskServiceImplTest {
         assertNull(result.get(0).getLocationName());
     }
 
+    @Test
+    void shouldReturnPutawayTaskDetailForAssignedDriver() {
+        RdPutawayTaskDO task = new RdPutawayTaskDO().setId(50L).setForkliftDriverId(30L);
+        RdPutawayTaskLineDO line = new RdPutawayTaskLineDO().setId(60L).setTaskId(50L);
+        RdPutawayExceptionDO putawayException = new RdPutawayExceptionDO().setId(70L).setTaskId(50L);
+        when(taskMapper.selectById(50L)).thenReturn(task);
+        when(taskLineMapper.selectListByTaskId(50L)).thenReturn(List.of(line));
+        when(exceptionMapper.selectListByTaskId(50L)).thenReturn(List.of(putawayException));
+
+        var result = service.getMyTaskDetail(50L, 30L);
+
+        assertEquals(task, result.getTask());
+        assertEquals(List.of(line), result.getLines());
+        assertEquals(List.of(putawayException), result.getExceptions());
+    }
+
+    @Test
+    void shouldRejectPutawayTaskDetailForOtherDriver() {
+        when(taskMapper.selectById(50L))
+                .thenReturn(new RdPutawayTaskDO().setId(50L).setForkliftDriverId(31L));
+
+        assertThrows(RuntimeException.class, () -> service.getMyTaskDetail(50L, 30L));
+
+        verify(taskLineMapper, never()).selectListByTaskId(50L);
+        verify(exceptionMapper, never()).selectListByTaskId(50L);
+    }
+
     private void mockDriver(Long id) {
         when(adminUserService.getUser(id)).thenReturn(new AdminUserDO().setId(id)
                 .setUsername("driver" + id).setNickname("司机" + id)

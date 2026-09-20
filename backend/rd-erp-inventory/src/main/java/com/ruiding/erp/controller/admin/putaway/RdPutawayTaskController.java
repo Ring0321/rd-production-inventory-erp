@@ -88,4 +88,10 @@ public class RdPutawayTaskController {
     public CommonResult<PageResult<RdPutawayTaskDO>> getMyTaskPage(@Valid PageParam pageParam) {
         return success(service.getMyTaskPage(pageParam, getLoginUserId()));
     }
+
+    @GetMapping("/my-get")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:execute')")
+    public CommonResult<RdPutawayTaskDetailRespVO> getMyTaskDetail(@RequestParam Long id) {
+        return success(service.getMyTaskDetail(id, getLoginUserId()));
+    }
 }

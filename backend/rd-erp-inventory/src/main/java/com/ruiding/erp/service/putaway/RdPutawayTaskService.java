@@ -30,4 +30,6 @@ public interface RdPutawayTaskService {
     PageResult<RdPutawayTaskDO> getMyTaskPage(PageParam pageParam, Long forkliftDriverId);
 
     RdPutawayTaskDetailRespVO getTaskDetail(Long id);
+
+    RdPutawayTaskDetailRespVO getMyTaskDetail(Long id, Long forkliftDriverId);
 }

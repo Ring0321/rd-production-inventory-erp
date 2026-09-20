@@ -145,6 +145,7 @@ public interface ErrorCodeConstants {
     ErrorCode PUTAWAY_LOCATION_CAPACITY_INSUFFICIENT = new ErrorCode(1_080_520_007, "计划库位剩余容量不足，请选择其他库位");
     ErrorCode PUTAWAY_DRIVER_INVALID = new ErrorCode(1_080_520_008, "所选人员不是已启用的叉车司机");
     ErrorCode PUTAWAY_REASSIGN_REASON_REQUIRED = new ErrorCode(1_080_520_009, "调整上架任务必须填写处理说明");
+    ErrorCode PUTAWAY_TASK_NOT_ASSIGNED = new ErrorCode(1_080_520_010, "该上架任务未分配给当前司机");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

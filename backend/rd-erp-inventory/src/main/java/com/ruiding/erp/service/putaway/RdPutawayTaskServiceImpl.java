@@ -42,6 +42,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -57,6 +58,7 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_PACKAGE_DUPLICATE
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_PACKAGE_STATUS_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_REASSIGN_REASON_REQUIRED;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_TASK_NOT_EXISTS;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_TASK_NOT_ASSIGNED;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_TASK_STATUS_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_TASK_VERSION_CONFLICT;
 
@@ -295,10 +297,26 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         if (task == null) {
             throw exception(PUTAWAY_TASK_NOT_EXISTS);
         }
+        return buildTaskDetail(task);
+    }
+
+    @Override
+    public RdPutawayTaskDetailRespVO getMyTaskDetail(Long id, Long forkliftDriverId) {
+        RdPutawayTaskDO task = taskMapper.selectById(id);
+        if (task == null) {
+            throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        }
+        if (!Objects.equals(task.getForkliftDriverId(), forkliftDriverId)) {
+            throw exception(PUTAWAY_TASK_NOT_ASSIGNED);
+        }
+        return buildTaskDetail(task);
+    }
+
+    private RdPutawayTaskDetailRespVO buildTaskDetail(RdPutawayTaskDO task) {
         RdPutawayTaskDetailRespVO detail = new RdPutawayTaskDetailRespVO();
         detail.setTask(task);
-        detail.setLines(taskLineMapper.selectListByTaskId(id));
-        detail.setExceptions(exceptionMapper.selectListByTaskId(id));
+        detail.setLines(taskLineMapper.selectListByTaskId(task.getId()));
+        detail.setExceptions(exceptionMapper.selectListByTaskId(task.getId()));
         return detail;
     }
 
