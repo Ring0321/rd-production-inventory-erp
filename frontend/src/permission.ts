@@ -53,11 +53,9 @@ router.beforeEach(async (to, from, next) => {
         // 修复跳转时不带参数的问题
         const redirect = typeof redirectPath === 'string' ? redirectPath : to.fullPath
         const redirectLocation = parseRouteLocation(redirect)
-        const nextData =
-          to.fullPath === redirect
-            ? { ...to, replace: true }
-            : { ...redirectLocation, replace: true }
-        next(nextData)
+        // 当前导航可能已被静态 404 路由匹配；动态路由注册后必须按原地址重新匹配，
+        // 不能继续复用旧的 route name/matched，否则刷新业务页会停在 404。
+        next({ ...redirectLocation, replace: true })
       } else {
         next()
       }

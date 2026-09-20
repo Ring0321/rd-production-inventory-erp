@@ -134,6 +134,18 @@ public interface ErrorCodeConstants {
     ErrorCode STOCKTAKE_ORDER_SELF_REVIEW = new ErrorCode(1_080_510_009, "提交人不得审核本人的盘点单");
     ErrorCode STOCKTAKE_ADJUST_BELOW_LOCKED = new ErrorCode(1_080_510_010, "盘点亏库后库存不能小于已锁定数量");
 
+    // ========== RD putaway 1-080-520-000 ==========
+    ErrorCode PUTAWAY_TASK_NOT_EXISTS = new ErrorCode(1_080_520_000, "上架任务不存在");
+    ErrorCode PUTAWAY_TASK_STATUS_INVALID = new ErrorCode(1_080_520_001, "当前上架任务状态不允许该操作");
+    ErrorCode PUTAWAY_TASK_VERSION_CONFLICT = new ErrorCode(1_080_520_002, "上架任务已被其他人员更新，请刷新后重试");
+    ErrorCode PUTAWAY_PACKAGE_STATUS_INVALID = new ErrorCode(1_080_520_003, "仅质检合格且未派单的包允许创建上架任务");
+    ErrorCode PUTAWAY_PACKAGE_DATA_INCOMPLETE = new ErrorCode(1_080_520_004, "包码关键货物信息不完整，不能派发上架任务");
+    ErrorCode PUTAWAY_PACKAGE_DUPLICATE = new ErrorCode(1_080_520_005, "上架任务中存在重复包码");
+    ErrorCode PUTAWAY_LOCATION_INVALID = new ErrorCode(1_080_520_006, "计划库位不存在、已停用、已冻结或当前不可用");
+    ErrorCode PUTAWAY_LOCATION_CAPACITY_INSUFFICIENT = new ErrorCode(1_080_520_007, "计划库位剩余容量不足，请选择其他库位");
+    ErrorCode PUTAWAY_DRIVER_INVALID = new ErrorCode(1_080_520_008, "所选人员不是已启用的叉车司机");
+    ErrorCode PUTAWAY_REASSIGN_REASON_REQUIRED = new ErrorCode(1_080_520_009, "调整上架任务必须填写处理说明");
+
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");
     ErrorCode EXCEL_IMPORT_FILE_INVALID = new ErrorCode(1_080_600_001, "请上传不超过 20 MB 的 xlsx 文件");

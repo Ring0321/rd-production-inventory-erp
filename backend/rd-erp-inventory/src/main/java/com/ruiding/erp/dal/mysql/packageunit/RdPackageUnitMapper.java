@@ -3,6 +3,7 @@ package com.ruiding.erp.dal.mysql.packageunit;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
@@ -59,4 +60,21 @@ public interface RdPackageUnitMapper extends BaseMapperX<RdPackageUnitDO> {
             + "WHERE tenant_id = #{tenantId} AND biz_date = #{date} AND deleted = 0 FOR UPDATE")
     Integer selectCurrentDailySequenceForUpdate(@Param("tenantId") Long tenantId,
                                                 @Param("date") LocalDate date);
+
+    @Select("<script>SELECT location_id AS locationId, COUNT(*) AS packageCount, "
+            + "COALESCE(SUM(package_weight), 0) AS totalWeight FROM rd_package_unit "
+            + "WHERE deleted = 0 AND location_id IS NOT NULL AND status IN "
+            + "<foreach collection='statuses' item='status' open='(' separator=',' close=')'>#{status}</foreach> "
+            + "GROUP BY location_id</script>")
+    List<RdLocationCapacitySummaryDO> selectLocationOccupancySummary(
+            @Param("statuses") Collection<String> statuses);
+
+    @Select("<script>SELECT #{locationId} AS locationId, COUNT(*) AS packageCount, "
+            + "COALESCE(SUM(package_weight), 0) AS totalWeight FROM rd_package_unit "
+            + "WHERE deleted = 0 AND location_id = #{locationId} AND status IN "
+            + "<foreach collection='statuses' item='status' open='(' separator=',' close=')'>#{status}</foreach>"
+            + "</script>")
+    RdLocationCapacitySummaryDO selectLocationOccupancySummaryByLocationId(
+            @Param("locationId") Long locationId,
+            @Param("statuses") Collection<String> statuses);
 }

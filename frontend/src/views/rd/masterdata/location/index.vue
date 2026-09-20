@@ -37,10 +37,21 @@
       <el-table-column label="仓库名称" prop="warehouseName" min-width="130" />
       <el-table-column label="区域编码" prop="areaCode" width="110" />
       <el-table-column label="区域名称" prop="areaName" min-width="120" />
+      <el-table-column label="排/列/层" width="130" align="center">
+        <template #default="scope">
+          {{
+            [scope.row.rowCode, scope.row.columnCode, scope.row.levelCode]
+              .filter(Boolean)
+              .join('/') || '-'
+          }}
+        </template>
+      </el-table-column>
       <el-table-column label="货位编码" prop="locationCode" width="130" />
       <el-table-column label="货位名称" prop="locationName" min-width="130" />
       <el-table-column label="容量（包）" prop="capacityPackages" width="110" align="right" />
+      <el-table-column label="容量（kg）" prop="capacityWeight" width="120" align="right" />
       <el-table-column label="允许类别" prop="allowedCategory" min-width="120" />
+      <el-table-column label="运行状态" prop="locationStatus" width="100" align="center" />
       <el-table-column label="冻结" prop="frozen" width="80" align="center">
         <template #default="scope">
           <el-tag :type="scope.row.frozen ? 'danger' : 'success'">
@@ -108,6 +119,20 @@
         ></el-col>
       </el-row>
       <el-row :gutter="20">
+        <el-col :span="8"
+          ><el-form-item label="排" prop="rowCode"
+            ><el-input v-model="formData.rowCode" placeholder="例如 A" /></el-form-item
+        ></el-col>
+        <el-col :span="8"
+          ><el-form-item label="列" prop="columnCode"
+            ><el-input v-model="formData.columnCode" placeholder="例如 01" /></el-form-item
+        ></el-col>
+        <el-col :span="8"
+          ><el-form-item label="层" prop="levelCode"
+            ><el-input v-model="formData.levelCode" placeholder="例如 1" /></el-form-item
+        ></el-col>
+      </el-row>
+      <el-row :gutter="20">
         <el-col :span="12"
           ><el-form-item label="货位编码" prop="locationCode"
             ><el-input v-model="formData.locationCode" /></el-form-item
@@ -128,10 +153,31 @@
             />
           </el-form-item>
         </el-col>
+        <el-col :span="12">
+          <el-form-item label="容量（kg）" prop="capacityWeight">
+            <el-input-number
+              v-model="formData.capacityWeight"
+              :min="0"
+              :precision="2"
+              class="!w-100%"
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row :gutter="20">
         <el-col :span="12"
           ><el-form-item label="允许类别" prop="allowedCategory"
             ><el-input v-model="formData.allowedCategory" /></el-form-item
         ></el-col>
+        <el-col :span="12">
+          <el-form-item label="运行状态" prop="locationStatus">
+            <el-select v-model="formData.locationStatus" class="!w-100%">
+              <el-option label="可用" value="AVAILABLE" />
+              <el-option label="维护中" value="MAINTENANCE" />
+              <el-option label="限制使用" value="RESTRICTED" />
+            </el-select>
+          </el-form-item>
+        </el-col>
       </el-row>
       <el-row :gutter="20">
         <el-col :span="12"
@@ -188,12 +234,17 @@ const createDefaultForm = (): RdWarehouseLocationSaveReqVO => ({
   warehouseName: '',
   areaCode: '',
   areaName: '',
+  rowCode: '',
+  columnCode: '',
+  levelCode: '',
   locationCode: '',
   locationName: '',
   capacityPackages: 0,
+  capacityWeight: 0,
   allowedCategory: '',
   frozen: false,
   enabled: true,
+  locationStatus: 'AVAILABLE',
   remark: ''
 })
 const formData = ref<RdWarehouseLocationSaveReqVO>(createDefaultForm())

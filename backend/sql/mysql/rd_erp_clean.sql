@@ -1609,6 +1609,7 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600253, '出库过账', 'rd:outbound-scan:post', 3, 90, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600254, '出库反向撤销', 'rd:outbound-scan:reverse', 3, 100, 600207, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600213, '库存动态明细', 'rd:stock-matrix:query', 2, 25, 600200, 'matrix', 'ep:grid', 'rd/stock/matrix/index', 'RdStockMatrix', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600215, '入库上架', 'rd:putaway-task:query', 2, 38, 600200, 'putaway', 'ep:position', 'rd/stock/putaway/index', 'RdPutawayWorkbench', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600300, '订单管理', '', 1, 30, 600000, 'order', 'ep:tickets', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600301, '销售订单', 'rd:sale-order:query', 2, 10, 600300, 'sale', 'ep:document', 'rd/order/sale/index', 'RdSaleOrder', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600302, '销售订单新增', 'rd:sale-order:create', 3, 10, 600301, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
@@ -1652,7 +1653,10 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600264, '盘点审核', 'rd:stocktake:approve', 3, 50, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600265, '盘点差异调整', 'rd:stocktake:adjust', 3, 60, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600266, '盘点关闭', 'rd:stocktake:close', 3, 70, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
-(600267, '盘点取消', 'rd:stocktake:cancel', 3, 80, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
+(600267, '盘点取消', 'rd:stocktake:cancel', 3, 80, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600270, '创建上架任务', 'rd:putaway-task:create', 3, 10, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600271, '调整上架派单', 'rd:putaway-task:assign', 3, 20, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600272, '执行上架任务', 'rd:putaway-task:execute', 3, 30, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `permission` = VALUES(`permission`),
@@ -1887,6 +1891,18 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600007,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
 WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600214,600236,600244,600250,600251,600260,600261,600262,600263,600267);
+
+INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600008,'RD_FORKLIFT_DRIVER','叉车司机岗',24,0,'执行上架与装车任务、扫码和异常上报','system',NOW(),'system',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
+
+INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_dept_ids`,`status`,`type`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600008,'叉车司机','rd_forklift_driver',24,5,'',0,2,'仅执行分配给本人的上架与装车任务','system',NOW(),'system',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`data_scope`=5,`deleted`=b'0',`tenant_id`=1;
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271)
+UNION ALL SELECT 600008,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600272);
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)

@@ -6,17 +6,36 @@ export interface RdWarehouseLocationVO {
   warehouseName: string
   areaCode?: string
   areaName?: string
+  rowCode?: string
+  columnCode?: string
+  levelCode?: string
   locationCode: string
   locationName?: string
   capacityPackages?: number
+  capacityWeight?: number
+  occupiedPackages?: number
+  occupiedWeight?: number
+  reservedPackages?: number
+  reservedWeight?: number
   allowedCategory?: string
   frozen: boolean
   enabled: boolean
+  locationStatus?: string
+  version?: number
   remark?: string
   createTime?: string
 }
 
-export type RdWarehouseLocationSaveReqVO = Omit<RdWarehouseLocationVO, 'id' | 'createTime'> & {
+export type RdWarehouseLocationSaveReqVO = Omit<
+  RdWarehouseLocationVO,
+  | 'id'
+  | 'createTime'
+  | 'occupiedPackages'
+  | 'occupiedWeight'
+  | 'reservedPackages'
+  | 'reservedWeight'
+  | 'version'
+> & {
   id?: number
 }
 

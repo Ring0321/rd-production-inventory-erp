@@ -8,6 +8,7 @@ import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
 import com.ruiding.erp.dal.mysql.masterdata.RdWarehouseLocationMapper;
 import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.util.List;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.ruiding.erp.enums.ErrorCodeConstants.WAREHOUSE_LOCATION_NOT_EXISTS;
@@ -19,6 +20,11 @@ public class RdWarehouseLocationServiceImpl implements RdWarehouseLocationServic
         if (value.getEnabled() == null) value.setEnabled(true);
         if (value.getFrozen() == null) value.setFrozen(false);
         if (value.getLocationStatus() == null) value.setLocationStatus("AVAILABLE");
+        value.setOccupiedPackages(BigDecimal.ZERO);
+        value.setOccupiedWeight(BigDecimal.ZERO);
+        value.setReservedPackages(BigDecimal.ZERO);
+        value.setReservedWeight(BigDecimal.ZERO);
+        value.setVersion(0);
         mapper.insert(value); return value.getId();
     }
     @Override public void update(RdWarehouseLocationSaveReqVO reqVO) {

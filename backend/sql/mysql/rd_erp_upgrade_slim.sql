@@ -542,6 +542,7 @@ INSERT INTO `system_menu`
  `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
 (600213, '库存动态明细', 'rd:stock-matrix:query', 2, 25, 600200, 'matrix', 'ep:grid', 'rd/stock/matrix/index', 'RdStockMatrix', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
 (600214, '库存盘点', 'rd:stocktake:query', 2, 45, 600200, 'stocktake', 'ep:document-checked', 'rd/stock/stocktake/index', 'RdStocktake', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
+(600215, '入库上架', 'rd:putaway-task:query', 2, 38, 600200, 'putaway', 'ep:position', 'rd/stock/putaway/index', 'RdPutawayWorkbench', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
 (600224, '客户型号选项查询', 'rd:customer-product:query', 3, 90, 600000, '', '', '', NULL, 0, b'0', b'0', b'0', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `permission`=VALUES(`permission`), `type`=VALUES(`type`),
   `sort`=VALUES(`sort`), `parent_id`=VALUES(`parent_id`), `path`=VALUES(`path`), `icon`=VALUES(`icon`),
@@ -584,10 +585,13 @@ INSERT INTO `system_menu`
 ,(600265,'盘点差异调整','rd:stocktake:adjust',3,265,600214,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ,(600266,'盘点关闭','rd:stocktake:close',3,266,600214,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ,(600267,'盘点取消','rd:stocktake:cancel',3,267,600214,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600270,'创建上架任务','rd:putaway-task:create',3,270,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600271,'调整上架派单','rd:putaway-task:assign',3,271,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600272,'执行上架任务','rd:putaway-task:execute',3,272,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`deleted`=b'0',`update_time`=NOW();
 
 DELETE FROM `system_role_menu`
-WHERE `tenant_id` = 1 AND `role_id` IN (600001,600002,600003,600004,600005,600006,600007);
+WHERE `tenant_id` = 1 AND `role_id` IN (600001,600002,600003,600004,600005,600006,600007,600008);
 
 INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
 SELECT 600001, id, 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0', 1 FROM `system_menu` WHERE id IN (600000,600010,600100,600101,600102,600103,600104,600105,600224,600500,600501)
@@ -641,6 +645,18 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600007,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu
 WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600214,600236,600244,600250,600251,600260,600261,600262,600263,600267);
+
+INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600008,'RD_FORKLIFT_DRIVER','叉车司机岗',24,0,'执行上架与装车任务、扫码和异常上报','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
+
+INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_dept_ids`,`status`,`type`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
+(600008,'叉车司机','rd_forklift_driver',24,5,'',0,2,'仅执行分配给本人的上架与装车任务','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`data_scope`=5,`deleted`=b'0',`tenant_id`=1;
+
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271)
+UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600272);
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)
