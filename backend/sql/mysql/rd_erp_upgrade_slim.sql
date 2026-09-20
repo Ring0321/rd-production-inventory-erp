@@ -126,11 +126,21 @@ DELIMITER ;
 
 CALL rd_add_column_if_missing('rd_location','warehouse_code',"varchar(64) NOT NULL DEFAULT 'FINISHED' AFTER location_name");
 CALL rd_add_column_if_missing('rd_location','area_code',"varchar(64) DEFAULT NULL AFTER warehouse_name");
+CALL rd_add_column_if_missing('rd_location','row_code',"varchar(32) DEFAULT NULL AFTER area_name");
+CALL rd_add_column_if_missing('rd_location','column_code',"varchar(32) DEFAULT NULL AFTER row_code");
+CALL rd_add_column_if_missing('rd_location','level_code',"varchar(32) DEFAULT NULL AFTER column_code");
 CALL rd_add_column_if_missing('rd_location','capacity_packages',"decimal(24,6) DEFAULT NULL AFTER area_name");
+CALL rd_add_column_if_missing('rd_location','capacity_weight',"decimal(24,6) DEFAULT NULL AFTER capacity_packages");
+CALL rd_add_column_if_missing('rd_location','occupied_packages',"decimal(24,6) NOT NULL DEFAULT 0.000000 AFTER capacity_weight");
+CALL rd_add_column_if_missing('rd_location','occupied_weight',"decimal(24,6) NOT NULL DEFAULT 0.000000 AFTER occupied_packages");
+CALL rd_add_column_if_missing('rd_location','reserved_packages',"decimal(24,6) NOT NULL DEFAULT 0.000000 AFTER occupied_weight");
+CALL rd_add_column_if_missing('rd_location','reserved_weight',"decimal(24,6) NOT NULL DEFAULT 0.000000 AFTER reserved_packages");
 CALL rd_add_column_if_missing('rd_location','allowed_category',"varchar(128) DEFAULT NULL AFTER capacity_packages");
 CALL rd_add_column_if_missing('rd_location','frozen',"bit(1) NOT NULL DEFAULT b'0' AFTER allowed_category");
 CALL rd_add_column_if_missing('rd_location','stocktake_order_id',"bigint DEFAULT NULL AFTER frozen");
 CALL rd_add_column_if_missing('rd_location','enabled',"bit(1) NOT NULL DEFAULT b'1' AFTER stocktake_order_id");
+CALL rd_add_column_if_missing('rd_location','location_status',"varchar(32) NOT NULL DEFAULT 'AVAILABLE' AFTER enabled");
+CALL rd_add_column_if_missing('rd_location','version',"int NOT NULL DEFAULT 0 AFTER location_status");
 CALL rd_add_column_if_missing('rd_stock_transaction','package_id',"bigint DEFAULT NULL AFTER stock_lot_id");
 CALL rd_add_column_if_missing('rd_stock_transaction','idempotency_key',"varchar(128) DEFAULT NULL AFTER operator_name");
 CALL rd_add_column_if_missing('rd_stock_transaction','reversal_transaction_id',"bigint DEFAULT NULL AFTER idempotency_key");
@@ -239,6 +249,97 @@ CREATE TABLE IF NOT EXISTS `rd_scan_event` (
   PRIMARY KEY (`id`), KEY `idx_rd_scan_package_time` (`tenant_id`,`package_code`,`scan_time`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `rd_putaway_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `task_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING_PUTAWAY',
+  `planned_location_id` bigint DEFAULT NULL, `planned_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `final_location_id` bigint DEFAULT NULL, `final_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `package_count` int NOT NULL DEFAULT '0', `scanned_package_count` int NOT NULL DEFAULT '0',
+  `exception_package_count` int NOT NULL DEFAULT '0', `total_weight` decimal(24,6) NOT NULL DEFAULT '0.000000',
+  `warehouse_keeper_id` bigint DEFAULT NULL, `warehouse_keeper_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `forklift_driver_id` bigint DEFAULT NULL, `forklift_driver_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `assigned_time` datetime DEFAULT NULL, `start_time` datetime DEFAULT NULL, `scan_complete_time` datetime DEFAULT NULL,
+  `confirm_time` datetime DEFAULT NULL, `cancel_time` datetime DEFAULT NULL,
+  `cancel_reason` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `version` int NOT NULL DEFAULT '0',
+  `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_task_no` (`tenant_id`,`task_no`,`deleted`),
+  KEY `idx_rd_putaway_task_status` (`tenant_id`,`status`,`deleted`,`create_time`,`id`),
+  KEY `idx_rd_putaway_task_driver` (`tenant_id`,`forklift_driver_id`,`status`,`deleted`,`id`),
+  KEY `idx_rd_putaway_task_keeper` (`tenant_id`,`warehouse_keeper_id`,`status`,`deleted`,`id`),
+  KEY `idx_rd_putaway_task_plan_location` (`tenant_id`,`planned_location_id`,`status`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway task';
+
+CREATE TABLE IF NOT EXISTS `rd_putaway_task_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `task_id` bigint NOT NULL,
+  `line_no` int NOT NULL, `package_id` bigint NOT NULL, `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `line_status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING',
+  `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL, `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `furnace_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `furnace_layer` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `package_weight` decimal(24,6) NOT NULL, `scan_count` int NOT NULL DEFAULT '0',
+  `first_scan_time` datetime DEFAULT NULL, `last_scan_time` datetime DEFAULT NULL,
+  `inbound_order_id` bigint DEFAULT NULL, `inbound_order_line_id` bigint DEFAULT NULL,
+  `stock_lot_id` bigint DEFAULT NULL, `stock_transaction_id` bigint DEFAULT NULL, `version` int NOT NULL DEFAULT '0',
+  `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_line_no` (`tenant_id`,`task_id`,`line_no`,`deleted`),
+  UNIQUE KEY `uk_rd_putaway_line_package` (`tenant_id`,`task_id`,`package_id`,`deleted`),
+  KEY `idx_rd_putaway_line_task` (`tenant_id`,`task_id`,`line_status`,`deleted`,`line_no`),
+  KEY `idx_rd_putaway_line_package` (`tenant_id`,`package_id`,`line_status`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway task package line';
+
+CREATE TABLE IF NOT EXISTS `rd_putaway_scan_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `task_id` bigint NOT NULL,
+  `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
+  `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `idempotency_key` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `scan_result` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL, `success` bit(1) NOT NULL,
+  `error_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `error_message` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `task_status_before` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `task_status_after` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `device_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `operator_id` bigint DEFAULT NULL, `operator_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `device_time` datetime DEFAULT NULL, `scan_time` datetime NOT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_scan_idempotency` (`tenant_id`,`task_id`,`idempotency_key`,`deleted`),
+  KEY `idx_rd_putaway_scan_task` (`tenant_id`,`task_id`,`scan_time`,`deleted`,`id`),
+  KEY `idx_rd_putaway_scan_package` (`tenant_id`,`package_code`,`scan_time`,`deleted`,`id`),
+  KEY `idx_rd_putaway_scan_operator` (`tenant_id`,`operator_id`,`scan_time`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway scan record';
+
+CREATE TABLE IF NOT EXISTS `rd_putaway_exception` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `exception_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `task_id` bigint NOT NULL,
+  `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
+  `package_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exception_type` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `exception_status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'OPEN',
+  `description` varchar(1000) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `attachment_refs` text COLLATE utf8mb4_unicode_ci,
+  `reporter_id` bigint DEFAULT NULL, `reporter_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reporter_role` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `reported_time` datetime NOT NULL,
+  `handler_id` bigint DEFAULT NULL, `handler_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `handle_time` datetime DEFAULT NULL, `handling_result` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resolution_action` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `previous_location_id` bigint DEFAULT NULL, `previous_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resolved_location_id` bigint DEFAULT NULL, `resolved_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `version` int NOT NULL DEFAULT '0', `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_exception_no` (`tenant_id`,`exception_no`,`deleted`),
+  KEY `idx_rd_putaway_exception_task` (`tenant_id`,`task_id`,`exception_status`,`deleted`,`reported_time`,`id`),
+  KEY `idx_rd_putaway_exception_handler` (`tenant_id`,`handler_id`,`exception_status`,`deleted`,`id`),
+  KEY `idx_rd_putaway_exception_package` (`tenant_id`,`package_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway exception';
+
 CREATE TABLE IF NOT EXISTS `rd_stocktake_order` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
   `stocktake_no` varchar(64) NOT NULL, `stocktake_date` date NOT NULL, `location_id` bigint NOT NULL,
@@ -282,6 +383,23 @@ CREATE TABLE IF NOT EXISTS `rd_stocktake_order_line` (
 CALL rd_add_column_if_missing('rd_stocktake_order','business_creator_id',"bigint DEFAULT NULL AFTER counted_weight");
 CALL rd_add_column_if_missing('rd_stocktake_order','business_creator_name',"varchar(64) DEFAULT NULL AFTER business_creator_id");
 DROP PROCEDURE `rd_add_column_if_missing`;
+
+DROP PROCEDURE IF EXISTS `rd_add_index_if_missing`;
+DELIMITER $$
+CREATE PROCEDURE `rd_add_index_if_missing`(IN p_table varchar(64), IN p_index varchar(64), IN p_definition text)
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE()
+      AND table_name = p_table AND index_name = p_index) THEN
+    SET @ddl = CONCAT('ALTER TABLE `', p_table, '` ADD ', p_definition);
+    PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+  END IF;
+END$$
+DELIMITER ;
+CALL rd_add_index_if_missing('rd_location','idx_rd_location_map',
+  'INDEX `idx_rd_location_map` (`tenant_id`,`warehouse_code`,`area_code`,`row_code`,`column_code`,`level_code`,`deleted`)');
+CALL rd_add_index_if_missing('rd_location','idx_rd_location_availability',
+  'INDEX `idx_rd_location_availability` (`tenant_id`,`location_status`,`enabled`,`frozen`,`deleted`)');
+DROP PROCEDURE `rd_add_index_if_missing`;
 
 CREATE TABLE IF NOT EXISTS `rd_transfer_order_package` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',

@@ -9,11 +9,16 @@ public class RdWarehouseLocationSaveReqVO {
     @NotBlank private String warehouseName;
     private String areaCode;
     private String areaName;
+    private String rowCode;
+    private String columnCode;
+    private String levelCode;
     @NotBlank private String locationCode;
     private String locationName;
     private BigDecimal capacityPackages;
+    private BigDecimal capacityWeight;
     private String allowedCategory;
     private Boolean frozen;
     private Boolean enabled;
+    private String locationStatus;
     private String remark;
 }

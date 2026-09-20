@@ -18,6 +18,7 @@ public class RdWarehouseLocationServiceImpl implements RdWarehouseLocationServic
         RdWarehouseLocationDO value = BeanUtils.toBean(reqVO, RdWarehouseLocationDO.class);
         if (value.getEnabled() == null) value.setEnabled(true);
         if (value.getFrozen() == null) value.setFrozen(false);
+        if (value.getLocationStatus() == null) value.setLocationStatus("AVAILABLE");
         mapper.insert(value); return value.getId();
     }
     @Override public void update(RdWarehouseLocationSaveReqVO reqVO) {

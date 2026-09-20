@@ -831,11 +831,21 @@ CREATE TABLE `rd_location` (
   `warehouse_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Warehouse name',
   `area_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Area code',
   `area_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Area name',
+  `row_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Map row code',
+  `column_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Map column code',
+  `level_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Map level code',
   `capacity_packages` decimal(24,6) DEFAULT NULL COMMENT 'Capacity in packages',
+  `capacity_weight` decimal(24,6) DEFAULT NULL COMMENT 'Capacity weight in kg',
+  `occupied_packages` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Posted package quantity',
+  `occupied_weight` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Posted weight in kg',
+  `reserved_packages` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Active putaway reserved package quantity',
+  `reserved_weight` decimal(24,6) NOT NULL DEFAULT '0.000000' COMMENT 'Active putaway reserved weight in kg',
   `allowed_category` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Allowed product category',
   `frozen` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Whether inbound/outbound is frozen',
   `stocktake_order_id` bigint DEFAULT NULL COMMENT 'Active stocktake order owning the freeze',
   `enabled` bit(1) NOT NULL DEFAULT b'1' COMMENT 'Whether location is enabled',
+  `location_status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'AVAILABLE' COMMENT 'AVAILABLE/RESTRICTED/MAINTENANCE',
+  `version` int NOT NULL DEFAULT '0' COMMENT 'Optimistic lock version',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT 'Status: 0 enabled, 1 disabled',
   `sort` int NOT NULL DEFAULT '0' COMMENT 'Sort',
   `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Remark',
@@ -845,7 +855,9 @@ CREATE TABLE `rd_location` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rd_location_code` (`tenant_id`,`location_code`,`deleted`)
+  UNIQUE KEY `uk_rd_location_code` (`tenant_id`,`location_code`,`deleted`),
+  KEY `idx_rd_location_map` (`tenant_id`,`warehouse_code`,`area_code`,`row_code`,`column_code`,`level_code`,`deleted`),
+  KEY `idx_rd_location_availability` (`tenant_id`,`location_status`,`enabled`,`frozen`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD warehouse location';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `rd_product_master`;
@@ -963,6 +975,101 @@ CREATE TABLE `rd_scan_event` (
   `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`), KEY `idx_rd_scan_package_time` (`tenant_id`,`package_code`,`scan_time`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD scan event';
+
+DROP TABLE IF EXISTS `rd_putaway_exception`;
+DROP TABLE IF EXISTS `rd_putaway_scan_record`;
+DROP TABLE IF EXISTS `rd_putaway_task_line`;
+DROP TABLE IF EXISTS `rd_putaway_task`;
+CREATE TABLE `rd_putaway_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `task_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING_PUTAWAY',
+  `planned_location_id` bigint DEFAULT NULL, `planned_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `final_location_id` bigint DEFAULT NULL, `final_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `package_count` int NOT NULL DEFAULT '0', `scanned_package_count` int NOT NULL DEFAULT '0',
+  `exception_package_count` int NOT NULL DEFAULT '0', `total_weight` decimal(24,6) NOT NULL DEFAULT '0.000000',
+  `warehouse_keeper_id` bigint DEFAULT NULL, `warehouse_keeper_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `forklift_driver_id` bigint DEFAULT NULL, `forklift_driver_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `assigned_time` datetime DEFAULT NULL, `start_time` datetime DEFAULT NULL, `scan_complete_time` datetime DEFAULT NULL,
+  `confirm_time` datetime DEFAULT NULL, `cancel_time` datetime DEFAULT NULL,
+  `cancel_reason` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `version` int NOT NULL DEFAULT '0',
+  `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_task_no` (`tenant_id`,`task_no`,`deleted`),
+  KEY `idx_rd_putaway_task_status` (`tenant_id`,`status`,`deleted`,`create_time`,`id`),
+  KEY `idx_rd_putaway_task_driver` (`tenant_id`,`forklift_driver_id`,`status`,`deleted`,`id`),
+  KEY `idx_rd_putaway_task_keeper` (`tenant_id`,`warehouse_keeper_id`,`status`,`deleted`,`id`),
+  KEY `idx_rd_putaway_task_plan_location` (`tenant_id`,`planned_location_id`,`status`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway task';
+
+CREATE TABLE `rd_putaway_task_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `task_id` bigint NOT NULL,
+  `line_no` int NOT NULL, `package_id` bigint NOT NULL, `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `line_status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING',
+  `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL, `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `furnace_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `furnace_layer` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `package_weight` decimal(24,6) NOT NULL, `scan_count` int NOT NULL DEFAULT '0',
+  `first_scan_time` datetime DEFAULT NULL, `last_scan_time` datetime DEFAULT NULL,
+  `inbound_order_id` bigint DEFAULT NULL, `inbound_order_line_id` bigint DEFAULT NULL,
+  `stock_lot_id` bigint DEFAULT NULL, `stock_transaction_id` bigint DEFAULT NULL, `version` int NOT NULL DEFAULT '0',
+  `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_line_no` (`tenant_id`,`task_id`,`line_no`,`deleted`),
+  UNIQUE KEY `uk_rd_putaway_line_package` (`tenant_id`,`task_id`,`package_id`,`deleted`),
+  KEY `idx_rd_putaway_line_task` (`tenant_id`,`task_id`,`line_status`,`deleted`,`line_no`),
+  KEY `idx_rd_putaway_line_package` (`tenant_id`,`package_id`,`line_status`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway task package line';
+
+CREATE TABLE `rd_putaway_scan_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `task_id` bigint NOT NULL,
+  `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
+  `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `idempotency_key` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `scan_result` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL, `success` bit(1) NOT NULL,
+  `error_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `error_message` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `task_status_before` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `task_status_after` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `device_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `operator_id` bigint DEFAULT NULL, `operator_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `device_time` datetime DEFAULT NULL, `scan_time` datetime NOT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_scan_idempotency` (`tenant_id`,`task_id`,`idempotency_key`,`deleted`),
+  KEY `idx_rd_putaway_scan_task` (`tenant_id`,`task_id`,`scan_time`,`deleted`,`id`),
+  KEY `idx_rd_putaway_scan_package` (`tenant_id`,`package_code`,`scan_time`,`deleted`,`id`),
+  KEY `idx_rd_putaway_scan_operator` (`tenant_id`,`operator_id`,`scan_time`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway scan record';
+
+CREATE TABLE `rd_putaway_exception` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `exception_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `task_id` bigint NOT NULL,
+  `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
+  `package_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exception_type` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `exception_status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'OPEN',
+  `description` varchar(1000) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `attachment_refs` text COLLATE utf8mb4_unicode_ci,
+  `reporter_id` bigint DEFAULT NULL, `reporter_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reporter_role` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `reported_time` datetime NOT NULL,
+  `handler_id` bigint DEFAULT NULL, `handler_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `handle_time` datetime DEFAULT NULL, `handling_result` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resolution_action` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `previous_location_id` bigint DEFAULT NULL, `previous_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resolved_location_id` bigint DEFAULT NULL, `resolved_location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `version` int NOT NULL DEFAULT '0', `remark` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_exception_no` (`tenant_id`,`exception_no`,`deleted`),
+  KEY `idx_rd_putaway_exception_task` (`tenant_id`,`task_id`,`exception_status`,`deleted`,`reported_time`,`id`),
+  KEY `idx_rd_putaway_exception_handler` (`tenant_id`,`handler_id`,`exception_status`,`deleted`,`id`),
+  KEY `idx_rd_putaway_exception_package` (`tenant_id`,`package_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway exception';
 
 DROP TABLE IF EXISTS `rd_stocktake_order_line`;
 DROP TABLE IF EXISTS `rd_stocktake_order`;
