@@ -163,5 +163,7 @@ export const RdPutawayTaskApi = {
   get: (id: number) =>
     request.get<RdPutawayTaskDetailVO>({ url: '/rd/putaway-task/get', params: { id } }),
   getMyPage: (params: PageParam) =>
-    request.get<PageResult<RdPutawayTaskVO[]>>({ url: '/rd/putaway-task/my-page', params })
+    request.get<PageResult<RdPutawayTaskVO[]>>({ url: '/rd/putaway-task/my-page', params }),
+  getMy: (id: number) =>
+    request.get<RdPutawayTaskDetailVO>({ url: '/rd/putaway-task/my-get', params: { id } })
 }

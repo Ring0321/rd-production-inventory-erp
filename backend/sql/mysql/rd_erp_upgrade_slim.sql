@@ -543,6 +543,7 @@ INSERT INTO `system_menu`
 (600213, '库存动态明细', 'rd:stock-matrix:query', 2, 25, 600200, 'matrix', 'ep:grid', 'rd/stock/matrix/index', 'RdStockMatrix', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
 (600214, '库存盘点', 'rd:stocktake:query', 2, 45, 600200, 'stocktake', 'ep:document-checked', 'rd/stock/stocktake/index', 'RdStocktake', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
 (600215, '入库上架', 'rd:putaway-task:query', 2, 38, 600200, 'putaway', 'ep:position', 'rd/stock/putaway/index', 'RdPutawayWorkbench', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
+(600216, '叉车上架', 'rd:putaway-task:execute', 2, 39, 600200, 'driver-putaway', 'lucide:forklift', 'rd/pda/putaway/index', 'RdDriverPutaway', 0, b'1', b'1', b'1', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0'),
 (600224, '客户型号选项查询', 'rd:customer-product:query', 3, 90, 600000, '', '', '', NULL, 0, b'0', b'0', b'0', 'rd-slim-migration', NOW(), 'rd-slim-migration', NOW(), b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `permission`=VALUES(`permission`), `type`=VALUES(`type`),
   `sort`=VALUES(`sort`), `parent_id`=VALUES(`parent_id`), `path`=VALUES(`path`), `icon`=VALUES(`icon`),
@@ -656,7 +657,7 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271)
-UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600272);
+UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600000,600200,600216,600272);
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600250,600251,600252,600253,600254)

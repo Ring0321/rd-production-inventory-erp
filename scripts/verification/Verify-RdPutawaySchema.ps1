@@ -144,13 +144,25 @@ SELECT (SELECT COUNT(*) FROM rd_putaway_task)
      + (SELECT COUNT(*) FROM rd_putaway_scan_record)
      + (SELECT COUNT(*) FROM rd_putaway_exception);
 "@
+    $driverMenuCount = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM system_menu
+WHERE id = 600216 AND permission = 'rd:putaway-task:execute'
+  AND component = 'rd/pda/putaway/index' AND deleted = b'0';
+"@
+    $driverGrantCount = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM system_role_menu
+WHERE tenant_id = 1 AND role_id = 600008 AND menu_id IN (600000,600200,600216,600272)
+  AND deleted = b'0';
+"@
 
     Assert-Equal "putaway table count" "4" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
     Assert-Equal "putaway column count" "109" $putawayColumnCount
     Assert-Equal "putaway index count" "19" $indexCount
     Assert-Equal "putaway seed row count" "0" $rowCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount"
+    Assert-Equal "forklift driver PDA menu count" "1" $driverMenuCount
+    Assert-Equal "forklift driver minimum grant count" "4" $driverGrantCount
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount"
 }
 
 Import-LocalEnvironment
