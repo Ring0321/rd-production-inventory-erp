@@ -3,6 +3,7 @@ package com.ruiding.erp.dal.mysql.stock;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.ruiding.erp.controller.admin.stock.vo.RdStockLotPageReqVO;
 import com.ruiding.erp.controller.admin.order.vo.RdOrderStockCandidatePageReqVO;
 import com.ruiding.erp.dal.dataobject.order.RdSaleOrderDO;
@@ -24,6 +25,7 @@ public interface RdStockLotMapper extends BaseMapperX<RdStockLotDO> {
     @Select("SELECT * FROM rd_stock_lot WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdStockLotDO selectByIdForUpdate(Long id);
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select("SELECT * FROM rd_stock_lot WHERE tenant_id = #{tenantId} AND location_code = #{locationCode} "
             + "AND customer_name = #{customerName} AND product_model = #{productModel} "
             + "AND furnace_no = #{furnaceNo} AND furnace_layer = #{furnaceLayer} AND deleted = 0 LIMIT 1 FOR UPDATE")

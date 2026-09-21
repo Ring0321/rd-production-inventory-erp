@@ -21,6 +21,6 @@ public interface RdPutawayExceptionMapper extends BaseMapperX<RdPutawayException
     }
 
     @Select("SELECT * FROM rd_putaway_exception WHERE task_id = #{taskId} "
-            + "AND exception_status = 'OPEN' AND deleted = 0 ORDER BY id FOR UPDATE")
+            + "AND exception_status = 'OPEN' AND deleted = 0 FOR UPDATE")
     List<RdPutawayExceptionDO> selectOpenListByTaskIdForUpdate(Long taskId);
 }

@@ -9,8 +9,7 @@ import java.util.List;
 
 @Mapper
 public interface RdPutawayTaskLineMapper extends BaseMapperX<RdPutawayTaskLineDO> {
-    @Select("SELECT * FROM rd_putaway_task_line WHERE task_id = #{taskId} AND deleted = 0 "
-            + "ORDER BY line_no FOR UPDATE")
+    @Select("SELECT * FROM rd_putaway_task_line WHERE task_id = #{taskId} AND deleted = 0 FOR UPDATE")
     List<RdPutawayTaskLineDO> selectListByTaskIdForUpdate(Long taskId);
 
     default List<RdPutawayTaskLineDO> selectListByTaskId(Long taskId) {

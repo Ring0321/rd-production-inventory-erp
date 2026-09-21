@@ -160,6 +160,16 @@ JOIN system_menu m ON m.id = rm.menu_id AND m.deleted = b'0'
 WHERE rm.tenant_id = 1 AND rm.role_id = 600002 AND rm.deleted = b'0'
   AND m.id = 600273 AND m.permission = 'rd:putaway-task:confirm';
 "@
+    $readOnlyQueryGrantCount = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM system_role_menu
+WHERE tenant_id = 1 AND role_id IN (600004,600005) AND menu_id = 600215
+  AND deleted = b'0';
+"@
+    $readOnlyMutationGrantCount = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM system_role_menu
+WHERE tenant_id = 1 AND role_id IN (600004,600005)
+  AND menu_id IN (600270,600271,600272,600273) AND deleted = b'0';
+"@
 
     Assert-Equal "putaway table count" "4" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
@@ -169,7 +179,9 @@ WHERE rm.tenant_id = 1 AND rm.role_id = 600002 AND rm.deleted = b'0'
     Assert-Equal "forklift driver PDA menu count" "1" $driverMenuCount
     Assert-Equal "forklift driver minimum grant count" "4" $driverGrantCount
     Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount"
+    Assert-Equal "audit and readonly putaway query grant count" "2" $readOnlyQueryGrantCount
+    Assert-Equal "audit and readonly putaway mutation grant count" "0" $readOnlyMutationGrantCount
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount"
 }
 
 Import-LocalEnvironment

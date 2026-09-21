@@ -32,3 +32,18 @@ powershell -ExecutionPolicy Bypass -File scripts/security/Test-RdOperationLogs.p
 The audit test creates stock, adjusts it, creates an order, allocates stock, creates an outbound
 order, and confirms outbound. It expects six successful logs across four operation types, then
 removes the test stock, order, allocation, outbound, movements, summaries, and audit records.
+
+For B6 putaway verification, run the following against the local services on ports 48080,
+3307, and 6379:
+
+```powershell
+rtk powershell -NoProfile -ExecutionPolicy Bypass -File scripts/security/Test-RdPutawayPermissions.ps1
+rtk powershell -NoProfile -ExecutionPolicy Bypass -File scripts/security/Test-RdPutawayOperationLogs.ps1
+rtk powershell -NoProfile -ExecutionPolicy Bypass -File scripts/performance/Test-RdPutawayConcurrency.ps1
+rtk powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verification/Verify-RdPutawaySchema.ps1
+```
+
+These tests create temporary role-specific users, one-package putaway fixtures, and temporary
+schema databases. They validate the four-role permission matrix, five audit actions, and two
+simultaneous scans of one package. The scripts remove their fixtures and caches after each run.
+They are local technical checks, not evidence of acceptance on a factory PDA or scanner.

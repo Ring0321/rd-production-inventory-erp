@@ -9,6 +9,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPendingPutawayPackagePageReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
@@ -182,6 +183,10 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE,
+            subType = RdLogRecordConstants.PUTAWAY_CREATE_SUB_TYPE,
+            bizNo = RdLogRecordConstants.BIZ_ID_EXPRESSION,
+            success = RdLogRecordConstants.PUTAWAY_CREATE_SUCCESS)
     public Long createTask(RdPutawayTaskCreateReqVO reqVO, Long warehouseKeeperId,
                            String warehouseKeeperName) {
         AdminUserDO driver = requireForkliftDriver(reqVO.getForkliftDriverId());
@@ -244,11 +249,15 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
             packageMapper.updateById(packageUnit);
         }
         reserveLocation(location, packageCount, totalWeight);
+        LogRecordContext.putVariable(RdLogRecordConstants.BIZ_ID_VARIABLE, task.getId());
         return task.getId();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE,
+            subType = RdLogRecordConstants.PUTAWAY_REASSIGN_SUB_TYPE,
+            bizNo = "{{#reqVO.id}}", success = RdLogRecordConstants.PUTAWAY_REASSIGN_SUCCESS)
     public void reassignTask(RdPutawayTaskReassignReqVO reqVO, Long warehouseKeeperId,
                              String warehouseKeeperName) {
         if (!hasText(reqVO.getHandlingResult())) {
