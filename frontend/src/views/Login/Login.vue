@@ -2,7 +2,7 @@
   <main class="login-page">
     <header class="brand-bar">
       <div class="brand">
-        <img src="@/assets/imgs/logo.png" alt="瑞鼎 ERP" />
+        <img src="@/assets/imgs/logo.png" alt="天净隆鼎" />
         <div>
           <strong>{{ appStore.getTitle }}</strong>
           <span>生产 · 库存 · 订单</span>
@@ -58,11 +58,11 @@ const appStore = useAppStore()
 
 .brand-bar {
   display: flex;
+  padding: 0 clamp(20px, 4vw, 64px);
+  background: #fff;
+  border-bottom: 1px solid #dfe4ea;
   align-items: center;
   justify-content: space-between;
-  padding: 0 clamp(20px, 4vw, 64px);
-  border-bottom: 1px solid #dfe4ea;
-  background: #fff;
 }
 
 .brand {
@@ -73,8 +73,8 @@ const appStore = useAppStore()
 }
 
 .brand img {
-  width: 42px;
-  height: 42px;
+  width: 112px;
+  height: 48px;
   object-fit: contain;
 }
 
@@ -116,12 +116,12 @@ const appStore = useAppStore()
   display: flex;
   width: 52px;
   height: 52px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #b9d9cc;
-  border-radius: 6px;
   color: #13795b;
   background: #e9f5f0;
+  border: 1px solid #b9d9cc;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
 }
 
 .system-context h1 {
@@ -134,17 +134,17 @@ const appStore = useAppStore()
 .system-context p {
   max-width: 480px;
   margin: 0;
-  color: #697382;
   line-height: 1.8;
+  color: #697382;
 }
 
 .context-grid {
   display: flex;
   margin-top: 28px;
+  font-size: 13px;
+  color: #465261;
   flex-wrap: wrap;
   gap: 10px 24px;
-  color: #465261;
-  font-size: 13px;
 }
 
 .context-grid span {
@@ -154,12 +154,12 @@ const appStore = useAppStore()
 }
 
 .login-panel {
-  align-self: center;
   padding: 32px 34px;
+  background: #fff;
   border: 1px solid #dce2e8;
   border-radius: 8px;
-  background: #fff;
   box-shadow: 0 14px 34px rgb(38 50 64 / 8%);
+  align-self: center;
 }
 
 footer {
@@ -178,6 +178,15 @@ footer {
   .brand span,
   .system-context {
     display: none;
+  }
+
+  .brand img {
+    width: 88px;
+    height: 42px;
+  }
+
+  .brand strong {
+    font-size: 14px;
   }
 
   .login-stage {

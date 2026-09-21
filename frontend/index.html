@@ -42,15 +42,11 @@
         }
 
         .app-loading .app-loading-logo {
-          display: grid;
-          width: 64px;
-          height: 64px;
+          display: block;
+          width: 144px;
+          height: 86px;
           margin: 0 auto 15px auto;
-          place-items: center;
-          color: #fff;
-          font-size: 24px;
-          border-radius: 8px;
-          background: #1f5a80;
+          object-fit: contain;
         }
 
         .app-loading .app-loading-item {
@@ -137,7 +133,7 @@
       <div class="app-loading">
         <div class="app-loading-wrap">
           <div class="app-loading-title">
-            <div class="app-loading-logo" aria-label="瑞鼎 ERP">RD</div>
+            <img class="app-loading-logo" src="/src/assets/imgs/logo.png" alt="天净隆鼎" />
             <div class="app-loading-title">%VITE_APP_TITLE%</div>
           </div>
           <div class="app-loading-item">

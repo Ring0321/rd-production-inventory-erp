@@ -247,6 +247,8 @@ import {
 defineOptions({ name: 'RdDriverPutaway' })
 
 const appStore = useAppStore()
+const collapseBeforeMobile = ref(appStore.getCollapse)
+const collapsedForMobile = ref(false)
 
 type TagType = 'success' | 'warning' | 'info' | 'danger' | 'primary'
 type ScanFeedback = {
@@ -473,7 +475,16 @@ const packageStatusText = (line: RdPutawayTaskLineVO) => {
 watch(
   () => appStore.getMobile,
   (mobile) => {
-    if (mobile) appStore.setCollapse(true)
+    if (mobile) {
+      if (!collapsedForMobile.value) collapseBeforeMobile.value = appStore.getCollapse
+      appStore.setCollapse(true)
+      collapsedForMobile.value = true
+      return
+    }
+    if (collapsedForMobile.value) {
+      appStore.setCollapse(collapseBeforeMobile.value)
+      collapsedForMobile.value = false
+    }
   },
   { immediate: true }
 )

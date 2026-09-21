@@ -80,4 +80,16 @@ $prefix-cls: #{$namespace}-layout;
 .#{$prefix-cls} {
   background-color: var(--app-content-bg-color);
 }
+
+@media (width <= 767px) {
+  .#{$prefix-cls}__sidebar-nav {
+    :deep(.el-menu--collapse) {
+      pointer-events: none;
+    }
+  }
+
+  :global(.v-menu-popper--vertical) {
+    display: none !important;
+  }
+}
 </style>

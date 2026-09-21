@@ -1,6 +1,6 @@
 <template>
   <main class="social-callback" aria-live="polite">
-    <img src="@/assets/imgs/logo.png" alt="瑞鼎 ERP" />
+    <img src="@/assets/imgs/logo.png" alt="天净隆鼎" />
     <h1>正在验证企业账号</h1>
     <p>请稍候，验证完成后将自动进入 ERP 工作台。</p>
     <el-progress :percentage="100" :indeterminate="true" :duration="2" />
@@ -56,8 +56,9 @@ onMounted(async () => {
 }
 
 .social-callback img {
-  width: 54px;
-  height: 54px;
+  width: 150px;
+  height: 90px;
+  object-fit: contain;
 }
 
 .social-callback h1 {
@@ -68,8 +69,8 @@ onMounted(async () => {
 
 .social-callback p {
   margin: 0 0 24px;
-  color: var(--el-text-color-secondary);
   font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .social-callback :deep(.el-progress) {

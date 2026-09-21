@@ -3,6 +3,7 @@ import { computed, onMounted, ref, unref, watch } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { getLayoutRenderMode, isHeaderNavLayout } from '@/utils/layout'
+import brandLogo from '@/assets/imgs/logo.png'
 
 defineOptions({ name: 'Logo' })
 
@@ -13,8 +14,6 @@ const prefixCls = getPrefixCls('logo')
 const appStore = useAppStore()
 
 const show = ref(true)
-
-const title = computed(() => appStore.getTitle)
 
 const layout = computed(() => appStore.getLayout)
 
@@ -71,11 +70,15 @@ watch(
       ]"
       to="/"
     >
-      <div class="rd-logo-mark">RD</div>
+      <img
+        :src="brandLogo"
+        alt="天净隆鼎"
+        :class="['rd-logo-image', { 'rd-logo-image--expanded': show }]"
+      />
       <div
         v-if="show"
         :class="[
-          'ml-10px text-16px font-700',
+          'rd-logo-title ml-8px font-700',
           {
             'text-[var(--logo-title-text-color)]': getLayoutRenderMode(layout) === 'classic',
             'text-[var(--top-header-text-color)]':
@@ -85,24 +88,32 @@ watch(
           }
         ]"
       >
-        {{ title }}
+        <span>瑞鼎生产库存</span>
+        <span>订单 ERP</span>
       </div>
     </router-link>
   </div>
 </template>
 
 <style scoped>
-.rd-logo-mark {
-  display: grid;
-  width: calc(var(--logo-height) - 14px);
-  height: calc(var(--logo-height) - 14px);
+.rd-logo-image {
+  width: 48px;
+  height: calc(var(--logo-height) - 12px);
   flex: none;
-  place-items: center;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  border: 1px solid rgb(255 255 255 / 28%);
-  border-radius: 6px;
-  background: #1f5a80;
+  object-fit: contain;
+  transition: width 0.2s ease;
+}
+
+.rd-logo-image--expanded {
+  width: 64px;
+}
+
+.rd-logo-title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  font-size: 13px;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 </style>
