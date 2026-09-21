@@ -5,42 +5,70 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import com.mzt.logapi.starter.annotation.LogRecord;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPendingPutawayPackagePageReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayLocationMapRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskConfirmReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskDetailRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskPageReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskReassignReqVO;
+import com.ruiding.erp.dal.dataobject.inbound.RdInboundOrderDO;
+import com.ruiding.erp.dal.dataobject.inbound.RdInboundOrderLineDO;
 import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayExceptionDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdPutawayScanRecordDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayTaskDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayTaskLineDO;
+import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
+import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
+import com.ruiding.erp.dal.mysql.inbound.RdInboundOrderLineMapper;
+import com.ruiding.erp.dal.mysql.inbound.RdInboundOrderMapper;
 import com.ruiding.erp.dal.mysql.masterdata.RdWarehouseLocationMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayExceptionMapper;
+import com.ruiding.erp.dal.mysql.putaway.RdPutawayScanRecordMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayTaskLineMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayTaskMapper;
+import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
+import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
+import com.ruiding.erp.dal.mysql.stock.RdStockTransactionMapper;
+import com.ruiding.erp.enums.RdInboundOrderStatusEnum;
+import com.ruiding.erp.enums.RdLogRecordConstants;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
+import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
 import com.ruiding.erp.enums.RdPutawayTaskActionEnum;
 import com.ruiding.erp.enums.RdPutawayTaskStatusEnum;
+import com.ruiding.erp.enums.RdStockLotStatusEnum;
+import com.ruiding.erp.enums.RdStockTransactionTypeEnum;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -50,7 +78,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_CONFIRM_HAS_OPEN_EXCEPTION;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_CONFIRM_PACKAGE_INVALID;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_CONFIRM_PACKAGES_INCOMPLETE;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_DRIVER_INVALID;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_EXCEPTION_TYPE_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_LOCATION_CAPACITY_INSUFFICIENT;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_LOCATION_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_PACKAGE_DATA_INCOMPLETE;
@@ -65,6 +97,13 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_TASK_VERSION_CONF
 @Service
 public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
     private static final String FORKLIFT_DRIVER_ROLE = "rd_forklift_driver";
+    private static final String LINE_PENDING = "PENDING";
+    private static final String LINE_SCANNED = "SCANNED";
+    private static final String LINE_EXCEPTION = "EXCEPTION";
+    private static final String LINE_CONFIRMED = "CONFIRMED";
+    private static final Set<String> EXCEPTION_TYPES = Set.of(
+            "LOCATION_CAPACITY_INSUFFICIENT", "LOCATION_OCCUPIED", "PACKAGE_MISMATCH",
+            "LABEL_DAMAGED", "PACKAGE_MISSING", "OTHER");
     private static final Set<String> ACTIVE_TASK_STATUSES = Set.of(
             RdPutawayTaskStatusEnum.PENDING_PUTAWAY.getStatus(),
             RdPutawayTaskStatusEnum.ASSIGNED.getStatus(),
@@ -80,6 +119,12 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
     @Resource private RdPutawayTaskMapper taskMapper;
     @Resource private RdPutawayTaskLineMapper taskLineMapper;
     @Resource private RdPutawayExceptionMapper exceptionMapper;
+    @Resource private RdPutawayScanRecordMapper scanRecordMapper;
+    @Resource private RdInboundOrderMapper inboundOrderMapper;
+    @Resource private RdInboundOrderLineMapper inboundOrderLineMapper;
+    @Resource private RdStockLotMapper stockLotMapper;
+    @Resource private RdStockTransactionMapper stockTransactionMapper;
+    @Resource private RdProductionOutputMapper productionOutputMapper;
     @Resource private AdminUserService adminUserService;
     @Resource private PermissionService permissionService;
 
@@ -259,6 +304,13 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                         .setVersion(nextVersion(item.getVersion()));
                 exceptionMapper.updateById(item);
             }
+            for (RdPutawayTaskLineDO line : taskLineMapper.selectListByTaskIdForUpdate(task.getId())) {
+                if (LINE_EXCEPTION.equals(line.getLineStatus()) && zero(line.getScanCount()) == 0) {
+                    line.setLineStatus(LINE_PENDING).setVersion(nextVersion(line.getVersion()));
+                    taskLineMapper.updateById(line);
+                }
+            }
+            task.setExceptionPackageCount(0);
         }
         task.setPlannedLocationId(newLocation.getId())
                 .setPlannedLocationCode(newLocation.getLocationCode())
@@ -270,6 +322,223 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 .setVersion(nextVersion(task.getVersion()))
                 .setRemark(appendRemark(task.getRemark(), reqVO.getHandlingResult()));
         taskMapper.updateById(task);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE,
+            subType = RdLogRecordConstants.PUTAWAY_SCAN_SUB_TYPE,
+            bizNo = "{{#reqVO.id}}", success = RdLogRecordConstants.PUTAWAY_SCAN_SUCCESS)
+    public RdPutawayScanRespVO scanPackage(RdPutawayScanReqVO reqVO, Long forkliftDriverId,
+                                           String forkliftDriverName) {
+        RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
+        if (task == null) {
+            throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        }
+        RdPutawayScanRecordDO replay = scanRecordMapper.selectByTaskAndIdempotencyKey(
+                task.getId(), reqVO.getIdempotencyKey());
+        if (replay != null) {
+            if (!Objects.equals(task.getForkliftDriverId(), forkliftDriverId)) {
+                throw exception(PUTAWAY_TASK_NOT_ASSIGNED);
+            }
+            return toScanResponse(replay, task, true);
+        }
+        if (!Objects.equals(task.getForkliftDriverId(), forkliftDriverId)) {
+            throw exception(PUTAWAY_TASK_NOT_ASSIGNED);
+        }
+
+        String packageCode = normalizePackageCode(reqVO.getPackageCode());
+        String statusBefore = task.getStatus();
+        List<RdPutawayTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
+        RdPutawayTaskLineDO line = lines.stream()
+                .filter(item -> Objects.equals(normalizeCode(item.getPackageCode()), normalizeCode(packageCode)))
+                .findFirst().orElse(null);
+        if (line == null) {
+            RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, null, packageCode,
+                    "MISMATCH", false, "PACKAGE_MISMATCH", "该包码不属于当前上架任务",
+                    statusBefore, statusBefore, forkliftDriverId, forkliftDriverName);
+            return toScanResponse(record, task, false);
+        }
+        if (zero(line.getScanCount()) > 0 || LINE_SCANNED.equals(line.getLineStatus())
+                || LINE_CONFIRMED.equals(line.getLineStatus())) {
+            RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, line, packageCode,
+                    "DUPLICATE", false, "PACKAGE_ALREADY_SCANNED", "该包码已经扫码，不重复计数",
+                    statusBefore, statusBefore, forkliftDriverId, forkliftDriverName);
+            return toScanResponse(record, task, false);
+        }
+
+        RdPutawayTaskStatusEnum current = RdPutawayTaskStatusEnum.valueOf(task.getStatus());
+        if (current != RdPutawayTaskStatusEnum.ASSIGNED
+                && current != RdPutawayTaskStatusEnum.MOVING) {
+            RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, line, packageCode,
+                    "STATUS_INVALID", false, "TASK_STATUS_INVALID", "当前任务状态不能继续扫码",
+                    statusBefore, statusBefore, forkliftDriverId, forkliftDriverName);
+            return toScanResponse(record, task, false);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (current == RdPutawayTaskStatusEnum.ASSIGNED) {
+            task.setStatus(RdPutawayTaskStatusMachine.transition(current,
+                    RdPutawayTaskActionEnum.START).getStatus());
+            task.setStartTime(now);
+        }
+        line.setLineStatus(LINE_SCANNED)
+                .setScanCount(1)
+                .setFirstScanTime(now)
+                .setLastScanTime(now)
+                .setVersion(nextVersion(line.getVersion()));
+        taskLineMapper.updateById(line);
+
+        int scanned = (int) lines.stream().filter(item -> zero(item.getScanCount()) > 0).count();
+        task.setScannedPackageCount(scanned);
+        if (scanned == task.getPackageCount()) {
+            task.setStatus(RdPutawayTaskStatusMachine.transition(
+                    RdPutawayTaskStatusEnum.MOVING,
+                    RdPutawayTaskActionEnum.COMPLETE_SCANNING).getStatus());
+            task.setScanCompleteTime(now);
+        }
+        task.setVersion(nextVersion(task.getVersion()));
+        taskMapper.updateById(task);
+        RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, line, packageCode,
+                "SUCCESS", true, null, null, statusBefore, task.getStatus(),
+                forkliftDriverId, forkliftDriverName);
+        return toScanResponse(record, task, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE,
+            subType = RdLogRecordConstants.PUTAWAY_EXCEPTION_SUB_TYPE,
+            bizNo = "{{#reqVO.id}}", success = RdLogRecordConstants.PUTAWAY_EXCEPTION_SUCCESS)
+    public Long reportException(RdPutawayExceptionCreateReqVO reqVO, Long forkliftDriverId,
+                                String forkliftDriverName) {
+        if (!EXCEPTION_TYPES.contains(reqVO.getExceptionType())) {
+            throw exception(PUTAWAY_EXCEPTION_TYPE_INVALID);
+        }
+        RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
+        if (task == null) {
+            throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        }
+        if (!Objects.equals(task.getForkliftDriverId(), forkliftDriverId)) {
+            throw exception(PUTAWAY_TASK_NOT_ASSIGNED);
+        }
+        RdPutawayTaskStatusEnum current = RdPutawayTaskStatusEnum.valueOf(task.getStatus());
+        if (!RdPutawayTaskStatusMachine.canTransition(current,
+                RdPutawayTaskActionEnum.REPORT_EXCEPTION)) {
+            throw exception(PUTAWAY_TASK_STATUS_INVALID);
+        }
+
+        String packageCode = hasText(reqVO.getPackageCode())
+                ? normalizePackageCode(reqVO.getPackageCode()) : null;
+        List<RdPutawayTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
+        RdPutawayTaskLineDO line = hasText(packageCode) ? lines.stream()
+                .filter(item -> Objects.equals(normalizeCode(item.getPackageCode()),
+                        normalizeCode(packageCode)))
+                .findFirst().orElse(null) : null;
+        LocalDateTime now = LocalDateTime.now();
+        RdPutawayExceptionDO exceptionDO = new RdPutawayExceptionDO()
+                .setExceptionNo(generateExceptionNo())
+                .setTaskId(task.getId())
+                .setTaskLineId(line == null ? null : line.getId())
+                .setPackageId(line == null ? null : line.getPackageId())
+                .setPackageCode(packageCode)
+                .setExceptionType(reqVO.getExceptionType())
+                .setExceptionStatus("OPEN")
+                .setDescription(reqVO.getDescription().trim())
+                .setAttachmentRefs(reqVO.getAttachmentRefs())
+                .setReporterId(forkliftDriverId)
+                .setReporterName(forkliftDriverName)
+                .setReporterRole("FORKLIFT_DRIVER")
+                .setReportedTime(now)
+                .setVersion(0);
+        exceptionMapper.insert(exceptionDO);
+        if (line != null && zero(line.getScanCount()) == 0) {
+            line.setLineStatus(LINE_EXCEPTION).setVersion(nextVersion(line.getVersion()));
+            taskLineMapper.updateById(line);
+        }
+        task.setStatus(RdPutawayTaskStatusMachine.transition(current,
+                        RdPutawayTaskActionEnum.REPORT_EXCEPTION).getStatus())
+                .setExceptionPackageCount(zero(task.getExceptionPackageCount()) + 1)
+                .setVersion(nextVersion(task.getVersion()));
+        taskMapper.updateById(task);
+        return exceptionDO.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE,
+            subType = RdLogRecordConstants.PUTAWAY_CONFIRM_SUB_TYPE,
+            bizNo = "{{#reqVO.id}}", success = RdLogRecordConstants.PUTAWAY_CONFIRM_SUCCESS)
+    public Long confirmTask(RdPutawayTaskConfirmReqVO reqVO, Long warehouseKeeperId,
+                            String warehouseKeeperName) {
+        RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
+        if (task == null) {
+            throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        }
+        if (RdPutawayTaskStatusEnum.PUTAWAY_COMPLETED.getStatus().equals(task.getStatus())) {
+            return taskLineMapper.selectListByTaskId(task.getId()).stream()
+                    .map(RdPutawayTaskLineDO::getInboundOrderId)
+                    .filter(Objects::nonNull).findFirst().orElse(null);
+        }
+        if (!reqVO.getVersion().equals(task.getVersion())) {
+            throw exception(PUTAWAY_TASK_VERSION_CONFLICT);
+        }
+        if (!RdPutawayTaskStatusEnum.PENDING_CONFIRMATION.getStatus().equals(task.getStatus())) {
+            throw exception(PUTAWAY_TASK_STATUS_INVALID);
+        }
+        if (!exceptionMapper.selectOpenListByTaskIdForUpdate(task.getId()).isEmpty()) {
+            throw exception(PUTAWAY_CONFIRM_HAS_OPEN_EXCEPTION);
+        }
+        List<RdPutawayTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
+        if (lines.size() != task.getPackageCount()
+                || lines.stream().anyMatch(line -> zero(line.getScanCount()) == 0
+                || LINE_EXCEPTION.equals(line.getLineStatus()))) {
+            throw exception(PUTAWAY_CONFIRM_PACKAGES_INCOMPLETE);
+        }
+
+        Map<Long, RdWarehouseLocationDO> lockedLocations = lockLocations(
+                task.getPlannedLocationId(), reqVO.getFinalLocationId());
+        lockedLocations.values().forEach(this::reconcileLocationCounters);
+        RdWarehouseLocationDO finalLocation = lockedLocations.get(reqVO.getFinalLocationId());
+        requireAvailableLocation(finalLocation);
+        boolean sameLocation = Objects.equals(task.getPlannedLocationId(), finalLocation.getId());
+        BigDecimal ownPackages = sameLocation ? BigDecimal.valueOf(task.getPackageCount())
+                : BigDecimal.ZERO;
+        BigDecimal ownWeight = sameLocation ? zero(task.getTotalWeight()) : BigDecimal.ZERO;
+        requireCapacity(finalLocation, BigDecimal.valueOf(task.getPackageCount()),
+                zero(task.getTotalWeight()), ownPackages, ownWeight);
+
+        List<RdPackageUnitDO> packages = new ArrayList<>();
+        for (RdPutawayTaskLineDO line : lines) {
+            RdPackageUnitDO packageUnit = packageMapper.selectByIdForUpdate(line.getPackageId());
+            if (packageUnit == null
+                    || !Objects.equals(packageUnit.getPackageCode(), line.getPackageCode())
+                    || !RdPackageStatusEnum.INBOUND_PENDING.getStatus().equals(packageUnit.getStatus())) {
+                throw exception(PUTAWAY_CONFIRM_PACKAGE_INVALID);
+            }
+            packages.add(packageUnit);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        RdInboundOrderDO order = createPostedInboundOrder(task, warehouseKeeperId,
+                warehouseKeeperName, now);
+        for (int index = 0; index < lines.size(); index++) {
+            postPutawayLine(task, lines.get(index), packages.get(index), finalLocation, order,
+                    warehouseKeeperId, warehouseKeeperName);
+        }
+        task.setStatus(RdPutawayTaskStatusMachine.transition(
+                        RdPutawayTaskStatusEnum.PENDING_CONFIRMATION,
+                        RdPutawayTaskActionEnum.CONFIRM_PUTAWAY).getStatus())
+                .setFinalLocationId(finalLocation.getId())
+                .setFinalLocationCode(finalLocation.getLocationCode())
+                .setConfirmTime(now)
+                .setExceptionPackageCount(0)
+                .setVersion(nextVersion(task.getVersion()));
+        taskMapper.updateById(task);
+
+        lockedLocations.values().forEach(this::reconcileLocationCounters);
+        updateProductionInboundStatuses(packages);
+        return order.getId();
     }
 
     @Override
@@ -318,6 +587,216 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         detail.setLines(taskLineMapper.selectListByTaskId(task.getId()));
         detail.setExceptions(exceptionMapper.selectListByTaskId(task.getId()));
         return detail;
+    }
+
+    private RdPutawayScanRecordDO insertScanRecord(RdPutawayScanReqVO reqVO,
+                                                    RdPutawayTaskDO task,
+                                                    RdPutawayTaskLineDO line,
+                                                    String packageCode,
+                                                    String scanResult,
+                                                    boolean success,
+                                                    String errorCode,
+                                                    String errorMessage,
+                                                    String statusBefore,
+                                                    String statusAfter,
+                                                    Long operatorId,
+                                                    String operatorName) {
+        RdPutawayScanRecordDO record = new RdPutawayScanRecordDO()
+                .setTaskId(task.getId())
+                .setTaskLineId(line == null ? null : line.getId())
+                .setPackageId(line == null ? null : line.getPackageId())
+                .setPackageCode(limit(packageCode, 32))
+                .setIdempotencyKey(reqVO.getIdempotencyKey())
+                .setScanResult(scanResult)
+                .setSuccess(success)
+                .setErrorCode(errorCode)
+                .setErrorMessage(errorMessage)
+                .setTaskStatusBefore(statusBefore)
+                .setTaskStatusAfter(statusAfter)
+                .setDeviceCode(reqVO.getDeviceCode())
+                .setOperatorId(operatorId)
+                .setOperatorName(operatorName)
+                .setDeviceTime(reqVO.getDeviceTime())
+                .setScanTime(LocalDateTime.now());
+        scanRecordMapper.insert(record);
+        return record;
+    }
+
+    private RdPutawayScanRespVO toScanResponse(RdPutawayScanRecordDO record,
+                                                RdPutawayTaskDO task,
+                                                boolean replayed) {
+        String message = record.getErrorMessage();
+        if (!hasText(message)) {
+            message = "SUCCESS".equals(record.getScanResult())
+                    ? "扫码成功，已写入任务进度" : "扫码请求已处理";
+        }
+        return new RdPutawayScanRespVO()
+                .setRecordId(record.getId())
+                .setTaskId(task.getId())
+                .setPackageCode(record.getPackageCode())
+                .setScanResult(record.getScanResult())
+                .setSuccess(record.getSuccess())
+                .setReplayed(replayed)
+                .setMessage(message)
+                .setTaskStatus(task.getStatus())
+                .setScannedPackageCount(zero(task.getScannedPackageCount()))
+                .setPackageCount(zero(task.getPackageCount()))
+                .setScanTime(record.getScanTime());
+    }
+
+    private RdInboundOrderDO createPostedInboundOrder(RdPutawayTaskDO task, Long operatorId,
+                                                       String operatorName,
+                                                       LocalDateTime operationTime) {
+        LocalDate bizDate = operationTime.toLocalDate();
+        RdInboundOrderDO order = new RdInboundOrderDO()
+                .setOrderNo("RK" + bizDate.toString().replace("-", "")
+                        + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .setBizDate(bizDate)
+                .setSourceType("PUTAWAY_TASK")
+                .setTotalPackages(BigDecimal.valueOf(task.getPackageCount()))
+                .setTotalWeight(zero(task.getTotalWeight()))
+                .setStatus(RdInboundOrderStatusEnum.POSTED.getStatus())
+                .setSubmitterId(operatorId)
+                .setSubmitterName(operatorName)
+                .setSubmitTime(operationTime)
+                .setReviewerId(operatorId)
+                .setReviewerName(operatorName)
+                .setReviewTime(operationTime)
+                .setPosterId(operatorId)
+                .setPosterName(operatorName)
+                .setPostTime(operationTime)
+                .setVersion(0)
+                .setRemark("上架任务 " + task.getTaskNo() + " 经仓管确认生成");
+        inboundOrderMapper.insert(order);
+        return order;
+    }
+
+    private void postPutawayLine(RdPutawayTaskDO task, RdPutawayTaskLineDO taskLine,
+                                 RdPackageUnitDO packageUnit,
+                                 RdWarehouseLocationDO finalLocation,
+                                 RdInboundOrderDO order,
+                                 Long operatorId, String operatorName) {
+        String idempotencyKey = "PUTAWAY:" + task.getId() + ":" + packageUnit.getId();
+        if (stockTransactionMapper.selectByIdempotencyKey(idempotencyKey) != null) {
+            throw exception(PUTAWAY_CONFIRM_PACKAGE_INVALID);
+        }
+        Long tenantId = TenantContextHolder.getTenantId() == null
+                ? 1L : TenantContextHolder.getTenantId();
+        RdStockLotDO lot = stockLotMapper.selectInboundLotForUpdate(tenantId,
+                finalLocation.getLocationCode(), packageUnit.getCustomerName(),
+                packageUnit.getProductModel(), packageUnit.getFurnaceNo(),
+                packageUnit.getFurnaceLayer());
+        BigDecimal before;
+        if (lot == null) {
+            before = BigDecimal.ZERO;
+            lot = new RdStockLotDO()
+                    .setLocationId(finalLocation.getId())
+                    .setLocationCode(finalLocation.getLocationCode())
+                    .setCustomerName(packageUnit.getCustomerName())
+                    .setProductModel(packageUnit.getProductModel())
+                    .setFurnaceNo(packageUnit.getFurnaceNo())
+                    .setFurnaceLayer(packageUnit.getFurnaceLayer())
+                    .setOpeningQty(BigDecimal.ZERO)
+                    .setTransferInQty(BigDecimal.ZERO)
+                    .setTransferOutQty(BigDecimal.ZERO)
+                    .setInboundQty(BigDecimal.ONE)
+                    .setOutboundQty(BigDecimal.ZERO)
+                    .setReturnQty(BigDecimal.ZERO)
+                    .setWarehouseQty(BigDecimal.ONE)
+                    .setLockedQty(BigDecimal.ZERO)
+                    .setPackageWeight(packageUnit.getPackageWeight())
+                    .setStockWeight(packageUnit.getPackageWeight())
+                    .setLastBizDate(order.getBizDate())
+                    .setStatus(RdStockLotStatusEnum.AVAILABLE.getStatus())
+                    .setRemark("仓管确认上架生成");
+            stockLotMapper.insert(lot);
+        } else {
+            before = zero(lot.getWarehouseQty());
+            lot.setInboundQty(zero(lot.getInboundQty()).add(BigDecimal.ONE))
+                    .setWarehouseQty(before.add(BigDecimal.ONE))
+                    .setStockWeight(zero(lot.getStockWeight()).add(packageUnit.getPackageWeight()))
+                    .setLastBizDate(order.getBizDate())
+                    .setStatus(RdStockLotStatusEnum.AVAILABLE.getStatus());
+            stockLotMapper.updateById(lot);
+        }
+
+        RdStockTransactionDO transaction = new RdStockTransactionDO()
+                .setBizDate(order.getBizDate())
+                .setTransactionType(RdStockTransactionTypeEnum.PRODUCTION_IN.getType())
+                .setStockLotId(lot.getId())
+                .setPackageId(packageUnit.getId())
+                .setLocationId(finalLocation.getId())
+                .setLocationCode(finalLocation.getLocationCode())
+                .setCustomerName(packageUnit.getCustomerName())
+                .setProductModel(packageUnit.getProductModel())
+                .setFurnaceNo(packageUnit.getFurnaceNo())
+                .setFurnaceLayer(packageUnit.getFurnaceLayer())
+                .setQuantity(BigDecimal.ONE)
+                .setPackageWeight(packageUnit.getPackageWeight())
+                .setWeight(packageUnit.getPackageWeight())
+                .setBeforeQty(before)
+                .setAfterQty(before.add(BigDecimal.ONE))
+                .setSourceType("PUTAWAY_TASK")
+                .setSourceNo(task.getTaskNo())
+                .setSourceLineNo(packageUnit.getPackageCode())
+                .setRelatedOrderId(order.getId())
+                .setOperatorId(operatorId)
+                .setOperatorName(operatorName)
+                .setReviewerId(operatorId)
+                .setReviewerName(operatorName)
+                .setIdempotencyKey(idempotencyKey)
+                .setRemark("仓管确认包码上架");
+        stockTransactionMapper.insert(transaction);
+
+        packageUnit.setStatus(RdPackageStatusEnum.IN_STOCK.getStatus())
+                .setLocationId(finalLocation.getId())
+                .setLocationCode(finalLocation.getLocationCode())
+                .setStockLotId(lot.getId())
+                .setVersion(nextVersion(packageUnit.getVersion()));
+        packageMapper.updateById(packageUnit);
+
+        RdInboundOrderLineDO inboundLine = new RdInboundOrderLineDO()
+                .setOrderId(order.getId())
+                .setPackageId(packageUnit.getId())
+                .setLocationId(finalLocation.getId())
+                .setLocationCode(finalLocation.getLocationCode())
+                .setQuantity(BigDecimal.ONE)
+                .setWeight(packageUnit.getPackageWeight())
+                .setStockLotId(lot.getId())
+                .setStockTransactionId(transaction.getId())
+                .setRemark("来源上架任务 " + task.getTaskNo());
+        inboundOrderLineMapper.insert(inboundLine);
+        taskLine.setLineStatus(LINE_CONFIRMED)
+                .setInboundOrderId(order.getId())
+                .setInboundOrderLineId(inboundLine.getId())
+                .setStockLotId(lot.getId())
+                .setStockTransactionId(transaction.getId())
+                .setVersion(nextVersion(taskLine.getVersion()));
+        taskLineMapper.updateById(taskLine);
+    }
+
+    private void updateProductionInboundStatuses(List<RdPackageUnitDO> packages) {
+        packages.stream().map(RdPackageUnitDO::getProductionOutputId)
+                .filter(Objects::nonNull).distinct().forEach(productionOutputId -> {
+                    RdProductionOutputDO production = productionOutputMapper
+                            .selectByIdForUpdate(productionOutputId);
+                    if (production == null) {
+                        return;
+                    }
+                    List<RdPackageUnitDO> units = packageMapper
+                            .selectListByProductionOutputId(productionOutputId);
+                    long inbound = units.stream().filter(unit ->
+                            RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())
+                                    || RdPackageStatusEnum.OUTBOUND_PENDING.getStatus()
+                                    .equals(unit.getStatus())
+                                    || RdPackageStatusEnum.OUTBOUNDED.getStatus()
+                                    .equals(unit.getStatus())).count();
+                    production.setInboundQty(BigDecimal.valueOf(inbound));
+                    production.setStatus(!units.isEmpty() && inbound == units.size()
+                            ? RdProductionOutputStatusEnum.INBOUNDED.getStatus()
+                            : RdProductionOutputStatusEnum.CONFIRMED.getStatus());
+                    productionOutputMapper.updateById(production);
+                });
     }
 
     private RdPutawayLocationMapRespVO toLocationMap(RdWarehouseLocationDO location,
@@ -452,6 +931,48 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
+    private static String generateExceptionNo() {
+        return "YC" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))
+                + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+
+    private static String normalizePackageCode(String rawValue) {
+        String value = rawValue == null ? "" : rawValue.trim();
+        try {
+            if (value.startsWith("http://") || value.startsWith("https://")) {
+                String path = URI.create(value).getPath();
+                int separator = path.lastIndexOf('/');
+                value = separator >= 0 ? path.substring(separator + 1) : path;
+                value = URLDecoder.decode(value, StandardCharsets.UTF_8.name());
+            } else {
+                int marker = value.toLowerCase(Locale.ROOT).lastIndexOf("/pkg/");
+                if (marker >= 0) {
+                    value = value.substring(marker + 5);
+                }
+                int query = value.indexOf('?');
+                if (query >= 0) {
+                    value = value.substring(0, query);
+                }
+                int fragment = value.indexOf('#');
+                if (fragment >= 0) {
+                    value = value.substring(0, fragment);
+                }
+            }
+        } catch (Exception ignored) {
+            // Keep the trimmed scanner input so a malformed code can still be audited as a mismatch.
+        }
+        return value.trim();
+    }
+
+    private static String normalizeCode(String value) {
+        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static String limit(String value, int maxLength) {
+        String result = value == null ? "" : value;
+        return result.length() <= maxLength ? result : result.substring(0, maxLength);
+    }
+
     private static String displayName(AdminUserDO user) {
         return hasText(user.getNickname()) ? user.getNickname() : user.getUsername();
     }
@@ -518,6 +1039,10 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
 
     private static BigDecimal zero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private static int zero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private static BigDecimal nonNegative(BigDecimal value) {

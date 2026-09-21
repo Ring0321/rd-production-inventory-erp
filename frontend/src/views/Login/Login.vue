@@ -1,39 +1,32 @@
 <template>
   <main class="login-page">
-    <header class="brand-bar">
-      <div class="brand">
-        <img src="@/assets/imgs/logo.png" alt="天净隆鼎" />
-        <div>
-          <strong>{{ appStore.getTitle }}</strong>
-          <span>生产 · 库存 · 订单</span>
-        </div>
-      </div>
-      <div class="header-tools">
-        <ThemeSwitch />
-        <LocaleDropdown />
-      </div>
-    </header>
-
     <section class="login-stage">
-      <div class="system-context" aria-hidden="true">
-        <div class="context-mark"><Icon icon="ep:office-building" :size="28" /></div>
-        <h1>生产库存协同管理</h1>
-        <p>炉号炉层追溯、库房数量管控与销售订单履约。</p>
-        <div class="context-grid">
-          <span><Icon icon="ep:box" /> 库存台账</span>
-          <span><Icon icon="ep:tickets" /> 订单差额</span>
-          <span><Icon icon="ep:switch" /> 调拨出库</span>
+      <div class="system-context">
+        <div class="brand">
+          <img src="@/assets/imgs/logo.png" alt="天净隆鼎" />
+          <strong>{{ appStore.getTitle }}</strong>
+        </div>
+        <h1>生产货物二维码数字化管理系统</h1>
+        <p>围绕生产任务、包装标签、质检放行、入库出库和数字护照，建立一包一码的管理闭环。</p>
+        <div class="flow-tags" aria-label="系统业务范围">
+          <span>生产</span>
+          <span>质检</span>
+          <span>入库</span>
+          <span>出库</span>
+          <span>追溯</span>
         </div>
       </div>
 
       <div class="login-panel">
+        <div class="panel-tools">
+          <ThemeSwitch />
+          <LocaleDropdown />
+        </div>
         <LoginForm />
         <MobileForm />
         <ForgetPasswordForm />
       </div>
     </section>
-
-    <footer>瑞鼎生产库存订单ERP</footer>
   </main>
 </template>
 
@@ -49,153 +42,141 @@ const appStore = useAppStore()
 
 <style lang="scss" scoped>
 .login-page {
-  display: grid;
-  min-height: 100%;
-  color: #27313f;
-  background: #f4f6f8;
-  grid-template-rows: 72px 1fr 44px;
-}
-
-.brand-bar {
   display: flex;
-  padding: 0 clamp(20px, 4vw, 64px);
-  background: #fff;
-  border-bottom: 1px solid #dfe4ea;
+  min-height: 100%;
+  padding: 36px;
+  color: #fff;
+  background: linear-gradient(118deg, #173a5a 0%, #24596a 52%, #28776f 100%);
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 }
 
 .brand {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .brand img {
-  width: 112px;
-  height: 48px;
+  width: 116px;
+  height: 58px;
   object-fit: contain;
 }
 
-.brand strong,
-.brand span {
-  display: block;
-  letter-spacing: 0;
-}
-
 .brand strong {
-  font-size: 19px;
-}
-
-.brand span {
-  margin-top: 2px;
-  font-size: 12px;
-  color: #7b8491;
-}
-
-.header-tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  max-width: 390px;
+  font-size: 20px;
+  line-height: 1.45;
+  letter-spacing: 0;
 }
 
 .login-stage {
   display: grid;
-  width: min(1040px, calc(100% - 40px));
-  margin: auto;
-  gap: clamp(40px, 8vw, 110px);
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  width: min(1720px, 100%);
+  align-items: center;
+  gap: clamp(56px, 9vw, 180px);
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
 }
 
 .system-context {
-  align-self: center;
-}
-
-.context-mark {
-  display: flex;
-  width: 52px;
-  height: 52px;
-  color: #13795b;
-  background: #e9f5f0;
-  border: 1px solid #b9d9cc;
-  border-radius: 6px;
-  align-items: center;
-  justify-content: center;
+  max-width: 760px;
+  justify-self: center;
 }
 
 .system-context h1 {
-  margin: 22px 0 10px;
-  font-size: 30px;
-  line-height: 1.3;
+  margin: 36px 0 18px;
+  font-size: clamp(38px, 3.2vw, 56px);
+  line-height: 1.22;
   letter-spacing: 0;
 }
 
 .system-context p {
-  max-width: 480px;
+  max-width: 720px;
   margin: 0;
-  line-height: 1.8;
-  color: #697382;
+  font-size: 18px;
+  line-height: 1.75;
+  color: rgb(255 255 255 / 78%);
 }
 
-.context-grid {
+.flow-tags {
   display: flex;
-  margin-top: 28px;
-  font-size: 13px;
-  color: #465261;
+  margin-top: 34px;
   flex-wrap: wrap;
-  gap: 10px 24px;
+  gap: 12px;
 }
 
-.context-grid span {
-  display: inline-flex;
+.flow-tags span {
+  min-width: 84px;
+  padding: 10px 18px;
+  font-size: 16px;
+  text-align: center;
+  background: rgb(14 42 61 / 14%);
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 6px;
+}
+
+.login-panel {
+  position: relative;
+  padding: 32px 34px;
+  color: #27313f;
+  background: #fff;
+  border: 1px solid rgb(255 255 255 / 44%);
+  border-radius: 8px;
+  box-shadow: 0 22px 56px rgb(7 33 45 / 22%);
+}
+
+.panel-tools {
+  position: absolute;
+  top: 22px;
+  right: 28px;
+  display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.login-panel {
-  padding: 32px 34px;
-  background: #fff;
-  border: 1px solid #dce2e8;
-  border-radius: 8px;
-  box-shadow: 0 14px 34px rgb(38 50 64 / 8%);
-  align-self: center;
-}
-
-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: #8a929d;
-}
-
 @media (width <= 760px) {
   .login-page {
-    grid-template-rows: 64px 1fr 38px;
-  }
-
-  .brand span,
-  .system-context {
-    display: none;
-  }
-
-  .brand img {
-    width: 88px;
-    height: 42px;
-  }
-
-  .brand strong {
-    font-size: 14px;
+    padding: 18px 12px;
   }
 
   .login-stage {
-    width: min(420px, calc(100% - 24px));
+    width: min(440px, 100%);
+    gap: 24px;
     grid-template-columns: 1fr;
   }
 
+  .system-context {
+    width: 100%;
+  }
+
+  .brand {
+    justify-content: center;
+  }
+
+  .brand img {
+    width: 96px;
+    height: 48px;
+  }
+
+  .brand strong {
+    max-width: 220px;
+    font-size: 15px;
+  }
+
+  .system-context h1 {
+    margin: 20px 0 10px;
+    font-size: 26px;
+    text-align: center;
+  }
+
+  .system-context p,
+  .flow-tags {
+    display: none;
+  }
+
   .login-panel {
-    padding: 26px 20px;
+    padding: 28px 22px;
   }
 }
 </style>

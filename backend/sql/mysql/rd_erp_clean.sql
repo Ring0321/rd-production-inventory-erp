@@ -1580,7 +1580,7 @@ CREATE TABLE `rd_transfer_order_package` (
 SET NAMES utf8mb4;
 
 INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
-(600000, '瑞鼎库存', '', 1, 35, 0, '/rd', 'ep:box', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600000, '生产货物管理', '', 1, 35, 0, '/rd', 'ep:box', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600010, '库存看板', 'rd:dashboard:query', 2, 1, 600000, 'dashboard', 'ep:data-board', 'rd/dashboard/index', 'RdInventoryDashboard', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600100, '生产管理', '', 1, 10, 600000, 'production', 'ep:cpu', NULL, NULL, 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600101, '生产炉层产量', 'rd:production-output:query', 2, 10, 600100, 'output', 'ep:list', 'rd/production/output/index', 'RdProductionOutput', 0, b'1', b'1', b'1', 'admin', NOW(), 'admin', NOW(), b'0'),
@@ -1657,7 +1657,8 @@ INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_i
 (600267, '盘点取消', 'rd:stocktake:cancel', 3, 80, 600214, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600270, '创建上架任务', 'rd:putaway-task:create', 3, 10, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
 (600271, '调整上架派单', 'rd:putaway-task:assign', 3, 20, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
-(600272, '执行上架任务', 'rd:putaway-task:execute', 3, 30, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
+(600272, '执行上架任务', 'rd:putaway-task:execute', 3, 30, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0'),
+(600273, '确认上架入库', 'rd:putaway-task:confirm', 3, 40, 600215, '', '', '', NULL, 0, b'0', b'0', b'0', 'admin', NOW(), 'admin', NOW(), b'0')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `permission` = VALUES(`permission`),
@@ -1781,11 +1782,11 @@ ON DUPLICATE KEY UPDATE `sort`=VALUES(`sort`), `label`=VALUES(`label`), `value`=
 
 
 INSERT INTO `system_tenant` (`id`, `name`, `contact_user_id`, `contact_name`, `contact_mobile`, `status`, `websites`, `expire_time`, `account_count`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
-(1, '瑞鼎生产库存订单ERP', 1, '系统管理员', NULL, 0, '[]', '2099-12-31 23:59:59', 500, 'system', NOW(), 'system', NOW(), b'0')
+(1, '宁夏天净隆鼎碳化硅有限公司', 1, '系统管理员', NULL, 0, '[]', '2099-12-31 23:59:59', 500, 'system', NOW(), 'system', NOW(), b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `contact_user_id`=VALUES(`contact_user_id`), `status`=VALUES(`status`), `expire_time`=VALUES(`expire_time`), `account_count`=VALUES(`account_count`), `deleted`=b'0';
 
 INSERT INTO `system_dept` (`id`, `name`, `parent_id`, `sort`, `leader_user_id`, `phone`, `email`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES
-(1, '瑞鼎科技', 0, 1, 1, NULL, NULL, 0, 'system', NOW(), 'system', NOW(), b'0', 1)
+(1, '宁夏天净隆鼎碳化硅有限公司', 0, 1, 1, NULL, NULL, 0, 'system', NOW(), 'system', NOW(), b'0', 1)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `status`=VALUES(`status`), `tenant_id`=1, `deleted`=b'0';
 
 INSERT INTO `system_post` (`id`, `code`, `name`, `sort`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES
@@ -1902,7 +1903,7 @@ INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_de
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`data_scope`=5,`deleted`=b'0',`tenant_id`=1;
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
-SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271)
+SELECT 600002,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271,600273)
 UNION ALL SELECT 600008,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600000,600200,600216,600272);
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)

@@ -3,7 +3,7 @@
     <ContentWrap>
       <div class="dashboard-header">
         <div>
-          <h1>瑞鼎生产库存看板</h1>
+          <h1>天净隆鼎生产货物管理看板</h1>
           <p>{{ displayAsOfDate }}</p>
         </div>
         <div class="header-actions">

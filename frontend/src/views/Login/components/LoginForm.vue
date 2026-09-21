@@ -8,8 +8,10 @@
     label-position="top"
     size="large"
   >
-    <LoginFormTitle />
-    <p class="login-hint">使用企业账号进入管理系统</p>
+    <div class="login-heading">
+      <LoginFormTitle />
+      <span>一期开发环境</span>
+    </div>
 
     <el-form-item prop="username">
       <el-input v-model="loginForm.username" placeholder="账号" :prefix-icon="iconAvatar" />
@@ -188,11 +190,29 @@ onMounted(async () => {
   width: 100%;
 }
 
-.login-hint {
-  margin: -4px 0 24px;
-  text-align: center;
-  color: #7b8491;
+.login-heading {
+  display: flex;
+  min-height: 48px;
+  padding-bottom: 18px;
+  margin: -8px 78px 24px 0;
+  border-bottom: 1px solid #e2e7ec;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.login-heading span {
+  flex: none;
   font-size: 13px;
+  color: #7b8491;
+  white-space: nowrap;
+}
+
+.login-heading :deep(.login-form-title) {
+  margin: 0;
+  font-size: 25px;
+  line-height: 1.3;
+  text-align: left;
 }
 
 .login-options {
@@ -213,5 +233,15 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+@media (width <= 480px) {
+  .login-heading {
+    margin-right: 72px;
+  }
+
+  .login-heading span {
+    display: none;
+  }
 }
 </style>

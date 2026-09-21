@@ -1,4 +1,4 @@
-# 瑞鼎生产库存订单ERP
+# 宁夏天净隆鼎碳化硅有限公司生产货物二维码数字化管理系统
 
 面向单公司的生产后库存管理系统，覆盖炉号炉层产量、成品入库、库存台账、销售订单差额、跨订单调拨、出库上线和每日汇总。
 
@@ -7,7 +7,7 @@
 ```text
 backend/                  Spring Boot 业务服务
   rd-erp-server/          应用启动与运行配置
-  rd-erp-inventory/       瑞鼎生产库存订单业务模块
+  rd-erp-inventory/       生产货物、质检、库存与出入库业务模块
   yudao-module-system/    精简后的用户、权限与认证内核
   yudao-module-infra/     精简后的审计、文件与 Quartz 内核
 frontend/                 Vue 3 + TypeScript 管理端

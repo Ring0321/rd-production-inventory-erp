@@ -4,8 +4,12 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPendingPutawayPackagePageReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayLocationMapRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskConfirmReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskDetailRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskPageReqVO;
@@ -69,6 +73,26 @@ public class RdPutawayTaskController {
     public CommonResult<Boolean> reassignTask(@Valid @RequestBody RdPutawayTaskReassignReqVO reqVO) {
         service.reassignTask(reqVO, getLoginUserId(), getLoginUserNickname());
         return success(true);
+    }
+
+    @PostMapping("/scan")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:execute')")
+    public CommonResult<RdPutawayScanRespVO> scanPackage(
+            @Valid @RequestBody RdPutawayScanReqVO reqVO) {
+        return success(service.scanPackage(reqVO, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PostMapping("/exception")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:execute')")
+    public CommonResult<Long> reportException(
+            @Valid @RequestBody RdPutawayExceptionCreateReqVO reqVO) {
+        return success(service.reportException(reqVO, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PutMapping("/confirm")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:confirm')")
+    public CommonResult<Long> confirmTask(@Valid @RequestBody RdPutawayTaskConfirmReqVO reqVO) {
+        return success(service.confirmTask(reqVO, getLoginUserId(), getLoginUserNickname()));
     }
 
     @GetMapping("/page")

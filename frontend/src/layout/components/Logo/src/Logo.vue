@@ -88,8 +88,8 @@ watch(
           }
         ]"
       >
-        <span>瑞鼎生产库存</span>
-        <span>订单 ERP</span>
+        <span>天净隆鼎生产货物</span>
+        <span>二维码管理系统</span>
       </div>
     </router-link>
   </div>

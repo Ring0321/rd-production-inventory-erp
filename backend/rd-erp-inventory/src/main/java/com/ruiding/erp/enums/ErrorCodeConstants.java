@@ -146,6 +146,10 @@ public interface ErrorCodeConstants {
     ErrorCode PUTAWAY_DRIVER_INVALID = new ErrorCode(1_080_520_008, "所选人员不是已启用的叉车司机");
     ErrorCode PUTAWAY_REASSIGN_REASON_REQUIRED = new ErrorCode(1_080_520_009, "调整上架任务必须填写处理说明");
     ErrorCode PUTAWAY_TASK_NOT_ASSIGNED = new ErrorCode(1_080_520_010, "该上架任务未分配给当前司机");
+    ErrorCode PUTAWAY_EXCEPTION_TYPE_INVALID = new ErrorCode(1_080_520_011, "请选择有效的上架异常原因");
+    ErrorCode PUTAWAY_CONFIRM_PACKAGES_INCOMPLETE = new ErrorCode(1_080_520_012, "任务包码尚未全部扫码，不能确认上架");
+    ErrorCode PUTAWAY_CONFIRM_HAS_OPEN_EXCEPTION = new ErrorCode(1_080_520_013, "任务仍有未处理异常，不能确认上架");
+    ErrorCode PUTAWAY_CONFIRM_PACKAGE_INVALID = new ErrorCode(1_080_520_014, "上架包状态或任务明细不一致，请刷新核对");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

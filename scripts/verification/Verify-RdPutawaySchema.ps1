@@ -154,6 +154,12 @@ SELECT COUNT(*) FROM system_role_menu
 WHERE tenant_id = 1 AND role_id = 600008 AND menu_id IN (600000,600200,600216,600272)
   AND deleted = b'0';
 "@
+    $warehouseConfirmGrantCount = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM system_role_menu rm
+JOIN system_menu m ON m.id = rm.menu_id AND m.deleted = b'0'
+WHERE rm.tenant_id = 1 AND rm.role_id = 600002 AND rm.deleted = b'0'
+  AND m.id = 600273 AND m.permission = 'rd:putaway-task:confirm';
+"@
 
     Assert-Equal "putaway table count" "4" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
@@ -162,7 +168,8 @@ WHERE tenant_id = 1 AND role_id = 600008 AND menu_id IN (600000,600200,600216,60
     Assert-Equal "putaway seed row count" "0" $rowCount
     Assert-Equal "forklift driver PDA menu count" "1" $driverMenuCount
     Assert-Equal "forklift driver minimum grant count" "4" $driverGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount"
+    Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount"
 }
 
 Import-LocalEnvironment

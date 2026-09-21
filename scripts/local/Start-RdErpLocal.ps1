@@ -294,6 +294,22 @@ function Start-LocalMySql([int]$port) {
     return $process
 }
 
+function Apply-DatabaseUpgrade([int]$port) {
+    $client = Get-Command mysql.exe -ErrorAction SilentlyContinue
+    if (-not $client) {
+        throw "mysql.exe was not found; the repeatable database upgrade cannot be applied"
+    }
+    $env:MYSQL_PWD = $env:RD_DB_PASSWORD
+    $upgradeFile = Join-Path $backendRoot "sql\mysql\rd_erp_upgrade_slim.sql"
+    Invoke-ProcessWithInput $client.Source @(
+        "--host=127.0.0.1",
+        "--port=$port",
+        "--user=root",
+        "--database=rd_erp",
+        "--default-character-set=utf8mb4"
+    ) $upgradeFile "mysql-upgrade"
+}
+
 function Start-LocalRedis([int]$port) {
     $process = Get-ManagedProcess $redisPidFile
     if ($process) {
@@ -382,6 +398,7 @@ if ($resolvedInfrastructureMode -eq "Docker") {
     Start-LocalMySql $dbPort | Out-Null
     Start-LocalRedis $redisPort | Out-Null
 }
+Apply-DatabaseUpgrade $dbPort
 [IO.File]::WriteAllText($infraModeFile, $resolvedInfrastructureMode)
 Write-Host "Infrastructure: $resolvedInfrastructureMode"
 

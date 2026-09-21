@@ -144,6 +144,50 @@ export interface RdPutawayTaskReassignReqVO {
   handlingResult: string
 }
 
+export interface RdPutawayScanReqVO {
+  id: number
+  packageCode: string
+  idempotencyKey: string
+  deviceCode?: string
+  deviceTime?: string
+}
+
+export interface RdPutawayScanRespVO {
+  recordId: number
+  taskId: number
+  packageCode: string
+  scanResult: 'SUCCESS' | 'DUPLICATE' | 'MISMATCH' | 'STATUS_INVALID'
+  success: boolean
+  replayed: boolean
+  message: string
+  taskStatus: RdPutawayTaskStatus
+  scannedPackageCount: number
+  packageCount: number
+  scanTime: string
+}
+
+export type RdPutawayExceptionType =
+  | 'LOCATION_CAPACITY_INSUFFICIENT'
+  | 'LOCATION_OCCUPIED'
+  | 'PACKAGE_MISMATCH'
+  | 'LABEL_DAMAGED'
+  | 'PACKAGE_MISSING'
+  | 'OTHER'
+
+export interface RdPutawayExceptionCreateReqVO {
+  id: number
+  exceptionType: RdPutawayExceptionType
+  packageCode?: string
+  description: string
+  attachmentRefs?: string
+}
+
+export interface RdPutawayTaskConfirmReqVO {
+  id: number
+  finalLocationId: number
+  version: number
+}
+
 export const RdPutawayTaskApi = {
   getPendingPackagePage: (params: RdPendingPutawayPackagePageReqVO) =>
     request.get<PageResult<RdPendingPutawayPackageVO[]>>({
@@ -158,6 +202,12 @@ export const RdPutawayTaskApi = {
     request.post<number>({ url: '/rd/putaway-task/create', data }),
   reassign: (data: RdPutawayTaskReassignReqVO) =>
     request.put<boolean>({ url: '/rd/putaway-task/reassign', data }),
+  scan: (data: RdPutawayScanReqVO) =>
+    request.post<RdPutawayScanRespVO>({ url: '/rd/putaway-task/scan', data }),
+  reportException: (data: RdPutawayExceptionCreateReqVO) =>
+    request.post<number>({ url: '/rd/putaway-task/exception', data }),
+  confirm: (data: RdPutawayTaskConfirmReqVO) =>
+    request.put<number>({ url: '/rd/putaway-task/confirm', data }),
   getPage: (params: RdPutawayTaskPageReqVO) =>
     request.get<PageResult<RdPutawayTaskVO[]>>({ url: '/rd/putaway-task/page', params }),
   get: (id: number) =>

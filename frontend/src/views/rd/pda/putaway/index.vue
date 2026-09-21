@@ -128,8 +128,8 @@
         </div>
         <el-progress :percentage="detailProgress" :stroke-width="12" />
         <div class="progress-caption">
-          <span>后台已确认 {{ confirmedCount }} 包</span>
-          <span>本轮校验 {{ sessionScannedCodes.size }} 包</span>
+          <span>系统已记录 {{ confirmedCount }} 包</span>
+          <span>{{ scanEnabled ? '扫码后立即同步' : statusMeta(taskDetail.task.status).label }}</span>
         </div>
       </div>
 
@@ -155,7 +155,7 @@
         <div class="scan-heading-row">
           <div>
             <h2 id="scan-heading">扫码校验</h2>
-            <span class="mode-chip">本轮未入账</span>
+            <span class="mode-chip">实时写入</span>
           </div>
           <Icon icon="lucide:scan-line" />
         </div>
@@ -167,15 +167,36 @@
           clearable
           autocomplete="off"
           placeholder="扫描二维码或输入包码"
-          @keyup.enter="validateScan"
+          :disabled="!scanEnabled || scanSubmitting"
+          @keyup.enter="submitScan"
         >
           <template #prefix>
             <Icon icon="lucide:scan-line" />
           </template>
           <template #append>
-            <el-button type="primary" @click="validateScan">校验</el-button>
+            <el-button
+              type="primary"
+              :loading="scanSubmitting"
+              :disabled="!scanEnabled"
+              @click="submitScan"
+            >
+              确认
+            </el-button>
           </template>
         </el-input>
+
+        <div class="scan-actions">
+          <span>{{ scanEnabled ? '支持扫码枪连续回车' : '任务当前不可继续扫码' }}</span>
+          <el-button
+            type="warning"
+            plain
+            :disabled="!scanEnabled"
+            @click="openExceptionDialog"
+          >
+            <Icon icon="lucide:triangle-alert" />
+            异常反馈
+          </el-button>
+        </div>
 
         <div
           class="scan-feedback"
@@ -225,35 +246,77 @@
         :title="`该任务有 ${taskDetail.exceptions.length} 条异常记录，请按仓管员处理结果执行`"
       />
     </section>
+
+    <Dialog v-model="exceptionVisible" title="上报上架异常" width="min(520px, calc(100vw - 24px))">
+      <el-form
+        ref="exceptionFormRef"
+        :model="exceptionForm"
+        :rules="exceptionRules"
+        label-position="top"
+      >
+        <el-form-item label="异常原因" prop="exceptionType">
+          <el-select v-model="exceptionForm.exceptionType" class="!w-100%" placeholder="请选择">
+            <el-option
+              v-for="item in exceptionOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="相关包码" prop="packageCode">
+          <el-input
+            v-model="exceptionForm.packageCode"
+            clearable
+            placeholder="库位异常可不填；货物异常建议填写或扫描包码"
+          />
+        </el-form-item>
+        <el-form-item label="现场说明" prop="description">
+          <el-input
+            v-model="exceptionForm.description"
+            type="textarea"
+            :rows="4"
+            maxlength="1000"
+            show-word-limit
+            placeholder="说明现场情况，仓管员处理后会重新同步任务"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button type="warning" :loading="exceptionSubmitting" @click="submitException">
+          提交异常
+        </el-button>
+        <el-button @click="exceptionVisible = false">取消</el-button>
+      </template>
+    </Dialog>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import {
   RdPutawayTaskApi,
+  type RdPutawayExceptionType,
   type RdPutawayTaskDetailVO,
   type RdPutawayTaskLineVO,
   type RdPutawayTaskStatus,
   type RdPutawayTaskVO
 } from '@/api/rd/stock/putaway'
-import {
-  toPutawayPackageKey,
-  validatePutawayScan,
-  type PutawayScanDecisionType
-} from './scanValidation'
 
 defineOptions({ name: 'RdDriverPutaway' })
 
 const appStore = useAppStore()
+const message = useMessage()
 const collapseBeforeMobile = ref(appStore.getCollapse)
 const collapsedForMobile = ref(false)
 
 type TagType = 'success' | 'warning' | 'info' | 'danger' | 'primary'
+type ScanFeedbackType = 'success' | 'duplicate' | 'mismatch' | 'empty' | 'status'
 type ScanFeedback = {
   id: number
-  type: PutawayScanDecisionType
+  type: ScanFeedbackType
   code: string
   message: string
   time: string
@@ -278,9 +341,34 @@ const detailLoading = ref(false)
 const taskDetail = ref<RdPutawayTaskDetailVO>()
 const scanInputRef = ref()
 const scanValue = ref('')
-const sessionScannedCodes = ref(new Set<string>())
+const scanSubmitting = ref(false)
+const pendingScan = ref<{ rawValue: string; idempotencyKey: string }>()
 const recentScans = ref<ScanFeedback[]>([])
 const lastFeedback = ref<ScanFeedback>()
+const exceptionVisible = ref(false)
+const exceptionSubmitting = ref(false)
+const exceptionFormRef = ref<FormInstance>()
+const exceptionForm = reactive<{
+  exceptionType?: RdPutawayExceptionType
+  packageCode: string
+  description: string
+}>({
+  exceptionType: undefined,
+  packageCode: '',
+  description: ''
+})
+const exceptionRules = reactive<FormRules>({
+  exceptionType: [{ required: true, message: '请选择异常原因', trigger: 'change' }],
+  description: [{ required: true, message: '请填写现场说明', trigger: 'blur' }]
+})
+const exceptionOptions: Array<{ value: RdPutawayExceptionType; label: string }> = [
+  { value: 'LOCATION_CAPACITY_INSUFFICIENT', label: '库位放不下' },
+  { value: 'LOCATION_OCCUPIED', label: '库位被占' },
+  { value: 'PACKAGE_MISMATCH', label: '货物不符' },
+  { value: 'LABEL_DAMAGED', label: '标签损坏' },
+  { value: 'PACKAGE_MISSING', label: '货物缺失' },
+  { value: 'OTHER', label: '其他' }
+]
 
 const confirmedCount = computed(() => {
   if (!taskDetail.value) return 0
@@ -290,10 +378,11 @@ const confirmedCount = computed(() => {
   return Math.max(Number(taskDetail.value.task.scannedPackageCount || 0), countFromLines)
 })
 
-const validatedCount = computed(() => {
-  const total = Number(taskDetail.value?.task.packageCount || 0)
-  return Math.min(total, confirmedCount.value + sessionScannedCodes.value.size)
-})
+const validatedCount = computed(() => confirmedCount.value)
+
+const scanEnabled = computed(() =>
+  taskDetail.value ? ['ASSIGNED', 'MOVING'].includes(taskDetail.value.task.status) : false
+)
 
 const remainingCount = computed(() =>
   Math.max(0, Number(taskDetail.value?.task.packageCount || 0) - validatedCount.value)
@@ -396,7 +485,7 @@ const loadMore = async () => {
 
 const openTask = async (id: number) => {
   detailLoading.value = true
-  sessionScannedCodes.value = new Set()
+  pendingScan.value = undefined
   recentScans.value = []
   lastFeedback.value = undefined
   try {
@@ -421,54 +510,153 @@ const refreshTaskDetail = async () => {
 const backToList = async () => {
   taskDetail.value = undefined
   scanValue.value = ''
-  sessionScannedCodes.value = new Set()
+  pendingScan.value = undefined
   recentScans.value = []
   lastFeedback.value = undefined
   await loadTasks(true)
 }
 
-const validateScan = () => {
-  if (!taskDetail.value) return
-  const decision = validatePutawayScan(
-    scanValue.value,
-    taskDetail.value.lines,
-    sessionScannedCodes.value
-  )
-  const feedback: ScanFeedback = {
-    id: Date.now(),
-    type: decision.type,
-    code: decision.packageCode || decision.code,
-    message: decision.message,
-    time: nowText()
-  }
-  if (decision.type === 'success' && decision.packageCode) {
-    const nextCodes = new Set(sessionScannedCodes.value)
-    nextCodes.add(toPutawayPackageKey(decision.packageCode))
-    sessionScannedCodes.value = nextCodes
-  }
+const addFeedback = (feedback: ScanFeedback) => {
   lastFeedback.value = feedback
   recentScans.value = [feedback, ...recentScans.value].slice(0, 5)
-  beep(decision.type === 'success')
-  scanValue.value = ''
-  focusScan()
 }
 
-const scanResultIcon = (type: PutawayScanDecisionType) => {
+const createIdempotencyKey = () => {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID()
+  return `scan-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+const getDeviceCode = () => {
+  const storageKey = 'rd-putaway-device-code'
+  const existing = window.localStorage.getItem(storageKey)
+  if (existing) return existing
+  const value = `WEB-${createIdempotencyKey().replaceAll('-', '').slice(0, 16).toUpperCase()}`
+  window.localStorage.setItem(storageKey, value)
+  return value
+}
+
+const submitScan = async () => {
+  if (!taskDetail.value || !scanEnabled.value || scanSubmitting.value) return
+  const rawValue = scanValue.value.trim()
+  if (!rawValue) {
+    addFeedback({
+      id: Date.now(),
+      type: 'empty',
+      code: '',
+      message: '请扫描二维码或输入包码',
+      time: nowText()
+    })
+    beep(false)
+    focusScan()
+    return
+  }
+  if (!pendingScan.value || pendingScan.value.rawValue !== rawValue) {
+    pendingScan.value = { rawValue, idempotencyKey: createIdempotencyKey() }
+  }
+  scanSubmitting.value = true
+  try {
+    const result = await RdPutawayTaskApi.scan({
+      id: taskDetail.value.task.id,
+      packageCode: rawValue,
+      idempotencyKey: pendingScan.value.idempotencyKey,
+      deviceCode: getDeviceCode()
+    })
+    taskDetail.value.task.scannedPackageCount = result.scannedPackageCount
+    taskDetail.value.task.packageCount = result.packageCount
+    taskDetail.value.task.status = result.taskStatus
+    if (result.success) {
+      const line = taskDetail.value.lines.find(
+        (item) => item.packageCode.trim().toUpperCase() === result.packageCode.trim().toUpperCase()
+      )
+      if (line) {
+        line.scanCount = Math.max(1, Number(line.scanCount || 0))
+        line.lineStatus = 'SCANNED'
+      }
+    }
+    const type: ScanFeedbackType =
+      result.scanResult === 'SUCCESS'
+        ? 'success'
+        : result.scanResult === 'DUPLICATE'
+          ? 'duplicate'
+          : result.scanResult === 'MISMATCH'
+            ? 'mismatch'
+            : 'status'
+    const completionMessage =
+      result.taskStatus === 'PENDING_CONFIRMATION' && result.success
+        ? '全部包已扫码，任务已转待仓管确认'
+        : result.message
+    const feedback: ScanFeedback = {
+      id: result.recordId || Date.now(),
+      type,
+      code: result.packageCode,
+      message: result.replayed ? `请求已处理：${completionMessage}` : completionMessage,
+      time: nowText()
+    }
+    addFeedback(feedback)
+    beep(result.success)
+    pendingScan.value = undefined
+    scanValue.value = ''
+  } catch {
+    addFeedback({
+      id: Date.now(),
+      type: 'status',
+      code: rawValue,
+      message: '提交未确认，请保留当前包码后重试',
+      time: nowText()
+    })
+    beep(false)
+  } finally {
+    scanSubmitting.value = false
+    focusScan()
+  }
+}
+
+const openExceptionDialog = () => {
+  if (!taskDetail.value || !scanEnabled.value) return
+  exceptionForm.exceptionType = undefined
+  exceptionForm.packageCode = lastFeedback.value?.type === 'mismatch' ? lastFeedback.value.code : ''
+  exceptionForm.description = ''
+  exceptionVisible.value = true
+  nextTick(() => exceptionFormRef.value?.clearValidate())
+}
+
+const submitException = async () => {
+  await exceptionFormRef.value?.validate()
+  if (!taskDetail.value || !exceptionForm.exceptionType) return
+  exceptionSubmitting.value = true
+  try {
+    await RdPutawayTaskApi.reportException({
+      id: taskDetail.value.task.id,
+      exceptionType: exceptionForm.exceptionType,
+      packageCode: exceptionForm.packageCode.trim() || undefined,
+      description: exceptionForm.description.trim()
+    })
+    message.success('异常已同步给仓管员，任务暂停执行')
+    exceptionVisible.value = false
+    await refreshTaskDetail()
+  } finally {
+    exceptionSubmitting.value = false
+  }
+}
+
+const scanResultIcon = (type: ScanFeedbackType) => {
   if (type === 'success') return 'lucide:circle-check'
   if (type === 'duplicate') return 'lucide:copy'
   if (type === 'mismatch') return 'lucide:circle-x'
+  if (type === 'status') return 'lucide:triangle-alert'
   return 'lucide:scan-line'
 }
 
 const packageTagType = (line: RdPutawayTaskLineVO): TagType => {
   if (Number(line.scanCount || 0) > 0) return 'success'
-  if (sessionScannedCodes.value.has(toPutawayPackageKey(line.packageCode))) return 'primary'
+  if (line.lineStatus === 'EXCEPTION') return 'danger'
   return 'info'
 }
 
 const packageStatusText = (line: RdPutawayTaskLineVO) => {
-  if (Number(line.scanCount || 0) > 0) return '后台已确认'
-  if (sessionScannedCodes.value.has(toPutawayPackageKey(line.packageCode))) return '本轮已校验'
+  if (line.lineStatus === 'CONFIRMED') return '已入库'
+  if (Number(line.scanCount || 0) > 0) return '已扫码'
+  if (line.lineStatus === 'EXCEPTION') return '异常待处理'
   return '待扫码'
 }
 
@@ -783,11 +971,25 @@ onMounted(() => loadTasks(true))
   min-height: 24px;
   padding: 0 8px;
   font-size: 12px;
-  color: var(--el-color-warning-dark-2);
-  background: var(--el-color-warning-light-9);
-  border: 1px solid var(--el-color-warning-light-5);
+  color: var(--el-color-success-dark-2);
+  background: var(--el-color-success-light-9);
+  border: 1px solid var(--el-color-success-light-5);
   border-radius: 4px;
   align-items: center;
+}
+
+.scan-actions {
+  display: flex;
+  min-height: 46px;
+  margin-top: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  > span {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
 }
 
 .scan-input {
@@ -858,6 +1060,12 @@ onMounted(() => loadTasks(true))
     color: var(--el-color-danger-dark-2);
     background: var(--el-color-danger-light-9);
     border-color: var(--el-color-danger-light-5);
+  }
+
+  &.is-status {
+    color: var(--el-color-warning-dark-2);
+    background: var(--el-color-warning-light-9);
+    border-color: var(--el-color-warning-light-5);
   }
 }
 

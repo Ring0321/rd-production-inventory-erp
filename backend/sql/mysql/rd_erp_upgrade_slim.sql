@@ -510,7 +510,7 @@ DROP TABLE IF EXISTS `system_oauth2_code`;
 DROP TABLE IF EXISTS `system_oauth2_client`;
 
 UPDATE `system_tenant`
-SET `name` = '瑞鼎生产库存订单ERP', `status` = 0,
+SET `name` = '宁夏天净隆鼎碳化硅有限公司', `status` = 0,
     `expire_time` = '2099-12-31 23:59:59',
     `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
 WHERE `id` = 1;
@@ -518,6 +518,14 @@ WHERE `id` = 1;
 UPDATE `system_tenant`
 SET `status` = 1, `updater` = 'rd-slim-migration', `update_time` = NOW()
 WHERE `id` <> 1;
+
+UPDATE `system_menu`
+SET `name` = '生产货物管理', `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
+WHERE `id` = 600000;
+
+UPDATE `system_dept`
+SET `name` = '宁夏天净隆鼎碳化硅有限公司', `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
+WHERE `id` = 1 AND `tenant_id` = 1;
 
 INSERT INTO `system_post`
 (`id`, `code`, `name`, `sort`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES
@@ -589,6 +597,7 @@ INSERT INTO `system_menu`
 ,(600270,'创建上架任务','rd:putaway-task:create',3,270,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ,(600271,'调整上架派单','rd:putaway-task:assign',3,271,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ,(600272,'执行上架任务','rd:putaway-task:execute',3,272,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+,(600273,'确认上架入库','rd:putaway-task:confirm',3,273,600215,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`deleted`=b'0',`update_time`=NOW();
 
 DELETE FROM `system_role_menu`
@@ -656,7 +665,7 @@ INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_de
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`code`=VALUES(`code`),`status`=0,`type`=2,`data_scope`=5,`deleted`=b'0',`tenant_id`=1;
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
-SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271)
+SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600215,600270,600271,600273)
 UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600000,600200,600216,600272);
 
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)

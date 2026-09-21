@@ -24,6 +24,14 @@ public interface RdLogRecordConstants {
     String STOCK_ADJUST_SUB_TYPE = "库存调整";
     String STOCK_ADJUST_SUCCESS = "调整库存批次【{{#createReqVO.stockLotId}}】，类型【{{#createReqVO.adjustmentType}}】，数量【{{#createReqVO.quantity}}】，备注【{{#createReqVO.remark}}】";
 
+    String PUTAWAY_TYPE = "RD 入库上架";
+    String PUTAWAY_SCAN_SUB_TYPE = "司机扫码上架";
+    String PUTAWAY_SCAN_SUCCESS = "上架任务【{{#reqVO.id}}】扫描包码【{{#reqVO.packageCode}}】";
+    String PUTAWAY_EXCEPTION_SUB_TYPE = "司机上报上架异常";
+    String PUTAWAY_EXCEPTION_SUCCESS = "上架任务【{{#reqVO.id}}】上报异常【{{#reqVO.exceptionType}}】";
+    String PUTAWAY_CONFIRM_SUB_TYPE = "仓管确认上架";
+    String PUTAWAY_CONFIRM_SUCCESS = "确认上架任务【{{#reqVO.id}}】最终库位【{{#reqVO.finalLocationId}}】";
+
     String SALE_ORDER_TYPE = "RD 销售订单";
     String SALE_ORDER_CREATE_SUB_TYPE = "新增销售订单";
     String SALE_ORDER_CREATE_SUCCESS = "新增销售订单【{{#createReqVO.orderNo}}】，客户【{{#createReqVO.customerName}}】，型号【{{#createReqVO.productModel}}】，订单量【{{#createReqVO.requiredQty}}】";

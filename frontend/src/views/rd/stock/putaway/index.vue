@@ -277,9 +277,18 @@
         <el-table-column label="派单时间" prop="assignedTime" min-width="165">
           <template #default="scope">{{ dateTimeText(scope.row.assignedTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column label="操作" width="210" fixed="right" align="center">
           <template #default="scope">
             <el-button link type="primary" @click="openTaskDetail(scope.row.id)">查看</el-button>
+            <el-button
+              v-if="scope.row.status === 'PENDING_CONFIRMATION'"
+              link
+              type="success"
+              v-hasPermi="['rd:putaway-task:confirm']"
+              @click="openConfirmDialog(scope.row)"
+            >
+              确认上架
+            </el-button>
             <el-button
               v-if="['ASSIGNED', 'EXCEPTION_PENDING'].includes(scope.row.status)"
               link
@@ -397,6 +406,42 @@
     </template>
   </Dialog>
 
+  <Dialog v-model="confirmVisible" title="确认最终库位并入库" width="620px">
+    <el-form ref="confirmFormRef" :model="confirmForm" :rules="confirmRules" label-width="110px">
+      <el-form-item label="任务号">
+        <el-input :model-value="confirmTask?.taskNo" disabled />
+      </el-form-item>
+      <el-form-item label="扫码进度">
+        <el-input
+          :model-value="`${confirmTask?.scannedPackageCount || 0} / ${confirmTask?.packageCount || 0} 包`"
+          disabled
+        />
+      </el-form-item>
+      <el-form-item label="最终库位" prop="finalLocationId">
+        <el-select v-model="confirmForm.finalLocationId" filterable class="!w-100%">
+          <el-option
+            v-for="item in confirmLocationOptions"
+            :key="item.id"
+            :label="locationOptionLabel(item)"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        title="确认后将同时更新每包 PCS、正式库存、库位占用和库存流水，请以现场实际摆放位置为准。"
+      />
+    </el-form>
+    <template #footer>
+      <el-button type="success" :loading="confirmLoading" @click="submitConfirm">
+        确认入库
+      </el-button>
+      <el-button @click="confirmVisible = false">取消</el-button>
+    </template>
+  </Dialog>
+
   <Dialog v-model="detailVisible" title="上架任务详情" width="1020px">
     <el-descriptions v-if="taskDetail" :column="3" border>
       <el-descriptions-item label="任务号" :span="2">{{
@@ -409,6 +454,9 @@
       </el-descriptions-item>
       <el-descriptions-item label="计划库位">{{
         taskDetail.task.plannedLocationCode
+      }}</el-descriptions-item>
+      <el-descriptions-item label="最终库位">{{
+        taskDetail.task.finalLocationCode || '-'
       }}</el-descriptions-item>
       <el-descriptions-item label="叉车司机">{{
         taskDetail.task.forkliftDriverName
@@ -446,7 +494,9 @@
       <el-tab-pane :label="`异常反馈（${taskDetail.exceptions.length}）`">
         <el-empty v-if="!taskDetail.exceptions.length" description="暂无异常反馈" />
         <el-table v-else :data="taskDetail.exceptions" border max-height="360">
-          <el-table-column label="异常类型" prop="exceptionType" width="165" />
+          <el-table-column label="异常类型" width="165">
+            <template #default="scope">{{ exceptionTypeLabel(scope.row.exceptionType) }}</template>
+          </el-table-column>
           <el-table-column label="包码" prop="packageCode" min-width="160" />
           <el-table-column label="说明" prop="description" min-width="230" />
           <el-table-column label="上报人" prop="reporterName" width="100" />
@@ -608,6 +658,24 @@ const reassignRules = reactive<FormRules>({
   handlingResult: [{ required: true, message: '请填写调整说明', trigger: 'blur' }]
 })
 
+const confirmVisible = ref(false)
+const confirmLoading = ref(false)
+const confirmFormRef = ref<FormInstance>()
+const confirmTask = ref<RdPutawayTaskVO>()
+const confirmForm = reactive({
+  finalLocationId: undefined as number | undefined
+})
+const confirmRules = reactive<FormRules>({
+  finalLocationId: [{ required: true, message: '请选择现场最终库位', trigger: 'change' }]
+})
+const confirmLocationOptions = computed(() =>
+  allLocations.value.filter(
+    (item) =>
+      isLocationSelectable(item) ||
+      (confirmTask.value && item.id === confirmTask.value.plannedLocationId)
+  )
+)
+
 const detailVisible = ref(false)
 const taskDetail = ref<RdPutawayTaskDetailVO>()
 
@@ -764,6 +832,31 @@ const submitReassign = async () => {
   }
 }
 
+const openConfirmDialog = (task: RdPutawayTaskVO) => {
+  confirmTask.value = task
+  confirmForm.finalLocationId = task.plannedLocationId
+  confirmVisible.value = true
+  nextTick(() => confirmFormRef.value?.clearValidate())
+}
+
+const submitConfirm = async () => {
+  await confirmFormRef.value?.validate()
+  if (!confirmTask.value || !confirmForm.finalLocationId) return
+  confirmLoading.value = true
+  try {
+    const inboundOrderId = await RdPutawayTaskApi.confirm({
+      id: confirmTask.value.id,
+      finalLocationId: confirmForm.finalLocationId,
+      version: confirmTask.value.version
+    })
+    message.success(`上架已确认，入库单 ${inboundOrderId} 已生成`)
+    confirmVisible.value = false
+    await Promise.all([getLocations(), getPendingPackages(), getTasks()])
+  } finally {
+    confirmLoading.value = false
+  }
+}
+
 const openTaskDetail = async (id: number) => {
   taskDetail.value = await RdPutawayTaskApi.get(id)
   detailVisible.value = true
@@ -815,6 +908,18 @@ function locationOptionLabel(location: RdPutawayLocationMapVO) {
 
 function driverLabel(driver: RdPutawayDriverOptionVO) {
   return driver.nickname ? `${driver.nickname}（${driver.username}）` : driver.username
+}
+
+function exceptionTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    LOCATION_CAPACITY_INSUFFICIENT: '库位放不下',
+    LOCATION_OCCUPIED: '库位被占',
+    PACKAGE_MISMATCH: '货物不符',
+    LABEL_DAMAGED: '标签损坏',
+    PACKAGE_MISSING: '货物缺失',
+    OTHER: '其他'
+  }
+  return labels[type] || type
 }
 
 function dateTimeText(value?: string) {

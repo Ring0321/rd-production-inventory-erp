@@ -4,20 +4,34 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayLocationMapRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskConfirmReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskReassignReqVO;
+import com.ruiding.erp.dal.dataobject.inbound.RdInboundOrderDO;
+import com.ruiding.erp.dal.dataobject.inbound.RdInboundOrderLineDO;
 import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayExceptionDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdPutawayScanRecordDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayTaskDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayTaskLineDO;
+import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
+import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
+import com.ruiding.erp.dal.mysql.inbound.RdInboundOrderLineMapper;
+import com.ruiding.erp.dal.mysql.inbound.RdInboundOrderMapper;
 import com.ruiding.erp.dal.mysql.masterdata.RdWarehouseLocationMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayExceptionMapper;
+import com.ruiding.erp.dal.mysql.putaway.RdPutawayScanRecordMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayTaskLineMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayTaskMapper;
+import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
+import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
+import com.ruiding.erp.dal.mysql.stock.RdStockTransactionMapper;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdPutawayTaskStatusEnum;
 import org.junit.jupiter.api.Test;
@@ -48,6 +62,12 @@ class RdPutawayTaskServiceImplTest {
     @Mock private RdPutawayTaskMapper taskMapper;
     @Mock private RdPutawayTaskLineMapper taskLineMapper;
     @Mock private RdPutawayExceptionMapper exceptionMapper;
+    @Mock private RdPutawayScanRecordMapper scanRecordMapper;
+    @Mock private RdInboundOrderMapper inboundOrderMapper;
+    @Mock private RdInboundOrderLineMapper inboundOrderLineMapper;
+    @Mock private RdStockLotMapper stockLotMapper;
+    @Mock private RdStockTransactionMapper stockTransactionMapper;
+    @Mock private RdProductionOutputMapper productionOutputMapper;
     @Mock private AdminUserService adminUserService;
     @Mock private PermissionService permissionService;
     @InjectMocks private RdPutawayTaskServiceImpl service;
@@ -220,6 +240,176 @@ class RdPutawayTaskServiceImplTest {
         verify(exceptionMapper, never()).selectListByTaskId(50L);
     }
 
+    @Test
+    void shouldPersistScanAndMoveLastPackageToPendingConfirmation() {
+        RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.ASSIGNED, 1, 0, 0);
+        RdPutawayTaskLineDO line = putawayLine("PK-001", "PENDING", 0);
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-001")).thenReturn(null);
+        when(taskLineMapper.selectListByTaskIdForUpdate(50L)).thenReturn(List.of(line));
+        doAnswer(invocation -> {
+            ((RdPutawayScanRecordDO) invocation.getArgument(0)).setId(70L);
+            return 1;
+        }).when(scanRecordMapper).insert(any(RdPutawayScanRecordDO.class));
+
+        var result = service.scanPackage(scanReq("PK-001", "scan-001"), 30L, "司机30");
+
+        assertEquals(Boolean.TRUE, result.getSuccess());
+        assertEquals(Boolean.FALSE, result.getReplayed());
+        assertEquals("SUCCESS", result.getScanResult());
+        assertEquals(1, result.getScannedPackageCount());
+        assertEquals(RdPutawayTaskStatusEnum.PENDING_CONFIRMATION.getStatus(), result.getTaskStatus());
+        assertEquals("SCANNED", line.getLineStatus());
+        assertEquals(1, line.getScanCount());
+        assertEquals(RdPutawayTaskStatusEnum.PENDING_CONFIRMATION.getStatus(), task.getStatus());
+        verify(taskLineMapper).updateById(line);
+        verify(taskMapper).updateById(task);
+    }
+
+    @Test
+    void shouldReturnOriginalScanResultForIdempotentRetry() {
+        RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.PENDING_CONFIRMATION, 1, 1, 1);
+        RdPutawayScanRecordDO record = new RdPutawayScanRecordDO().setId(70L).setTaskId(50L)
+                .setPackageCode("PK-001").setIdempotencyKey("scan-001")
+                .setScanResult("SUCCESS").setSuccess(true);
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-001"))
+                .thenReturn(record);
+
+        var result = service.scanPackage(scanReq("PK-001", "scan-001"), 30L, "司机30");
+
+        assertEquals(Boolean.TRUE, result.getSuccess());
+        assertEquals(Boolean.TRUE, result.getReplayed());
+        assertEquals(1, result.getScannedPackageCount());
+        verify(taskLineMapper, never()).selectListByTaskIdForUpdate(50L);
+        verify(scanRecordMapper, never()).insert(any(RdPutawayScanRecordDO.class));
+    }
+
+    @Test
+    void shouldRecordDuplicatePackageWithoutIncreasingProgress() {
+        RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.MOVING, 2, 1, 1);
+        RdPutawayTaskLineDO line = putawayLine("PK-001", "SCANNED", 1);
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-002")).thenReturn(null);
+        when(taskLineMapper.selectListByTaskIdForUpdate(50L)).thenReturn(List.of(line));
+
+        var result = service.scanPackage(scanReq("PK-001", "scan-002"), 30L, "司机30");
+
+        assertEquals(Boolean.FALSE, result.getSuccess());
+        assertEquals("DUPLICATE", result.getScanResult());
+        assertEquals(1, result.getScannedPackageCount());
+        verify(taskLineMapper, never()).updateById(any(RdPutawayTaskLineDO.class));
+        verify(taskMapper, never()).updateById(any(RdPutawayTaskDO.class));
+        verify(scanRecordMapper).insert(any(RdPutawayScanRecordDO.class));
+    }
+
+    @Test
+    void shouldRecordWrongPackageWithoutChangingTask() {
+        RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.ASSIGNED, 1, 0, 0);
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-wrong")).thenReturn(null);
+        when(taskLineMapper.selectListByTaskIdForUpdate(50L))
+                .thenReturn(List.of(putawayLine("PK-001", "PENDING", 0)));
+
+        var result = service.scanPackage(scanReq("PK-WRONG", "scan-wrong"), 30L, "司机30");
+
+        assertEquals(Boolean.FALSE, result.getSuccess());
+        assertEquals("MISMATCH", result.getScanResult());
+        assertEquals(0, result.getScannedPackageCount());
+        assertEquals(RdPutawayTaskStatusEnum.ASSIGNED.getStatus(), task.getStatus());
+        verify(taskMapper, never()).updateById(any(RdPutawayTaskDO.class));
+        verify(scanRecordMapper).insert(any(RdPutawayScanRecordDO.class));
+    }
+
+    @Test
+    void shouldReportDriverExceptionAndFreezeTask() {
+        RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.MOVING, 2, 0, 1);
+        RdPutawayTaskLineDO line = putawayLine("PK-001", "PENDING", 0);
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        when(taskLineMapper.selectListByTaskIdForUpdate(50L)).thenReturn(List.of(line));
+        doAnswer(invocation -> {
+            ((RdPutawayExceptionDO) invocation.getArgument(0)).setId(80L);
+            return 1;
+        }).when(exceptionMapper).insert(any(RdPutawayExceptionDO.class));
+        RdPutawayExceptionCreateReqVO reqVO = new RdPutawayExceptionCreateReqVO();
+        reqVO.setId(50L);
+        reqVO.setExceptionType("LOCATION_OCCUPIED");
+        reqVO.setPackageCode("PK-001");
+        reqVO.setDescription("计划库位已有其他货物");
+
+        Long id = service.reportException(reqVO, 30L, "司机30");
+
+        assertEquals(80L, id);
+        assertEquals(RdPutawayTaskStatusEnum.EXCEPTION_PENDING.getStatus(), task.getStatus());
+        assertEquals(1, task.getExceptionPackageCount());
+        assertEquals("EXCEPTION", line.getLineStatus());
+        verify(exceptionMapper).insert(any(RdPutawayExceptionDO.class));
+        verify(taskLineMapper).updateById(line);
+        verify(taskMapper).updateById(task);
+    }
+
+    @Test
+    void shouldConfirmPutawayAndCreateOfficialInventoryRecords() {
+        RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.PENDING_CONFIRMATION, 1, 1, 3)
+                .setPlannedLocationId(10L).setPlannedLocationCode("A-01")
+                .setTotalWeight(new BigDecimal("600"));
+        RdPutawayTaskLineDO line = putawayLine("PK-001", "SCANNED", 1);
+        RdWarehouseLocationDO location = availableLocation(10L, "A-01", "10", "10000")
+                .setReservedPackages(BigDecimal.ONE)
+                .setReservedWeight(new BigDecimal("600"));
+        RdPackageUnitDO packageUnit = packageUnit(1L, "PK-001", "600")
+                .setStatus(RdPackageStatusEnum.INBOUND_PENDING.getStatus());
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        when(exceptionMapper.selectOpenListByTaskIdForUpdate(50L)).thenReturn(List.of());
+        when(taskLineMapper.selectListByTaskIdForUpdate(50L)).thenReturn(List.of(line));
+        when(locationMapper.selectByIdForUpdate(10L)).thenReturn(location);
+        when(packageMapper.selectLocationOccupancySummaryByLocationId(eq(10L), any()))
+                .thenReturn(summary(10L, "0", "0"), summary(10L, "1", "600"));
+        when(taskMapper.selectLocationReservationSummaryByLocationId(eq(10L), any()))
+                .thenReturn(summary(10L, "1", "600"), summary(10L, "0", "0"));
+        when(packageMapper.selectByIdForUpdate(1L)).thenReturn(packageUnit);
+        when(stockTransactionMapper.selectByIdempotencyKey("PUTAWAY:50:1")).thenReturn(null);
+        when(stockLotMapper.selectInboundLotForUpdate(any(), any(), any(), any(), any(), any()))
+                .thenReturn(null);
+        doAnswer(invocation -> {
+            ((RdInboundOrderDO) invocation.getArgument(0)).setId(80L);
+            return 1;
+        }).when(inboundOrderMapper).insert(any(RdInboundOrderDO.class));
+        doAnswer(invocation -> {
+            ((RdStockLotDO) invocation.getArgument(0)).setId(90L);
+            return 1;
+        }).when(stockLotMapper).insert(any(RdStockLotDO.class));
+        doAnswer(invocation -> {
+            ((RdStockTransactionDO) invocation.getArgument(0)).setId(100L);
+            return 1;
+        }).when(stockTransactionMapper).insert(any(RdStockTransactionDO.class));
+        doAnswer(invocation -> {
+            ((RdInboundOrderLineDO) invocation.getArgument(0)).setId(110L);
+            return 1;
+        }).when(inboundOrderLineMapper).insert(any(RdInboundOrderLineDO.class));
+        RdPutawayTaskConfirmReqVO reqVO = new RdPutawayTaskConfirmReqVO();
+        reqVO.setId(50L);
+        reqVO.setFinalLocationId(10L);
+        reqVO.setVersion(3);
+
+        Long orderId = service.confirmTask(reqVO, 20L, "仓管员");
+
+        assertEquals(80L, orderId);
+        assertEquals(RdPutawayTaskStatusEnum.PUTAWAY_COMPLETED.getStatus(), task.getStatus());
+        assertEquals(10L, task.getFinalLocationId());
+        assertEquals(RdPackageStatusEnum.IN_STOCK.getStatus(), packageUnit.getStatus());
+        assertEquals(10L, packageUnit.getLocationId());
+        assertEquals(90L, packageUnit.getStockLotId());
+        assertEquals("CONFIRMED", line.getLineStatus());
+        assertEquals(80L, line.getInboundOrderId());
+        assertEquals(100L, line.getStockTransactionId());
+        assertEquals(BigDecimal.ONE, location.getOccupiedPackages());
+        assertEquals(BigDecimal.ZERO, location.getReservedPackages());
+        verify(inboundOrderMapper).insert(any(RdInboundOrderDO.class));
+        verify(inboundOrderLineMapper).insert(any(RdInboundOrderLineDO.class));
+        verify(stockTransactionMapper).insert(any(RdStockTransactionDO.class));
+    }
+
     private void mockDriver(Long id) {
         when(adminUserService.getUser(id)).thenReturn(new AdminUserDO().setId(id)
                 .setUsername("driver" + id).setNickname("司机" + id)
@@ -252,5 +442,31 @@ class RdPutawayTaskServiceImplTest {
         value.setPackageCount(new BigDecimal(packages));
         value.setTotalWeight(new BigDecimal(weight));
         return value;
+    }
+
+    private static RdPutawayTaskDO putawayTask(RdPutawayTaskStatusEnum status, int packages,
+                                                int scanned, int version) {
+        return new RdPutawayTaskDO().setId(50L).setTaskNo("SJ-001")
+                .setStatus(status.getStatus()).setPackageCount(packages)
+                .setScannedPackageCount(scanned).setExceptionPackageCount(0)
+                .setForkliftDriverId(30L).setForkliftDriverName("司机30")
+                .setTotalWeight(new BigDecimal("600")).setVersion(version);
+    }
+
+    private static RdPutawayTaskLineDO putawayLine(String code, String status, int scanCount) {
+        return new RdPutawayTaskLineDO().setId(60L).setTaskId(50L).setLineNo(1)
+                .setPackageId(1L).setPackageCode(code).setLineStatus(status)
+                .setCustomerName("客户A").setProductModel("YG15").setFurnaceNo("1-13#28")
+                .setFurnaceLayer("下层").setPackageWeight(new BigDecimal("600"))
+                .setScanCount(scanCount).setVersion(0);
+    }
+
+    private static RdPutawayScanReqVO scanReq(String packageCode, String idempotencyKey) {
+        RdPutawayScanReqVO reqVO = new RdPutawayScanReqVO();
+        reqVO.setId(50L);
+        reqVO.setPackageCode(packageCode);
+        reqVO.setIdempotencyKey(idempotencyKey);
+        reqVO.setDeviceCode("PDA-TEST");
+        return reqVO;
     }
 }
