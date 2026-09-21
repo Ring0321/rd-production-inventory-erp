@@ -229,7 +229,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useAppStore } from '@/store/modules/app'
 import {
   RdPutawayTaskApi,
   type RdPutawayTaskDetailVO,
@@ -244,6 +245,8 @@ import {
 } from './scanValidation'
 
 defineOptions({ name: 'RdDriverPutaway' })
+
+const appStore = useAppStore()
 
 type TagType = 'success' | 'warning' | 'info' | 'danger' | 'primary'
 type ScanFeedback = {
@@ -466,6 +469,14 @@ const packageStatusText = (line: RdPutawayTaskLineVO) => {
   if (sessionScannedCodes.value.has(toPutawayPackageKey(line.packageCode))) return '本轮已校验'
   return '待扫码'
 }
+
+watch(
+  () => appStore.getMobile,
+  (mobile) => {
+    if (mobile) appStore.setCollapse(true)
+  },
+  { immediate: true }
+)
 
 onMounted(() => loadTasks(true))
 </script>
