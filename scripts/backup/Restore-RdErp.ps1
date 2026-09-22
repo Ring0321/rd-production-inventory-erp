@@ -24,14 +24,22 @@ if ($TargetDatabase -eq "rd_erp" -and -not $AllowPrimaryDatabase) {
 
 $resolvedBackup = (Resolve-Path -LiteralPath $BackupFile).Path
 $hashFile = [IO.Path]::ChangeExtension($resolvedBackup, ".sha256")
+$stream = [System.IO.File]::OpenRead($resolvedBackup)
+try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $actualHash = [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+} finally {
+    $stream.Dispose()
+}
 if (Test-Path -LiteralPath $hashFile) {
     $expectedHash = ((Get-Content -LiteralPath $hashFile -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
-    $actualHash = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actualHash -ne $expectedHash) {
         throw "Backup SHA-256 verification failed"
     }
-} else {
-    $actualHash = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
 $exists = @(& docker exec -e "MYSQL_PWD=$Password" $ContainerName mysql --user=$User -N -B `

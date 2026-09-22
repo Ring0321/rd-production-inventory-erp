@@ -9,6 +9,7 @@ import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.order.RdOrderFulfillmentMapper;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingPackageClaimMapper;
 import com.ruiding.erp.dal.mysql.outbound.RdOutboundOrderLineMapper;
 import com.ruiding.erp.dal.mysql.outbound.RdOutboundOrderMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
@@ -43,12 +44,25 @@ class RdOutboundScanServiceImplTest {
     @Mock private RdOutboundOrderLineMapper lineMapper;
     @Mock private RdOrderFulfillmentMapper fulfillmentMapper;
     @Mock private RdPackageUnitMapper packageMapper;
+    @Mock private RdLoadingPackageClaimMapper loadingClaimMapper;
     @Mock private RdStockLotMapper stockLotMapper;
     @Mock private RdStockTransactionMapper transactionMapper;
     @Mock private RdSaleOrderService saleOrderService;
     @Mock private RdScanEventService scanEventService;
     @Mock private RdWarehouseLocationFreezeGuard locationFreezeGuard;
     @InjectMocks private RdOutboundOrderServiceImpl service;
+
+    @Test
+    void shouldRejectPackageClaimedByLoadingTask() {
+        when(orderMapper.selectByIdForUpdate(1L)).thenReturn(scanningOrder());
+        when(packageMapper.selectByPackageCodeForUpdate("PK20260712001")).thenReturn(packageUnit());
+        when(loadingClaimMapper.isClaimed(null, 30L)).thenReturn(true);
+
+        assertThrows(RuntimeException.class, () -> service.scanPackage(
+                new RdOutboundScanReqVO().setId(1L).setPackageCode("PK20260712001"), 100L, "操作员"));
+
+        verify(lineMapper, never()).insert(any(RdOutboundOrderLineDO.class));
+    }
 
     @Test
     void shouldScanOnlyMatchingInStockPackage() {

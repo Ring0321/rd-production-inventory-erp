@@ -22,7 +22,10 @@ public interface RdPackageUnitMapper extends BaseMapperX<RdPackageUnitDO> {
     RdPackageUnitDO selectByPackageCodeForUpdate(String packageCode);
 
     @Select("SELECT * FROM rd_package_unit WHERE stock_lot_id = #{stockLotId} "
-            + "AND status = #{status} AND deleted = 0 ORDER BY package_code LIMIT #{limit} FOR UPDATE")
+            + "AND status = #{status} AND deleted = 0 "
+            + "AND NOT EXISTS (SELECT 1 FROM rd_loading_package_claim c WHERE c.tenant_id = rd_package_unit.tenant_id "
+            + "AND c.package_id = rd_package_unit.id) "
+            + "ORDER BY package_code LIMIT #{limit} FOR UPDATE")
     List<RdPackageUnitDO> selectListByStockLotIdForUpdate(@Param("stockLotId") Long stockLotId,
                                                           @Param("status") String status,
                                                           @Param("limit") Integer limit);

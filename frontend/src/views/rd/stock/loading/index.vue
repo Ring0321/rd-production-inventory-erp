@@ -1,0 +1,523 @@
+<template>
+  <ContentWrap>
+    <div class="heading">
+      <h2>出库装车</h2>
+      <el-button :loading="refreshing" @click="refresh"
+        ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
+      >
+    </div>
+    <el-tabs v-model="tab">
+      <el-tab-pane label="选货派单" name="dispatch" />
+      <el-tab-pane label="装车任务" name="tasks" />
+    </el-tabs>
+  </ContentWrap>
+
+  <template v-if="tab === 'dispatch'">
+    <ContentWrap title="提货单">
+      <el-form :inline="true">
+        <el-form-item label="提货单">
+          <el-select
+            v-model="slipId"
+            filterable
+            remote
+            clearable
+            :remote-method="searchSlips"
+            class="!w-320px"
+            placeholder="按提货单号搜索"
+            @change="selectSlip"
+          >
+            <el-option
+              v-for="slip in slips"
+              :key="slip.id"
+              :value="slip.id"
+              :label="`${slip.slipNo} · ${slip.customerName}`"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="叉车司机">
+          <el-select
+            v-model="driverId"
+            filterable
+            clearable
+            class="!w-190px"
+            placeholder="选择司机"
+          >
+            <el-option
+              v-for="driver in drivers"
+              :key="driver.id"
+              :value="driver.id"
+              :label="driver.nickname || driver.username"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            :disabled="!slipDetail || !driverId || !selected.length"
+            :loading="dispatching"
+            v-hasPermi="['rd:loading-task:dispatch']"
+            @click="dispatch"
+          >
+            <Icon icon="ep:promotion" class="mr-5px" />派发装车任务
+          </el-button>
+        </el-form-item>
+      </el-form>
+      <el-descriptions v-if="slipDetail" :column="4" border>
+        <el-descriptions-item label="客户">{{ slipDetail.slip.customerName }}</el-descriptions-item>
+        <el-descriptions-item label="车牌号">{{
+          slipDetail.slip.vehiclePlate || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="运输司机">{{
+          slipDetail.slip.transportDriverName || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="计划包数 / kg"
+          >{{ slipDetail.slip.requestedPackageCount ?? '-' }} /
+          {{ slipDetail.slip.requestedWeight ?? '-' }}</el-descriptions-item
+        >
+      </el-descriptions>
+      <el-table v-if="slipDetail" :data="slipDetail.lines" class="mt-12px" size="small">
+        <el-table-column prop="lineNo" label="行" width="55" />
+        <el-table-column prop="saleOrderId" label="订单 ID" width="100" />
+        <el-table-column prop="productModel" label="型号" min-width="120" />
+        <el-table-column prop="furnaceNo" label="炉号" min-width="120" />
+        <el-table-column prop="furnaceLayer" label="炉层" width="100" />
+        <el-table-column prop="requestedPackageCount" label="包数" width="80" />
+        <el-table-column prop="requestedWeight" label="重量 kg" width="100" />
+      </el-table>
+    </ContentWrap>
+
+    <ContentWrap title="在库可选货物">
+      <el-form :inline="true" :model="packageQuery">
+        <el-form-item label="提货明细">
+          <el-select
+            v-model="filterLineId"
+            clearable
+            class="!w-220px"
+            placeholder="全部明细"
+            @change="applyLineFilter"
+          >
+            <el-option
+              v-for="line in slipDetail?.lines || []"
+              :key="line.id"
+              :value="line.id"
+              :label="lineLabel(line)"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="型号"
+          ><el-input
+            v-model="packageQuery.productModel"
+            clearable
+            class="!w-130px"
+            @keyup.enter="loadPackages"
+        /></el-form-item>
+        <el-form-item label="炉号"
+          ><el-input
+            v-model="packageQuery.furnaceNo"
+            clearable
+            class="!w-130px"
+            @keyup.enter="loadPackages"
+        /></el-form-item>
+        <el-form-item label="炉层"
+          ><el-input
+            v-model="packageQuery.furnaceLayer"
+            clearable
+            class="!w-120px"
+            @keyup.enter="loadPackages"
+        /></el-form-item>
+        <el-form-item label="库位">
+          <el-select
+            v-model="packageQuery.locationId"
+            filterable
+            clearable
+            class="!w-180px"
+            placeholder="全部库位"
+          >
+            <el-option
+              v-for="location in locations"
+              :key="location.id"
+              :value="location.id"
+              :label="`${location.locationCode} · ${location.occupiedPackages} 包`"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="包码/库位"
+          ><el-input
+            v-model="packageQuery.keyword"
+            clearable
+            class="!w-150px"
+            @keyup.enter="loadPackages"
+        /></el-form-item>
+        <el-form-item
+          ><el-button @click="loadPackages"
+            ><Icon icon="ep:search" class="mr-5px" />查询</el-button
+          ></el-form-item
+        >
+      </el-form>
+      <el-table
+        v-loading="packageLoading"
+        :data="packages"
+        row-key="id"
+        @selection-change="onSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
+        <el-table-column prop="packageCode" label="包码" min-width="170" fixed="left" />
+        <el-table-column prop="locationCode" label="库位" width="115" />
+        <el-table-column prop="customerName" label="客户" min-width="160" />
+        <el-table-column prop="productModel" label="型号" width="120" />
+        <el-table-column prop="furnaceNo" label="炉号" width="120" />
+        <el-table-column prop="furnaceLayer" label="炉层" width="90" />
+        <el-table-column prop="packageWeight" label="重量 kg" width="105" align="right" />
+      </el-table>
+      <div class="table-footer">
+        <el-button :disabled="!currentSelection.length || !slipDetail" @click="addPackages"
+          ><Icon icon="ep:plus" class="mr-5px" />加入已选</el-button
+        >
+        <Pagination
+          v-model:page="packageQuery.pageNo"
+          v-model:limit="packageQuery.pageSize"
+          :total="packageTotal"
+          @pagination="loadPackages"
+        />
+      </div>
+    </ContentWrap>
+
+    <ContentWrap title="已选装车货物">
+      <div class="selected-summary"
+        >{{ selected.length }} 包 · {{ selectedWeight }} kg · {{ selectedLocations }} 个库位</div
+      >
+      <el-table :data="selected" max-height="340">
+        <el-table-column prop="pkg.packageCode" label="包码" min-width="175" />
+        <el-table-column prop="pkg.locationCode" label="库位" width="110" />
+        <el-table-column prop="pkg.productModel" label="型号" width="115" />
+        <el-table-column prop="pkg.furnaceLayer" label="炉层" width="95" />
+        <el-table-column prop="pkg.packageWeight" label="重量 kg" width="105" />
+        <el-table-column label="对应提货明细" min-width="230">
+          <template #default="scope">
+            <el-select
+              v-model="scope.row.pickupSlipLineId"
+              class="!w-full"
+              placeholder="请选择"
+              clearable
+            >
+              <el-option
+                v-for="line in matchingLines(scope.row.pkg)"
+                :key="line.id"
+                :value="line.id"
+                :label="lineLabel(line)"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="65"
+          ><template #default="scope"
+            ><el-button link type="danger" @click="removePackage(scope.row.pkg.id)"
+              ><Icon icon="ep:delete" /></el-button></template
+        ></el-table-column>
+      </el-table>
+    </ContentWrap>
+  </template>
+
+  <ContentWrap v-else>
+    <el-form :inline="true" :model="taskQuery">
+      <el-form-item label="任务号"
+        ><el-input v-model="taskQuery.taskNo" clearable @keyup.enter="loadTasks"
+      /></el-form-item>
+      <el-form-item label="提货单号"
+        ><el-input v-model="taskQuery.pickupSlipNo" clearable @keyup.enter="loadTasks"
+      /></el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="taskQuery.status" clearable class="!w-150px">
+          <el-option
+            v-for="item in statusOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item
+        ><el-button @click="loadTasks"
+          ><Icon icon="ep:search" class="mr-5px" />查询</el-button
+        ></el-form-item
+      >
+    </el-form>
+    <el-table v-loading="taskLoading" :data="tasks">
+      <el-table-column prop="taskNo" label="任务号" min-width="190" />
+      <el-table-column prop="pickupSlipNo" label="提货单号" min-width="150" />
+      <el-table-column prop="customerName" label="客户" min-width="160" />
+      <el-table-column prop="vehiclePlate" label="车牌号" width="110" />
+      <el-table-column prop="forkliftDriverName" label="叉车司机" width="100" />
+      <el-table-column label="状态" width="100"
+        ><template #default="scope">{{ statusLabel(scope.row.status) }}</template></el-table-column
+      >
+      <el-table-column label="进度" width="170">
+        <template #default="scope"
+          ><el-progress :percentage="progress(scope.row)" :stroke-width="8"
+        /></template>
+      </el-table-column>
+      <el-table-column label="操作" width="90"
+        ><template #default="scope"
+          ><el-button link type="primary" @click="openTask(scope.row.id)">详情</el-button></template
+        ></el-table-column
+      >
+    </el-table>
+    <Pagination
+      v-model:page="taskQuery.pageNo"
+      v-model:limit="taskQuery.pageSize"
+      :total="taskTotal"
+      @pagination="loadTasks"
+    />
+  </ContentWrap>
+
+  <Dialog v-model="taskVisible" title="装车任务详情" width="960px">
+    <template v-if="taskDetail">
+      <el-descriptions :column="3" border>
+        <el-descriptions-item label="任务号">{{ taskDetail.task.taskNo }}</el-descriptions-item>
+        <el-descriptions-item label="提货单号">{{
+          taskDetail.task.pickupSlipNo
+        }}</el-descriptions-item>
+        <el-descriptions-item label="状态">{{
+          statusLabel(taskDetail.task.status)
+        }}</el-descriptions-item>
+        <el-descriptions-item label="车牌号">{{
+          taskDetail.task.vehiclePlate || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="叉车司机">{{
+          taskDetail.task.forkliftDriverName || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="已扫 / 计划"
+          >{{ taskDetail.task.scannedPackageCount }} /
+          {{ taskDetail.task.plannedPackageCount }}</el-descriptions-item
+        >
+      </el-descriptions>
+      <el-table :data="taskDetail.lines" class="mt-16px" max-height="390">
+        <el-table-column prop="lineNo" label="序号" width="65" />
+        <el-table-column prop="plannedLocationCode" label="库位" width="115" />
+        <el-table-column prop="packageCode" label="包码" min-width="160" />
+        <el-table-column prop="productModel" label="型号" width="110" />
+        <el-table-column prop="furnaceNo" label="炉号" width="115" />
+        <el-table-column prop="furnaceLayer" label="炉层" width="90" />
+        <el-table-column prop="packageWeight" label="重量 kg" width="100" />
+        <el-table-column prop="lineStatus" label="状态" width="105" />
+      </el-table>
+    </template>
+  </Dialog>
+</template>
+
+<script setup lang="ts">
+import {
+  RdLoadingApi,
+  type LoadingPackage,
+  type LoadingTask,
+  type LoadingTaskLine,
+  type LoadingDriverOption,
+  type PickupSlip,
+  type PickupSlipLine
+} from '@/api/rd/loading'
+import { RdPutawayTaskApi, type RdPutawayLocationMapVO } from '@/api/rd/stock/putaway'
+
+defineOptions({ name: 'RdLoadingDispatch' })
+const message = useMessage()
+const tab = ref('dispatch')
+const refreshing = ref(false)
+const slipId = ref<number>()
+const slips = ref<PickupSlip[]>([])
+const slipDetail = ref<{ slip: PickupSlip; lines: PickupSlipLine[] }>()
+const driverId = ref<number>()
+const drivers = ref<LoadingDriverOption[]>([])
+const locations = ref<RdPutawayLocationMapVO[]>([])
+const filterLineId = ref<number>()
+const packageQuery = reactive({
+  pageNo: 1,
+  pageSize: 100,
+  customerName: '',
+  saleOrderId: undefined as number | undefined,
+  productModel: '',
+  furnaceNo: '',
+  furnaceLayer: '',
+  locationId: undefined as number | undefined,
+  keyword: ''
+})
+const packages = ref<LoadingPackage[]>([])
+const packageTotal = ref(0)
+const packageLoading = ref(false)
+const currentSelection = ref<LoadingPackage[]>([])
+const selected = ref<Array<{ pkg: LoadingPackage; pickupSlipLineId?: number }>>([])
+const dispatching = ref(false)
+const tasks = ref<LoadingTask[]>([])
+const taskQuery = reactive({ pageNo: 1, pageSize: 20, taskNo: '', pickupSlipNo: '', status: '' })
+const taskTotal = ref(0)
+const taskLoading = ref(false)
+const taskVisible = ref(false)
+const taskDetail = ref<{ task: LoadingTask; lines: LoadingTaskLine[] }>()
+const statusOptions = [
+  { value: 'ASSIGNED', label: '已派单' },
+  { value: 'LOADING', label: '装车中' },
+  { value: 'PENDING_REVIEW', label: '待复核' },
+  { value: 'EXCEPTION_PENDING', label: '异常待处理' },
+  { value: 'OUTBOUNDED', label: '已出库' },
+  { value: 'CANCELLED', label: '已取消' }
+]
+const statusLabel = (status: string) =>
+  statusOptions.find((item) => item.value === status)?.label || status
+const progress = (task: LoadingTask) =>
+  task.plannedPackageCount
+    ? Math.round((task.scannedPackageCount / task.plannedPackageCount) * 100)
+    : 0
+const selectedWeight = computed(() =>
+  selected.value.reduce((sum, row) => sum + Number(row.pkg.packageWeight), 0).toFixed(3)
+)
+const selectedLocations = computed(
+  () => new Set(selected.value.map((row) => row.pkg.locationId)).size
+)
+const lineLabel = (line: PickupSlipLine) =>
+  `${line.lineNo}. ${line.productModel} ${line.furnaceLayer || ''} ${line.requestedPackageCount ?? '-'}包`
+const matchingLines = (pkg: LoadingPackage) =>
+  (slipDetail.value?.lines || []).filter(
+    (line) =>
+      line.productModel === pkg.productModel &&
+      (!line.furnaceNo || line.furnaceNo === pkg.furnaceNo) &&
+      (!line.furnaceLayer || line.furnaceLayer === pkg.furnaceLayer)
+  )
+
+const searchSlips = async (term: string) => {
+  const page = await RdLoadingApi.getPickupSlipPage({
+    pageNo: 1,
+    pageSize: 100,
+    slipNo: term || undefined,
+    status: 'ISSUED'
+  })
+  slips.value = page.list
+}
+const selectSlip = async () => {
+  selected.value = []
+  slipDetail.value = slipId.value ? await RdLoadingApi.getPickupSlip(slipId.value) : undefined
+  packageQuery.customerName = slipDetail.value?.slip.customerName || ''
+  filterLineId.value = undefined
+  applyLineFilter()
+}
+const applyLineFilter = () => {
+  const line = slipDetail.value?.lines.find((item) => item.id === filterLineId.value)
+  packageQuery.saleOrderId = line?.saleOrderId
+  packageQuery.productModel = line?.productModel || ''
+  packageQuery.furnaceNo = line?.furnaceNo || ''
+  packageQuery.furnaceLayer = line?.furnaceLayer || ''
+  packageQuery.pageNo = 1
+  loadPackages()
+}
+const loadPackages = async () => {
+  if (!slipDetail.value) {
+    packages.value = []
+    packageTotal.value = 0
+    return
+  }
+  packageLoading.value = true
+  try {
+    const page = await RdLoadingApi.getAvailablePackagePage(packageQuery)
+    packages.value = page.list
+    packageTotal.value = page.total
+  } finally {
+    packageLoading.value = false
+  }
+}
+const onSelectionChange = (rows: LoadingPackage[]) => {
+  currentSelection.value = rows
+}
+const addPackages = () => {
+  for (const pkg of currentSelection.value) {
+    if (selected.value.some((row) => row.pkg.id === pkg.id)) continue
+    const matches = matchingLines(pkg)
+    selected.value.push({ pkg, pickupSlipLineId: matches.length === 1 ? matches[0].id : undefined })
+  }
+}
+const removePackage = (id: number) => {
+  selected.value = selected.value.filter((row) => row.pkg.id !== id)
+}
+const dispatch = async () => {
+  if (!slipId.value || !driverId.value || !selected.value.length) return
+  if (selected.value.some((row) => !row.pickupSlipLineId)) {
+    message.warning('请为每包选择对应的提货明细')
+    return
+  }
+  dispatching.value = true
+  try {
+    await RdLoadingApi.createTask({
+      pickupSlipId: slipId.value,
+      forkliftDriverId: driverId.value,
+      selections: selected.value.map((row) => ({
+        packageId: row.pkg.id,
+        pickupSlipLineId: row.pickupSlipLineId!
+      }))
+    })
+    message.success('装车任务已派给叉车司机')
+    selected.value = []
+    await loadPackages()
+    tab.value = 'tasks'
+    await loadTasks()
+  } finally {
+    dispatching.value = false
+  }
+}
+const loadTasks = async () => {
+  taskLoading.value = true
+  try {
+    const page = await RdLoadingApi.getTaskPage(taskQuery)
+    tasks.value = page.list
+    taskTotal.value = page.total
+  } finally {
+    taskLoading.value = false
+  }
+}
+const openTask = async (id: number) => {
+  taskDetail.value = await RdLoadingApi.getTask(id)
+  taskVisible.value = true
+}
+const refresh = async () => {
+  refreshing.value = true
+  try {
+    if (tab.value === 'dispatch')
+      await Promise.all([searchSlips(''), loadPackages(), loadLocations()])
+    else await loadTasks()
+  } finally {
+    refreshing.value = false
+  }
+}
+const loadLocations = async () => {
+  locations.value = await RdPutawayTaskApi.getLocationMap()
+}
+onMounted(async () => {
+  await Promise.all([
+    searchSlips(''),
+    loadLocations(),
+    RdLoadingApi.getDriverOptions().then((data) => {
+      drivers.value = data
+    }),
+    loadTasks()
+  ])
+})
+</script>
+
+<style scoped>
+.heading,
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.selected-summary {
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+@media (max-width: 720px) {
+  .heading,
+  .table-footer {
+    flex-wrap: wrap;
+  }
+}
+</style>

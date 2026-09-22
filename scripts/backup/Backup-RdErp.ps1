@@ -52,7 +52,17 @@ $backupFile = Get-Item -LiteralPath $backupPath
 if ($backupFile.Length -lt 1024) {
     throw "Backup file is unexpectedly small: $($backupFile.Length) bytes"
 }
-$hash = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$stream = [System.IO.File]::OpenRead($backupPath)
+try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+} finally {
+    $stream.Dispose()
+}
 "$hash  $fileName" | Set-Content -LiteralPath $hashPath -Encoding ASCII
 
 $manifest = [ordered]@{

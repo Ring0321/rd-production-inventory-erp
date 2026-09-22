@@ -12,6 +12,7 @@ import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.order.RdOrderFulfillmentMapper;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingPackageClaimMapper;
 import com.ruiding.erp.dal.mysql.outbound.RdOutboundOrderMapper;
 import com.ruiding.erp.dal.mysql.outbound.RdOutboundOrderLineMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
@@ -63,6 +64,7 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.OUTBOUND_ORDER_STATUS_NOT
 import static com.ruiding.erp.enums.ErrorCodeConstants.OUTBOUND_ORDER_STOCK_INSUFFICIENT;
 import static com.ruiding.erp.enums.ErrorCodeConstants.SALE_ORDER_STATUS_CANNOT_CHANGE;
 import static com.ruiding.erp.enums.ErrorCodeConstants.STOCK_LOT_NOT_EXISTS;
+import static com.ruiding.erp.enums.ErrorCodeConstants.LOADING_PACKAGE_CLAIMED;
 
 /**
  * RD outbound order Service implementation.
@@ -84,6 +86,8 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
     private RdStockLotMapper stockLotMapper;
     @Resource
     private RdPackageUnitMapper packageUnitMapper;
+    @Resource
+    private RdLoadingPackageClaimMapper loadingClaimMapper;
     @Resource
     private RdStockTransactionMapper stockTransactionMapper;
     @Resource
@@ -146,6 +150,9 @@ public class RdOutboundOrderServiceImpl implements RdOutboundOrderService {
             if (unit == null) throw exception(OUTBOUND_PACKAGE_NOT_EXISTS);
             if (!RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())) {
                 throw exception(OUTBOUND_PACKAGE_STATUS_INVALID);
+            }
+            if (loadingClaimMapper.isClaimed(unit.getTenantId(), unit.getId())) {
+                throw exception(LOADING_PACKAGE_CLAIMED);
             }
             locationFreezeGuard.requireMovable(unit.getLocationId());
             if (outboundOrderLineMapper.selectByOrderIdAndPackageId(order.getId(), unit.getId()) != null) {

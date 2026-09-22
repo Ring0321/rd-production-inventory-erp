@@ -151,6 +151,19 @@ public interface ErrorCodeConstants {
     ErrorCode PUTAWAY_CONFIRM_HAS_OPEN_EXCEPTION = new ErrorCode(1_080_520_013, "任务仍有未处理异常，不能确认上架");
     ErrorCode PUTAWAY_CONFIRM_PACKAGE_INVALID = new ErrorCode(1_080_520_014, "上架包状态或任务明细不一致，请刷新核对");
 
+    // ========== RD loading dispatch 1-080-530-000 ==========
+    ErrorCode PICKUP_SLIP_NOT_EXISTS = new ErrorCode(1_080_530_000, "提货单不存在");
+    ErrorCode PICKUP_SLIP_DUPLICATE = new ErrorCode(1_080_530_001, "提货单号已存在");
+    ErrorCode PICKUP_SLIP_INVALID = new ErrorCode(1_080_530_002, "提货单明细、数量或重量不完整或不一致");
+    ErrorCode PICKUP_SLIP_ORDER_MISMATCH = new ErrorCode(1_080_530_003, "提货单订单与客户或型号不匹配");
+    ErrorCode LOADING_TASK_ALREADY_ASSIGNED = new ErrorCode(1_080_530_004, "该提货单已有有效装车任务");
+    ErrorCode LOADING_DRIVER_INVALID = new ErrorCode(1_080_530_005, "所选人员不是已启用的叉车司机");
+    ErrorCode LOADING_PACKAGE_INVALID = new ErrorCode(1_080_530_006, "所选包不在库或货物、订单、库位信息与提货单不符");
+    ErrorCode LOADING_PACKAGE_CLAIMED = new ErrorCode(1_080_530_007, "所选包已被其他装车任务占用，请刷新库存");
+    ErrorCode LOADING_TASK_NOT_EXISTS = new ErrorCode(1_080_530_008, "装车任务不存在或未分配给当前司机");
+    ErrorCode LOADING_QUANTITY_MISMATCH = new ErrorCode(1_080_530_009, "选包数量或重量与提货单明细不一致");
+    ErrorCode LOADING_FULFILLMENT_INSUFFICIENT = new ErrorCode(1_080_530_010, "订单匹配的可发数量不足或尚未分配库存批次");
+
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");
     ErrorCode EXCEL_IMPORT_FILE_INVALID = new ErrorCode(1_080_600_001, "请上传不超过 20 MB 的 xlsx 文件");

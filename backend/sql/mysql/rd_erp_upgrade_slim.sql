@@ -903,6 +903,23 @@ SELECT 600001,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM
 UNION ALL SELECT 600003,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600320 AND 600327
 UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id=600107 OR id BETWEEN 600320 AND 600327;
 
+INSERT INTO `system_menu`
+(`id`,`name`,`permission`,`type`,`sort`,`parent_id`,`path`,`icon`,`component`,`component_name`,`status`,`visible`,`keep_alive`,`always_show`,`creator`,`create_time`,`updater`,`update_time`,`deleted`) VALUES
+(600280,'提货单','rd:pickup-slip:query',2,35,600300,'pickup','ep:document','rd/order/pickup/index','RdPickupSlip',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
+(600281,'提货单录入','rd:pickup-slip:create',3,10,600280,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
+(600282,'出库装车','rd:loading-task:query',2,40,600200,'loading','ep:van','rd/stock/loading/index','RdLoadingDispatch',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
+(600283,'装车派单','rd:loading-task:dispatch',3,10,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
+(600284,'执行装车任务','rd:loading-task:execute',3,20,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`type`=VALUES(`type`),
+`sort`=VALUES(`sort`),`parent_id`=VALUES(`parent_id`),`path`=VALUES(`path`),`icon`=VALUES(`icon`),
+`component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`status`=0,
+`visible`=VALUES(`visible`),`deleted`=b'0',`update_time`=NOW();
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600003,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600281)
+UNION ALL SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600282,600283)
+UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600280 AND 600284
+UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id=600284;
+
 COMMIT;
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;
 SET SQL_SAFE_UPDATES = 1;

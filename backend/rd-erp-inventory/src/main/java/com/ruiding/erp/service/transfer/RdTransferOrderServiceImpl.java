@@ -10,6 +10,7 @@ import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.dataobject.transfer.RdTransferOrderDO;
 import com.ruiding.erp.dal.dataobject.transfer.RdTransferOrderPackageDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingPackageClaimMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.dal.mysql.transfer.RdTransferOrderMapper;
 import com.ruiding.erp.dal.mysql.transfer.RdTransferOrderPackageMapper;
@@ -65,6 +66,8 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
     private RdStockLotMapper stockLotMapper;
     @Resource
     private RdPackageUnitMapper packageUnitMapper;
+    @Resource
+    private RdLoadingPackageClaimMapper loadingClaimMapper;
     @Resource
     private RdTransferOrderPackageMapper transferOrderPackageMapper;
     @Resource
@@ -417,7 +420,8 @@ public class RdTransferOrderServiceImpl implements RdTransferOrderService {
         for (RdTransferOrderPackageDO link : links) {
             RdPackageUnitDO unit = packageUnitMapper.selectByIdForUpdate(link.getPackageId());
             if (unit == null || !RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())
-                    || !Objects.equals(unit.getStockLotId(), toStockLot.getId())) {
+                    || !Objects.equals(unit.getStockLotId(), toStockLot.getId())
+                    || loadingClaimMapper.isClaimed(unit.getTenantId(), unit.getId())) {
                 throw exception(TRANSFER_ORDER_PACKAGE_REVERSE_INVALID);
             }
             packages.add(unit);

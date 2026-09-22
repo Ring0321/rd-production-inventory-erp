@@ -6,6 +6,7 @@ import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.dataobject.transfer.RdTransferOrderDO;
 import com.ruiding.erp.dal.dataobject.transfer.RdTransferOrderPackageDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingPackageClaimMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.dal.mysql.transfer.RdTransferOrderMapper;
 import com.ruiding.erp.dal.mysql.transfer.RdTransferOrderPackageMapper;
@@ -36,6 +37,7 @@ class RdTransferOrderServiceImplTest {
     @Mock private RdTransferOrderMapper transferOrderMapper;
     @Mock private RdStockLotMapper stockLotMapper;
     @Mock private RdPackageUnitMapper packageUnitMapper;
+    @Mock private RdLoadingPackageClaimMapper loadingClaimMapper;
     @Mock private RdTransferOrderPackageMapper transferOrderPackageMapper;
     @Mock private RdStockTransactionService stockTransactionService;
     @Mock private RdWarehouseLocationFreezeGuard locationFreezeGuard;
