@@ -433,6 +433,137 @@ CREATE TABLE IF NOT EXISTS `rd_outbound_order_line` (
   KEY `idx_rd_outbound_line_package` (`tenant_id`,`package_code`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `rd_pickup_slip` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `slip_no` varchar(64) NOT NULL, `status` varchar(32) NOT NULL DEFAULT 'ISSUED',
+  `customer_name` varchar(128) NOT NULL, `pickup_date` date DEFAULT NULL,
+  `vehicle_plate` varchar(32) DEFAULT NULL, `transport_driver_name` varchar(64) DEFAULT NULL,
+  `transport_driver_phone` varchar(32) DEFAULT NULL, `requested_package_count` int DEFAULT NULL,
+  `requested_weight` decimal(24,6) DEFAULT NULL, `source_attachment_ref` varchar(512) DEFAULT NULL,
+  `issuer_id` bigint DEFAULT NULL, `issuer_name` varchar(64) DEFAULT NULL, `issued_time` datetime DEFAULT NULL,
+  `version` int NOT NULL DEFAULT '0', `remark` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_pickup_slip_no` (`tenant_id`,`slip_no`,`deleted`),
+  KEY `idx_rd_pickup_slip_customer` (`tenant_id`,`customer_name`,`status`,`deleted`,`id`),
+  KEY `idx_rd_pickup_slip_date` (`tenant_id`,`pickup_date`,`status`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD business pickup slip';
+
+CREATE TABLE IF NOT EXISTS `rd_pickup_slip_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `slip_id` bigint NOT NULL, `line_no` int NOT NULL, `sale_order_id` bigint DEFAULT NULL,
+  `product_name` varchar(128) DEFAULT NULL, `product_model` varchar(128) DEFAULT NULL,
+  `furnace_no` varchar(64) DEFAULT NULL, `furnace_layer` varchar(32) DEFAULT NULL,
+  `requested_package_count` int DEFAULT NULL, `requested_weight` decimal(24,6) DEFAULT NULL,
+  `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_pickup_slip_line_no` (`tenant_id`,`slip_id`,`line_no`,`deleted`),
+  KEY `idx_rd_pickup_slip_line_order` (`tenant_id`,`sale_order_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD requested pickup items';
+
+CREATE TABLE IF NOT EXISTS `rd_loading_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `task_no` varchar(64) NOT NULL, `pickup_slip_id` bigint NOT NULL,
+  `pickup_slip_no` varchar(64) NOT NULL, `status` varchar(32) NOT NULL DEFAULT 'PENDING_ASSIGNMENT',
+  `customer_name` varchar(128) NOT NULL, `vehicle_plate` varchar(32) DEFAULT NULL,
+  `transport_driver_name` varchar(64) DEFAULT NULL, `transport_driver_phone` varchar(32) DEFAULT NULL,
+  `warehouse_keeper_id` bigint DEFAULT NULL, `warehouse_keeper_name` varchar(64) DEFAULT NULL,
+  `forklift_driver_id` bigint DEFAULT NULL, `forklift_driver_name` varchar(64) DEFAULT NULL,
+  `reviewer_id` bigint DEFAULT NULL, `reviewer_name` varchar(64) DEFAULT NULL,
+  `planned_package_count` int NOT NULL DEFAULT '0', `scanned_package_count` int NOT NULL DEFAULT '0',
+  `planned_weight` decimal(24,6) NOT NULL DEFAULT '0.000000',
+  `scanned_weight` decimal(24,6) NOT NULL DEFAULT '0.000000',
+  `plan_version` int NOT NULL DEFAULT '0', `version` int NOT NULL DEFAULT '0',
+  `assigned_time` datetime DEFAULT NULL, `start_time` datetime DEFAULT NULL,
+  `scan_complete_time` datetime DEFAULT NULL, `confirm_time` datetime DEFAULT NULL,
+  `cancel_time` datetime DEFAULT NULL, `cancel_reason` varchar(512) DEFAULT NULL,
+  `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_loading_task_no` (`tenant_id`,`task_no`,`deleted`),
+  KEY `idx_rd_loading_task_slip` (`tenant_id`,`pickup_slip_id`,`status`,`deleted`,`id`),
+  KEY `idx_rd_loading_task_driver` (`tenant_id`,`forklift_driver_id`,`status`,`deleted`,`id`),
+  KEY `idx_rd_loading_task_keeper` (`tenant_id`,`warehouse_keeper_id`,`status`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD single loading task per pickup operation';
+
+CREATE TABLE IF NOT EXISTS `rd_loading_task_line` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `task_id` bigint NOT NULL, `line_no` int NOT NULL, `pickup_slip_line_id` bigint NOT NULL,
+  `package_id` bigint NOT NULL, `package_code` varchar(32) NOT NULL,
+  `sale_order_id` bigint DEFAULT NULL, `fulfillment_id` bigint DEFAULT NULL, `stock_lot_id` bigint NOT NULL,
+  `planned_location_id` bigint NOT NULL, `planned_location_code` varchar(64) NOT NULL,
+  `customer_name` varchar(128) NOT NULL, `product_model` varchar(128) NOT NULL,
+  `furnace_no` varchar(64) NOT NULL, `furnace_layer` varchar(32) NOT NULL,
+  `package_weight` decimal(24,6) NOT NULL, `line_status` varchar(32) NOT NULL DEFAULT 'PLANNED',
+  `plan_version` int NOT NULL DEFAULT '0', `scan_time` datetime DEFAULT NULL,
+  `outbound_order_id` bigint DEFAULT NULL, `outbound_order_line_id` bigint DEFAULT NULL,
+  `stock_transaction_id` bigint DEFAULT NULL, `version` int NOT NULL DEFAULT '0',
+  `remark` varchar(512) DEFAULT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_loading_line_no` (`tenant_id`,`task_id`,`line_no`,`deleted`),
+  UNIQUE KEY `uk_rd_loading_line_package` (`tenant_id`,`task_id`,`package_id`,`deleted`),
+  KEY `idx_rd_loading_line_task` (`tenant_id`,`task_id`,`line_status`,`deleted`,`line_no`),
+  KEY `idx_rd_loading_line_package` (`tenant_id`,`package_id`,`deleted`,`id`),
+  KEY `idx_rd_loading_line_location` (`tenant_id`,`planned_location_id`,`line_status`,`deleted`,`id`),
+  KEY `idx_rd_loading_line_outbound` (`tenant_id`,`outbound_order_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD loading task planned package';
+
+CREATE TABLE IF NOT EXISTS `rd_loading_package_claim` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `package_id` bigint NOT NULL, `task_id` bigint NOT NULL, `task_line_id` bigint NOT NULL,
+  `claimed_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_loading_claim_package` (`tenant_id`,`package_id`),
+  UNIQUE KEY `uk_rd_loading_claim_line` (`tenant_id`,`task_line_id`),
+  KEY `idx_rd_loading_claim_task` (`tenant_id`,`task_id`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD active package claim; hard-delete on release';
+
+CREATE TABLE IF NOT EXISTS `rd_loading_scan_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `task_id` bigint NOT NULL, `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
+  `package_code` varchar(32) NOT NULL, `plan_version` int NOT NULL,
+  `idempotency_key` varchar(128) NOT NULL, `scan_result` varchar(32) NOT NULL,
+  `success` bit(1) NOT NULL, `error_code` varchar(64) DEFAULT NULL,
+  `error_message` varchar(512) DEFAULT NULL, `task_status_before` varchar(32) DEFAULT NULL,
+  `task_status_after` varchar(32) DEFAULT NULL, `observed_location_code` varchar(64) DEFAULT NULL,
+  `device_code` varchar(64) DEFAULT NULL, `operator_id` bigint DEFAULT NULL,
+  `operator_name` varchar(64) DEFAULT NULL, `device_time` datetime DEFAULT NULL,
+  `scan_time` datetime NOT NULL, `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_loading_scan_idempotency` (`tenant_id`,`task_id`,`idempotency_key`,`deleted`),
+  KEY `idx_rd_loading_scan_task` (`tenant_id`,`task_id`,`scan_time`,`deleted`,`id`),
+  KEY `idx_rd_loading_scan_package` (`tenant_id`,`package_code`,`scan_time`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD loading scan attempts';
+
+CREATE TABLE IF NOT EXISTS `rd_loading_exception` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `exception_no` varchar(64) NOT NULL, `task_id` bigint NOT NULL,
+  `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
+  `package_code` varchar(32) DEFAULT NULL, `plan_version` int NOT NULL,
+  `exception_type` varchar(64) NOT NULL, `exception_status` varchar(32) NOT NULL DEFAULT 'OPEN',
+  `description` varchar(1000) NOT NULL, `attachment_refs` text,
+  `observed_location_code` varchar(64) DEFAULT NULL,
+  `reporter_id` bigint DEFAULT NULL, `reporter_name` varchar(64) DEFAULT NULL,
+  `reported_time` datetime NOT NULL, `handler_id` bigint DEFAULT NULL,
+  `handler_name` varchar(64) DEFAULT NULL, `handle_time` datetime DEFAULT NULL,
+  `handling_result` varchar(1000) DEFAULT NULL, `resolution_action` varchar(64) DEFAULT NULL,
+  `resolved_location_id` bigint DEFAULT NULL, `resolved_location_code` varchar(64) DEFAULT NULL,
+  `version` int NOT NULL DEFAULT '0', `remark` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_loading_exception_no` (`tenant_id`,`exception_no`,`deleted`),
+  KEY `idx_rd_loading_exception_task` (`tenant_id`,`task_id`,`exception_status`,`deleted`,`reported_time`,`id`),
+  KEY `idx_rd_loading_exception_package` (`tenant_id`,`package_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD loading field exception';
+
 SET @stock_idem_index = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE()
   AND table_name = 'rd_stock_transaction' AND index_name = 'uk_rd_stock_txn_idempotency');
 SET @stock_idem_sql = IF(@stock_idem_index = 0,
