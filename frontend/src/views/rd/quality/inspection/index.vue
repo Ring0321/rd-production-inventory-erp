@@ -204,6 +204,8 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
+import { useRoute } from 'vue-router'
+import { hasPermission } from '@/directives/permission/hasPermi'
 import { dateFormatter } from '@/utils/formatTime'
 import { RdPackageUnitApi, type RdPackageUnitVO } from '@/api/rd/stock/package'
 import {
@@ -217,6 +219,7 @@ import {
 defineOptions({ name: 'RdQualityInspection' })
 
 type TagType = 'success' | 'warning' | 'info' | 'danger'
+const route = useRoute()
 const statusOptions: Array<{ value: RdQualityInspectionStatus; label: string; type: TagType }> = [
   { value: 'DRAFT', label: '草稿', type: 'info' },
   { value: 'SUBMITTED', label: '待审核', type: 'warning' },
@@ -269,6 +272,7 @@ const createRules = reactive<FormRules>({
 })
 const detailVisible = ref(false)
 const detail = ref<RdQualityInspectionVO>()
+const inspectablePackageStatuses = ['LABELED', 'QC_REJECTED']
 
 const getList = async () => {
   loading.value = true
@@ -290,14 +294,57 @@ const resetQuery = () => {
   queryParams.status = undefined
   handleQuery()
 }
-const openCreate = async () => {
-  const data = await RdPackageUnitApi.getPage({ pageNo: 1, pageSize: -1 })
-  packageOptions.value = data.list.filter((item) =>
-    ['LABELED', 'QC_REJECTED'].includes(item.status)
-  )
+const resetCreateForm = () => {
   createForm.packageId = 0
   createForm.items = [newItem()]
   createForm.remark = ''
+}
+const loadInspectablePackages = async (
+  params: { packageCode?: string; productionOutputId?: number } = {}
+) => {
+  const hasTraceQuery = Boolean(params.packageCode || params.productionOutputId)
+  const list = hasTraceQuery
+    ? await RdPackageUnitApi.trace(params)
+    : (await RdPackageUnitApi.getPage({ pageNo: 1, pageSize: -1 })).list
+  packageOptions.value = list.filter((item) => inspectablePackageStatuses.includes(item.status))
+  return packageOptions.value
+}
+const openCreateDialog = async (packageId?: number) => {
+  await loadInspectablePackages()
+  resetCreateForm()
+  if (packageId) createForm.packageId = packageId
+  createVisible.value = true
+  nextTick(() => createFormRef.value?.clearValidate())
+}
+const openCreate = () => openCreateDialog()
+const getRouteString = (key: string) => {
+  const value = route.query[key]
+  return Array.isArray(value) ? value[0] || '' : String(value || '')
+}
+const getRouteNumber = (key: string) => {
+  const value = Number(getRouteString(key))
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+const openCreateFromRoute = async () => {
+  const packageCode = getRouteString('packageCode')
+  const productionOutputId = getRouteNumber('productionOutputId')
+  if (!packageCode && !productionOutputId) return
+  if (!hasPermission(['rd:quality-inspection:create'])) return
+  const options = await loadInspectablePackages({
+    packageCode: packageCode || undefined,
+    productionOutputId
+  })
+  const matched = options.find(
+    (item) =>
+      (!packageCode || item.packageCode === packageCode) &&
+      (!productionOutputId || item.productionOutputId === productionOutputId)
+  )
+  if (!matched) {
+    message.info('扫码包件当前不适合新建质检单，请在列表中查看现有质检记录')
+    return
+  }
+  resetCreateForm()
+  createForm.packageId = matched.id
   createVisible.value = true
   nextTick(() => createFormRef.value?.clearValidate())
 }
@@ -346,5 +393,13 @@ const handleReject = async (row: RdQualityInspectionVO) => {
   message.success('已驳回')
   await getList()
 }
-onMounted(getList)
+onMounted(async () => {
+  await getList()
+  await openCreateFromRoute()
+})
+
+watch(
+  () => [route.query.packageCode, route.query.productionOutputId],
+  () => openCreateFromRoute()
+)
 </script>

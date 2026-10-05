@@ -18,6 +18,13 @@
         <el-button type="primary" @click="search"><Icon icon="ep:search" />查询</el-button>
         <el-button @click="reset"><Icon icon="ep:refresh" />重置</el-button>
         <el-button
+          :loading="exportLoading"
+          v-hasPermi="['rd:outbound-order:export']"
+          @click="handleExport"
+        >
+          <Icon icon="ep:download" />导出逐袋明细
+        </el-button>
+        <el-button
           type="primary"
           plain
           @click="formRef?.open('create')"
@@ -110,6 +117,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useMessage } from '@/hooks/web/useMessage'
+import download from '@/utils/download'
 import { RdOutboundOrderApi, type RdOutboundOrderVO } from '@/api/rd/outbound'
 import OutboundForm from './OutboundForm.vue'
 import OutboundScanDialog from './OutboundScanDialog.vue'
@@ -119,6 +127,7 @@ defineOptions({ name: 'RdOutboundOrder' })
 const route = useRoute()
 const message = useMessage()
 const loading = ref(false)
+const exportLoading = ref(false)
 const list = ref<RdOutboundOrderVO[]>([])
 const total = ref(0)
 const formRef = ref()
@@ -160,6 +169,15 @@ const search = () => {
 const reset = () => {
   queryFormRef.value?.resetFields()
   search()
+}
+const handleExport = async () => {
+  exportLoading.value = true
+  try {
+    const data = await RdOutboundOrderApi.exportLinesExcel(query)
+    download.excel(data, '出库逐袋明细.xlsx')
+  } finally {
+    exportLoading.value = false
+  }
 }
 const approve = async (row: RdOutboundOrderVO) => {
   await message.confirm(`确认审核通过出库单 ${row.outboundNo} 吗？`)

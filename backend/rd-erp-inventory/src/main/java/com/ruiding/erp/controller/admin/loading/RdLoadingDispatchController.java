@@ -64,6 +64,27 @@ public class RdLoadingDispatchController {
         return success(service.createTask(req, getLoginUserId(), getLoginUserNickname()));
     }
 
+    @PostMapping("/batch-scan/preview")
+    @PreAuthorize("@ss.hasPermission('rd:loading-task:dispatch')")
+    public CommonResult<RdLoadingBatchScanRespVO> previewBatchScan(
+            @Valid @RequestBody RdLoadingBatchScanPreviewReqVO req) {
+        return success(service.previewBatchScan(req));
+    }
+
+    @PostMapping("/batch-scan/confirm")
+    @PreAuthorize("@ss.hasPermission('rd:loading-task:dispatch')")
+    public CommonResult<RdLoadingBatchScanRespVO> confirmBatchScan(
+            @Valid @RequestBody RdLoadingBatchScanConfirmReqVO req) {
+        return success(service.confirmBatchScan(req, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PostMapping("/confirm-outbound")
+    @PreAuthorize("@ss.hasPermission('rd:loading-task:dispatch')")
+    public CommonResult<RdLoadingConfirmOutboundRespVO> confirmOutbound(
+            @Valid @RequestBody RdLoadingConfirmOutboundReqVO req) {
+        return success(service.confirmOutbound(req, getLoginUserId(), getLoginUserNickname()));
+    }
+
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('rd:loading-task:query')")
     public CommonResult<PageResult<RdLoadingTaskDO>> getTaskPage(@Valid RdLoadingTaskPageReqVO req) {

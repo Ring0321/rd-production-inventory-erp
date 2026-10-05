@@ -21,8 +21,8 @@ class RdLoadingTaskStatusMachineTest {
     void shouldFollowPickupSlipToConfirmedOutboundFlow() {
         RdLoadingTaskStatusEnum status = RdLoadingTaskStatusEnum.PENDING_ASSIGNMENT;
         status = RdLoadingTaskStatusMachine.transition(status, RdLoadingTaskActionEnum.ASSIGN, KEEPER);
-        status = RdLoadingTaskStatusMachine.transition(status, RdLoadingTaskActionEnum.START, DRIVER);
-        status = RdLoadingTaskStatusMachine.transition(status, RdLoadingTaskActionEnum.COMPLETE_SCANNING, DRIVER);
+        status = RdLoadingTaskStatusMachine.transition(status, RdLoadingTaskActionEnum.START, KEEPER);
+        status = RdLoadingTaskStatusMachine.transition(status, RdLoadingTaskActionEnum.COMPLETE_SCANNING, KEEPER);
         status = RdLoadingTaskStatusMachine.transition(status, RdLoadingTaskActionEnum.CONFIRM_OUTBOUND, KEEPER);
         assertEquals(RdLoadingTaskStatusEnum.OUTBOUNDED, status);
     }
@@ -66,6 +66,8 @@ class RdLoadingTaskStatusMachineTest {
                                 RdLoadingTaskStatusMachine.transition(status, action, DRIVER))));
         assertThrows(IllegalStateException.class, () -> RdLoadingTaskStatusMachine.transition(
                 RdLoadingTaskStatusEnum.PENDING_REVIEW, RdLoadingTaskActionEnum.CONFIRM_OUTBOUND, DRIVER));
+        assertFalse(RdLoadingTaskStatusMachine.canTransition(
+                RdLoadingTaskStatusEnum.ASSIGNED, RdLoadingTaskActionEnum.START, DRIVER));
     }
 
     @Test

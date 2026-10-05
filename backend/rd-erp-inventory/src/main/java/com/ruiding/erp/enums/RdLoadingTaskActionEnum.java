@@ -8,8 +8,8 @@ import lombok.Getter;
 public enum RdLoadingTaskActionEnum {
     ASSIGN(RdLoadingTaskActorEnum.WAREHOUSE_KEEPER),
     ADJUST_ASSIGNMENT(RdLoadingTaskActorEnum.WAREHOUSE_KEEPER),
-    START(RdLoadingTaskActorEnum.FORKLIFT_DRIVER),
-    COMPLETE_SCANNING(RdLoadingTaskActorEnum.FORKLIFT_DRIVER),
+    START(RdLoadingTaskActorEnum.WAREHOUSE_KEEPER),
+    COMPLETE_SCANNING(RdLoadingTaskActorEnum.WAREHOUSE_KEEPER),
     REPORT_EXCEPTION(RdLoadingTaskActorEnum.FORKLIFT_DRIVER),
     REASSIGN(RdLoadingTaskActorEnum.WAREHOUSE_KEEPER),
     RETURN_TO_DRIVER(RdLoadingTaskActorEnum.WAREHOUSE_KEEPER),

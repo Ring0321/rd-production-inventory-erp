@@ -9,6 +9,7 @@
     <el-tabs v-model="tab">
       <el-tab-pane label="选货派单" name="dispatch" />
       <el-tab-pane label="装车任务" name="tasks" />
+      <el-tab-pane label="扫码复核" name="batchScan" />
     </el-tabs>
   </ContentWrap>
 
@@ -218,7 +219,7 @@
     </ContentWrap>
   </template>
 
-  <ContentWrap v-else>
+  <ContentWrap v-else-if="tab === 'tasks'">
     <el-form :inline="true" :model="taskQuery">
       <el-form-item label="任务号"
         ><el-input v-model="taskQuery.taskNo" clearable @keyup.enter="loadTasks"
@@ -270,6 +271,122 @@
     />
   </ContentWrap>
 
+  <template v-else>
+    <ContentWrap title="库管代表码扫码复核">
+      <div class="scan-banner">
+        <div>
+          <div class="scan-title">扫一包，带出整车任务</div>
+          <div class="scan-desc">
+            系统按包码识别所属装车任务，库管核对客户、库位、包件后批量确认；每包二维码和扫码明细仍独立保留。
+          </div>
+        </div>
+        <el-tag type="success">一包一码 + 批次代表扫码</el-tag>
+      </div>
+      <el-form :inline="true" :model="batchScanForm">
+        <el-form-item label="包码/二维码链接">
+          <el-input
+            v-model="batchScanForm.packageCode"
+            clearable
+            class="!w-420px"
+            placeholder="扫描任意一包，支持 LD... 或 https://id.tjldsic.com/pkg/LD..."
+            @keyup.enter="previewBatchScan"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="batchScanLoading"
+            :disabled="!batchScanForm.packageCode"
+            v-hasPermi="['rd:loading-task:dispatch']"
+            @click="previewBatchScan"
+          >
+            <Icon icon="ep:scan" class="mr-5px" />识别任务
+          </el-button>
+        </el-form-item>
+      </el-form>
+      <el-alert
+        v-if="batchScanResp"
+        class="mb-12px"
+        :type="batchScanResp.success ? 'success' : 'warning'"
+        :closable="false"
+        :title="batchScanResp.message"
+      />
+      <template v-if="batchScanResp">
+        <el-descriptions :column="4" border>
+          <el-descriptions-item label="任务号">{{
+            batchScanResp.task.taskNo
+          }}</el-descriptions-item>
+          <el-descriptions-item label="提货单">{{
+            batchScanResp.task.pickupSlipNo
+          }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{
+            batchScanResp.task.customerName
+          }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{
+            statusLabel(batchScanResp.task.status)
+          }}</el-descriptions-item>
+          <el-descriptions-item label="车牌号">{{
+            batchScanResp.task.vehiclePlate || '-'
+          }}</el-descriptions-item>
+          <el-descriptions-item label="叉车司机">{{
+            batchScanResp.task.forkliftDriverName || '-'
+          }}</el-descriptions-item>
+          <el-descriptions-item label="已扫 / 计划"
+            >{{ batchScanResp.task.scannedPackageCount }} /
+            {{ batchScanResp.task.plannedPackageCount }}</el-descriptions-item
+          >
+          <el-descriptions-item label="代表包码">{{
+            batchScanResp.representativePackageCode
+          }}</el-descriptions-item>
+        </el-descriptions>
+        <div class="scan-actions">
+          <span>
+            已选择 {{ batchSelectedLineIds.length }} 包，未确认 {{ pendingScanLines.length }} 包
+          </span>
+          <el-button
+            type="success"
+            :loading="batchScanConfirming"
+            :disabled="
+              !batchSelectedLineIds.length || batchScanResp.task.status === 'PENDING_REVIEW'
+            "
+            v-hasPermi="['rd:loading-task:dispatch']"
+            @click="confirmBatchScan"
+          >
+            <Icon icon="ep:circle-check" class="mr-5px" />确认已装包件
+          </el-button>
+          <el-button
+            type="danger"
+            :loading="outboundConfirming"
+            :disabled="batchScanResp.task.status !== 'PENDING_REVIEW'"
+            v-hasPermi="['rd:loading-task:dispatch']"
+            @click="confirmOutbound"
+          >
+            <Icon icon="ep:finished" class="mr-5px" />确认出库过账
+          </el-button>
+        </div>
+        <el-table
+          ref="batchLineTableRef"
+          :data="batchScanResp.lines"
+          row-key="id"
+          max-height="430"
+          @selection-change="onBatchLineSelection"
+        >
+          <el-table-column type="selection" width="48" :selectable="batchLineSelectable" />
+          <el-table-column prop="plannedLocationCode" label="库位" width="110" />
+          <el-table-column prop="packageCode" label="包码" min-width="170" />
+          <el-table-column prop="customerName" label="客户" min-width="150" />
+          <el-table-column prop="productModel" label="型号" width="110" />
+          <el-table-column prop="furnaceNo" label="炉号" width="120" />
+          <el-table-column prop="furnaceLayer" label="炉层" width="90" />
+          <el-table-column prop="packageWeight" label="重量 kg" width="100" align="right" />
+          <el-table-column label="状态" width="105">
+            <template #default="scope">{{ lineStatusLabel(scope.row.lineStatus) }}</template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </ContentWrap>
+  </template>
+
   <Dialog v-model="taskVisible" title="装车任务详情" width="960px">
     <template v-if="taskDetail">
       <el-descriptions :column="3" border>
@@ -306,8 +423,10 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import {
   RdLoadingApi,
+  type LoadingBatchScanResp,
   type LoadingPackage,
   type LoadingTask,
   type LoadingTaskLine,
@@ -318,6 +437,7 @@ import {
 import { RdPutawayTaskApi, type RdPutawayLocationMapVO } from '@/api/rd/stock/putaway'
 
 defineOptions({ name: 'RdLoadingDispatch' })
+const route = useRoute()
 const message = useMessage()
 const tab = ref('dispatch')
 const refreshing = ref(false)
@@ -351,6 +471,16 @@ const taskTotal = ref(0)
 const taskLoading = ref(false)
 const taskVisible = ref(false)
 const taskDetail = ref<{ task: LoadingTask; lines: LoadingTaskLine[] }>()
+const batchScanForm = reactive({
+  taskId: undefined as number | undefined,
+  packageCode: ''
+})
+const batchScanLoading = ref(false)
+const batchScanConfirming = ref(false)
+const outboundConfirming = ref(false)
+const batchScanResp = ref<LoadingBatchScanResp>()
+const batchSelectedLineIds = ref<number[]>([])
+const batchLineTableRef = ref()
 const statusOptions = [
   { value: 'ASSIGNED', label: '已派单' },
   { value: 'LOADING', label: '装车中' },
@@ -361,6 +491,13 @@ const statusOptions = [
 ]
 const statusLabel = (status: string) =>
   statusOptions.find((item) => item.value === status)?.label || status
+const lineStatusOptions: Record<string, string> = {
+  PLANNED: '待确认',
+  SCANNED: '已扫码',
+  LOADED: '已装车',
+  OUTBOUNDED: '已出库'
+}
+const lineStatusLabel = (status: string) => lineStatusOptions[status] || status
 const progress = (task: LoadingTask) =>
   task.plannedPackageCount
     ? Math.round((task.scannedPackageCount / task.plannedPackageCount) * 100)
@@ -380,6 +517,13 @@ const matchingLines = (pkg: LoadingPackage) =>
       (!line.furnaceNo || line.furnaceNo === pkg.furnaceNo) &&
       (!line.furnaceLayer || line.furnaceLayer === pkg.furnaceLayer)
   )
+const pendingScanLines = computed(
+  () => batchScanResp.value?.lines.filter((line) => line.lineStatus === 'PLANNED') || []
+)
+const batchLineSelectable = (row: LoadingTaskLine) => row.lineStatus === 'PLANNED'
+const createIdempotencyKey = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  `loading-batch-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 const searchSlips = async (term: string) => {
   const page = await RdLoadingApi.getPickupSlipPage({
@@ -473,18 +617,108 @@ const openTask = async (id: number) => {
   taskDetail.value = await RdLoadingApi.getTask(id)
   taskVisible.value = true
 }
+const onBatchLineSelection = (rows: LoadingTaskLine[]) => {
+  batchSelectedLineIds.value = rows.map((row) => row.id)
+}
+const applyDefaultBatchSelection = async () => {
+  await nextTick()
+  batchSelectedLineIds.value = []
+  batchLineTableRef.value?.clearSelection?.()
+  for (const line of pendingScanLines.value) {
+    batchLineTableRef.value?.toggleRowSelection?.(line, true)
+  }
+}
+const previewBatchScan = async () => {
+  if (!batchScanForm.packageCode) return
+  batchScanLoading.value = true
+  try {
+    batchScanResp.value = await RdLoadingApi.previewBatchScan({
+      taskId: batchScanForm.taskId,
+      packageCode: batchScanForm.packageCode.trim(),
+      deviceCode: 'WEB_KEEPER'
+    })
+    await applyDefaultBatchSelection()
+  } finally {
+    batchScanLoading.value = false
+  }
+}
+const confirmBatchScan = async () => {
+  if (!batchScanResp.value || !batchSelectedLineIds.value.length) return
+  batchScanConfirming.value = true
+  try {
+    batchScanResp.value = await RdLoadingApi.confirmBatchScan({
+      taskId: batchScanResp.value.task.id,
+      representativePackageCode:
+        batchScanResp.value.representativePackageCode || batchScanForm.packageCode.trim(),
+      idempotencyKey: createIdempotencyKey(),
+      taskLineIds: batchSelectedLineIds.value,
+      deviceCode: 'WEB_KEEPER',
+      deviceTime: new Date().toISOString()
+    })
+    message.success(batchScanResp.value.message || '装车扫码已确认')
+    await applyDefaultBatchSelection()
+    await loadTasks()
+  } finally {
+    batchScanConfirming.value = false
+  }
+}
+const confirmOutbound = async () => {
+  if (!batchScanResp.value || batchScanResp.value.task.status !== 'PENDING_REVIEW') return
+  await message.confirm(
+    `确认将装车任务 ${batchScanResp.value.task.taskNo} 的 ${batchScanResp.value.task.scannedPackageCount} 包正式出库过账吗？过账后将扣减库存并释放库位。`
+  )
+  outboundConfirming.value = true
+  try {
+    const result = await RdLoadingApi.confirmOutbound({
+      taskId: batchScanResp.value.task.id,
+      version: batchScanResp.value.task.version
+    })
+    message.success(result.message || '装车任务已确认出库')
+    batchScanResp.value = await RdLoadingApi.previewBatchScan({
+      taskId: result.taskId,
+      packageCode:
+        batchScanResp.value.representativePackageCode || batchScanForm.packageCode.trim(),
+      deviceCode: 'WEB_KEEPER'
+    })
+    await applyDefaultBatchSelection()
+    await loadTasks()
+  } finally {
+    outboundConfirming.value = false
+  }
+}
 const refresh = async () => {
   refreshing.value = true
   try {
     if (tab.value === 'dispatch')
       await Promise.all([searchSlips(''), loadPackages(), loadLocations()])
-    else await loadTasks()
+    else if (tab.value === 'tasks') await loadTasks()
+    else if (batchScanForm.packageCode) await previewBatchScan()
   } finally {
     refreshing.value = false
   }
 }
 const loadLocations = async () => {
   locations.value = await RdPutawayTaskApi.getLocationMap()
+}
+const getRouteString = (key: string) => {
+  const value = route.query[key]
+  return Array.isArray(value) ? value[0] || '' : String(value || '')
+}
+const applyRouteScanQuery = () => {
+  const packageCode = getRouteString('packageCode')
+  const locationCode = getRouteString('locationCode')
+  if (!packageCode && !locationCode) return
+  tab.value = packageCode ? 'batchScan' : 'dispatch'
+  if (packageCode) {
+    packageQuery.keyword = packageCode
+    batchScanForm.packageCode = packageCode
+    packageQuery.pageNo = 1
+    previewBatchScan()
+  }
+  if (locationCode) {
+    const matched = locations.value.find((item) => item.locationCode === locationCode)
+    if (matched) packageQuery.locationId = matched.id
+  }
 }
 onMounted(async () => {
   await Promise.all([
@@ -495,7 +729,13 @@ onMounted(async () => {
     }),
     loadTasks()
   ])
+  applyRouteScanQuery()
 })
+
+watch(
+  () => [route.query.packageCode, route.query.locationCode],
+  () => applyRouteScanQuery()
+)
 </script>
 
 <style scoped>
@@ -506,17 +746,51 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 12px;
 }
+
 .heading h2 {
   margin: 0;
   font-size: 18px;
 }
+
 .selected-summary {
   margin-bottom: 12px;
   font-weight: 600;
 }
-@media (max-width: 720px) {
+
+.scan-banner,
+.scan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scan-banner {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+}
+
+.scan-title {
+  font-weight: 700;
+}
+
+.scan-desc {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+}
+
+.scan-actions {
+  margin: 14px 0;
+  font-weight: 600;
+}
+
+@media (width <= 720px) {
   .heading,
-  .table-footer {
+  .table-footer,
+  .scan-banner,
+  .scan-actions {
     flex-wrap: wrap;
   }
 }

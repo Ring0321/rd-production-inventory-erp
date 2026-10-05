@@ -23,6 +23,13 @@
         <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" />查询</el-button>
         <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" />重置</el-button>
         <el-button
+          :loading="exportLoading"
+          v-hasPermi="['rd:inbound-order:query']"
+          @click="handleExport"
+        >
+          <Icon icon="ep:download" class="mr-5px" />导出逐袋明细
+        </el-button>
+        <el-button
           type="primary"
           plain
           v-hasPermi="['rd:inbound-order:create']"
@@ -235,6 +242,7 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import { formatDate } from '@/utils/formatTime'
+import download from '@/utils/download'
 import { RdWarehouseLocationApi, type RdWarehouseLocationVO } from '@/api/rd/masterdata/location'
 import { RdPackageUnitApi, type RdPackageUnitVO } from '@/api/rd/stock/package'
 import {
@@ -261,6 +269,7 @@ const statusMap = Object.fromEntries(statusOptions.map((item) => [item.value, it
 >
 const message = useMessage()
 const loading = ref(false)
+const exportLoading = ref(false)
 const list = ref<RdInboundOrderVO[]>([])
 const total = ref(0)
 const pageParams = reactive({ pageNo: 1, pageSize: 10 })
@@ -327,6 +336,15 @@ const resetQuery = () => {
   queryParams.orderNo = undefined
   queryParams.status = undefined
   handleQuery()
+}
+const handleExport = async () => {
+  exportLoading.value = true
+  try {
+    const data = await RdInboundOrderApi.exportLinesExcel(queryParams)
+    download.excel(data, '入库逐袋明细.xlsx')
+  } finally {
+    exportLoading.value = false
+  }
 }
 const openCreate = async () => {
   const [packageData, locations] = await Promise.all([

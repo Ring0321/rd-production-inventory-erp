@@ -8,6 +8,7 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderPageReqVO;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderRespVO;
+import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderLineExportRespVO;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderSaveReqVO;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundActionReqVO;
 import com.ruiding.erp.controller.admin.outbound.vo.RdOutboundOrderDetailRespVO;
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
@@ -180,6 +182,27 @@ public class RdOutboundOrderController {
         List<RdOutboundOrderRespVO> list = buildOutboundOrderPageRespVO(
                 outboundOrderService.getOutboundOrderPage(pageReqVO)).getList();
         ExcelUtils.write(response, "出库单.xls", "数据", RdOutboundOrderRespVO.class, list);
+    }
+
+    @GetMapping("/export-lines-excel")
+    @Operation(summary = "导出出库逐袋明细 Excel")
+    @PreAuthorize("@ss.hasPermission('rd:outbound-order:export')")
+    @ApiAccessLog(operateType = EXPORT)
+    public void exportOutboundLinesExcel(@Valid RdOutboundOrderPageReqVO pageReqVO,
+                                         HttpServletResponse response) throws IOException {
+        pageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
+        List<RdOutboundOrderLineExportRespVO> rows = new ArrayList<>();
+        for (RdOutboundOrderDO order : outboundOrderService.getOutboundOrderPage(pageReqVO).getList()) {
+            for (RdOutboundOrderLineDO line : outboundOrderService.getOutboundOrderLines(order.getId())) {
+                rows.add(new RdOutboundOrderLineExportRespVO()
+                        .setOutboundNo(order.getOutboundNo()).setOutboundDate(order.getOutboundDate())
+                        .setPackageCode(line.getPackageCode()).setBatchCode(line.getFurnaceNo())
+                        .setProductModel(line.getProductModel()).setLocationCode(line.getLocationCode())
+                        .setPackageWeight(line.getPackageWeight()).setScanDevice(line.getScanDevice())
+                        .setStatus(order.getStatus()).setRemark(order.getRemark()));
+            }
+        }
+        ExcelUtils.write(response, "出库逐袋明细.xlsx", "出库明细", RdOutboundOrderLineExportRespVO.class, rows);
     }
 
     private RdOutboundOrderRespVO buildOutboundOrderRespVO(RdOutboundOrderDO outboundOrder) {

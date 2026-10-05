@@ -47,7 +47,7 @@ public interface ErrorCodeConstants {
     ErrorCode PACKAGE_STATUS_INVALID = new ErrorCode(1_080_220_001, "包码当前状态不允许该操作");
     ErrorCode PACKAGE_ALREADY_GENERATED = new ErrorCode(1_080_220_002, "该生产记录已生成包码，不能重复生成");
     ErrorCode PACKAGE_COUNT_MISMATCH = new ErrorCode(1_080_220_003, "拆包数量必须等于生产记录产量包数");
-    ErrorCode PACKAGE_DAILY_SEQUENCE_EXHAUSTED = new ErrorCode(1_080_220_004, "当日包码流水已达到 999，请联系管理员调整编码规则");
+    ErrorCode PACKAGE_DAILY_SEQUENCE_EXHAUSTED = new ErrorCode(1_080_220_004, "当日包码流水已达到 9999，请联系管理员调整编码规则");
     ErrorCode LABEL_REPRINT_REASON_REQUIRED = new ErrorCode(1_080_220_005, "补打标签必须填写补打原因");
 
     // ========== RD quality 1-080-230-000 ==========
@@ -163,6 +163,12 @@ public interface ErrorCodeConstants {
     ErrorCode LOADING_TASK_NOT_EXISTS = new ErrorCode(1_080_530_008, "装车任务不存在或未分配给当前司机");
     ErrorCode LOADING_QUANTITY_MISMATCH = new ErrorCode(1_080_530_009, "选包数量或重量与提货单明细不一致");
     ErrorCode LOADING_FULFILLMENT_INSUFFICIENT = new ErrorCode(1_080_530_010, "订单匹配的可发数量不足或尚未分配库存批次");
+    ErrorCode LOADING_TASK_STATUS_INVALID = new ErrorCode(1_080_530_011, "装车任务当前状态不允许执行该操作");
+    ErrorCode LOADING_PACKAGE_NOT_IN_TASK = new ErrorCode(1_080_530_012, "扫描包码不属于当前有效装车任务");
+    ErrorCode LOADING_PACKAGE_DUPLICATE = new ErrorCode(1_080_530_013, "所选包件已完成装车扫码，请勿重复确认");
+    ErrorCode LOADING_TASK_VERSION_CONFLICT = new ErrorCode(1_080_530_014, "装车任务已被其他人员更新，请刷新后重试");
+    ErrorCode LOADING_CONFIRM_PACKAGES_INCOMPLETE = new ErrorCode(1_080_530_015, "装车任务包件尚未全部复核，不能确认出库");
+    ErrorCode LOADING_CONFIRM_HAS_OPEN_EXCEPTION = new ErrorCode(1_080_530_016, "装车任务仍有未处理异常，不能确认出库");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

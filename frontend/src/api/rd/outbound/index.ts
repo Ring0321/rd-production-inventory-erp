@@ -104,5 +104,8 @@ export const RdOutboundOrderApi = {
   },
   exportExcel: async (params: any) => {
     return await request.download({ url: '/rd/outbound-order/export-excel', params })
+  },
+  exportLinesExcel: async (params: any) => {
+    return await request.download({ url: '/rd/outbound-order/export-lines-excel', params })
   }
 }

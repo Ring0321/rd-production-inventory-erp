@@ -58,6 +58,8 @@ export interface RdInboundReverseReqVO {
 export const RdInboundOrderApi = {
   getPage: (params: PageParam) =>
     request.get<PageResult<RdInboundOrderVO[]>>({ url: '/rd/inbound-order/page', params }),
+  exportLinesExcel: (params: { orderNo?: string; status?: RdInboundOrderStatus }) =>
+    request.download({ url: '/rd/inbound-order/export-lines-excel', params }),
   get: (id: number) =>
     request.get<RdInboundOrderVO>({ url: '/rd/inbound-order/get', params: { id } }),
   create: (data: RdInboundOrderCreateReqVO) =>

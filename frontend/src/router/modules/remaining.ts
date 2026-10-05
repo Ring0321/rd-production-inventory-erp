@@ -90,6 +90,12 @@ const remainingRouter: AppRouteRecordRaw[] = [
     meta: { hidden: true, title: t('router.socialLogin'), noTagsView: true }
   },
   {
+    path: '/pkg/:packageCode',
+    component: () => import('@/views/rd/trace/package/index.vue'),
+    name: 'PackageTrace',
+    meta: { hidden: true, title: '货物数字身份', noTagsView: true }
+  },
+  {
     path: '/403',
     component: () => import('@/views/Error/403.vue'),
     name: 'NoAccess',

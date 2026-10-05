@@ -129,7 +129,9 @@
         <el-progress :percentage="detailProgress" :stroke-width="12" />
         <div class="progress-caption">
           <span>系统已记录 {{ confirmedCount }} 包</span>
-          <span>{{ scanEnabled ? '扫码后立即同步' : statusMeta(taskDetail.task.status).label }}</span>
+          <span>{{
+            scanEnabled ? '扫码后立即同步' : statusMeta(taskDetail.task.status).label
+          }}</span>
         </div>
       </div>
 
@@ -187,12 +189,7 @@
 
         <div class="scan-actions">
           <span>{{ scanEnabled ? '支持扫码枪连续回车' : '任务当前不可继续扫码' }}</span>
-          <el-button
-            type="warning"
-            plain
-            :disabled="!scanEnabled"
-            @click="openExceptionDialog"
-          >
+          <el-button type="warning" plain :disabled="!scanEnabled" @click="openExceptionDialog">
             <Icon icon="lucide:triangle-alert" />
             异常反馈
           </el-button>
@@ -295,6 +292,7 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
 import {
   RdPutawayTaskApi,
@@ -307,6 +305,7 @@ import {
 
 defineOptions({ name: 'RdDriverPutaway' })
 
+const route = useRoute()
 const appStore = useAppStore()
 const message = useMessage()
 const collapseBeforeMobile = ref(appStore.getCollapse)
@@ -535,6 +534,11 @@ const getDeviceCode = () => {
   return value
 }
 
+const getRouteString = (key: string) => {
+  const value = route.query[key]
+  return Array.isArray(value) ? value[0] || '' : String(value || '')
+}
+
 const submitScan = async () => {
   if (!taskDetail.value || !scanEnabled.value || scanSubmitting.value) return
   const rawValue = scanValue.value.trim()
@@ -677,7 +681,19 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => loadTasks(true))
+onMounted(async () => {
+  const packageCode = getRouteString('packageCode')
+  if (packageCode) scanValue.value = packageCode
+  await loadTasks(true)
+})
+
+watch(
+  () => route.query.packageCode,
+  () => {
+    const packageCode = getRouteString('packageCode')
+    if (packageCode) scanValue.value = packageCode
+  }
+)
 </script>
 
 <style scoped lang="scss">

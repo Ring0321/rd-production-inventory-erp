@@ -67,6 +67,7 @@ export interface LoadingTask {
   customerName: string
   vehiclePlate?: string
   transportDriverName?: string
+  transportDriverPhone?: string
   warehouseKeeperName?: string
   forkliftDriverName?: string
   status: string
@@ -74,7 +75,13 @@ export interface LoadingTask {
   scannedPackageCount: number
   plannedWeight: number
   scannedWeight: number
+  planVersion?: number
+  version?: number
   assignedTime?: string
+  startTime?: string
+  scanCompleteTime?: string
+  confirmTime?: string
+  remark?: string
 }
 
 export interface LoadingTaskLine {
@@ -84,18 +91,48 @@ export interface LoadingTaskLine {
   packageId: number
   packageCode: string
   saleOrderId?: number
+  fulfillmentId?: number
+  stockLotId?: number
   plannedLocationCode: string
+  customerName?: string
   productModel: string
   furnaceNo: string
   furnaceLayer: string
   packageWeight: number
   lineStatus: string
+  planVersion?: number
+  scanTime?: string
+  remark?: string
 }
 
 export interface LoadingDriverOption {
   id: number
   nickname: string
   username: string
+}
+
+export interface LoadingBatchScanResp {
+  recordId?: number
+  task: LoadingTask
+  lines: LoadingTaskLine[]
+  matchedTaskLineId?: number
+  representativePackageCode: string
+  scanResult: string
+  success: boolean
+  replayed: boolean
+  confirmedCount: number
+  remainingCount: number
+  confirmedWeight: number
+  message: string
+}
+
+export interface LoadingConfirmOutboundResp {
+  taskId: number
+  taskNo: string
+  outboundOrderIds: number[]
+  outboundPackageCount: number
+  outboundWeight: number
+  message: string
 }
 
 export const RdLoadingApi = {
@@ -132,6 +169,18 @@ export const RdLoadingApi = {
     selections: Array<{ pickupSlipLineId: number; packageId: number }>
     remark?: string
   }) => request.post<number>({ url: '/rd/loading-task/create', data }),
+  previewBatchScan: (data: { taskId?: number; packageCode: string; deviceCode?: string }) =>
+    request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/preview', data }),
+  confirmBatchScan: (data: {
+    taskId: number
+    representativePackageCode: string
+    idempotencyKey: string
+    taskLineIds: number[]
+    deviceCode?: string
+    deviceTime?: string
+  }) => request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/confirm', data }),
+  confirmOutbound: (data: { taskId: number; version?: number; remark?: string }) =>
+    request.post<LoadingConfirmOutboundResp>({ url: '/rd/loading-task/confirm-outbound', data }),
   getTaskPage: (params: PageParam & { taskNo?: string; pickupSlipNo?: string; status?: string }) =>
     request.get<PageResult<LoadingTask[]>>({ url: '/rd/loading-task/page', params }),
   getTask: (id: number) =>

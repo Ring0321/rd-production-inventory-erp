@@ -513,6 +513,7 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
+import { useRoute } from 'vue-router'
 import { formatDate } from '@/utils/formatTime'
 import {
   RdPutawayTaskApi,
@@ -540,6 +541,7 @@ const taskStatusMap = Object.fromEntries(
   taskStatusOptions.map((item) => [item.value, item])
 ) as Record<RdPutawayTaskStatus, (typeof taskStatusOptions)[number]>
 
+const route = useRoute()
 const message = useMessage()
 const activeTab = ref('dispatch')
 const refreshing = ref(false)
@@ -714,10 +716,35 @@ const getDriverOptions = async () => {
   driverOptions.value = await RdPutawayTaskApi.getDriverOptions()
 }
 
+const getRouteString = (key: string) => {
+  const value = route.query[key]
+  return Array.isArray(value) ? value[0] || '' : String(value || '')
+}
+
+const prepareRouteScanQuery = () => {
+  const packageCode = getRouteString('packageCode')
+  if (!packageCode) return
+  activeTab.value = 'dispatch'
+  pendingQuery.keyword = packageCode
+  pendingQuery.pageNo = 1
+}
+
+const applyRouteLocation = () => {
+  const locationCode = getRouteString('locationCode')
+  if (!locationCode) return
+  const matched = allLocations.value.find((item) => item.locationCode === locationCode)
+  if (!matched || !isLocationSelectable(matched)) return
+  selectedLocationId.value = matched.id
+  locationQuery.warehouseCode = matched.warehouseCode
+  locationQuery.areaCode = matched.areaCode
+}
+
 const refreshAll = async () => {
   refreshing.value = true
   try {
+    prepareRouteScanQuery()
     await Promise.all([getLocations(), getPendingPackages(), getTasks(), getDriverOptions()])
+    applyRouteLocation()
   } finally {
     refreshing.value = false
   }
@@ -927,6 +954,11 @@ function dateTimeText(value?: string) {
 }
 
 onMounted(refreshAll)
+
+watch(
+  () => [route.query.packageCode, route.query.locationCode],
+  () => refreshAll()
+)
 </script>
 
 <style scoped>

@@ -11,12 +11,17 @@ import com.ruiding.erp.dal.dataobject.loading.*;
 import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
 import com.ruiding.erp.dal.dataobject.order.RdOrderFulfillmentDO;
 import com.ruiding.erp.dal.dataobject.order.RdSaleOrderDO;
+import com.ruiding.erp.dal.dataobject.outbound.RdOutboundOrderDO;
+import com.ruiding.erp.dal.dataobject.outbound.RdOutboundOrderLineDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.mysql.loading.*;
 import com.ruiding.erp.dal.mysql.masterdata.RdWarehouseLocationMapper;
 import com.ruiding.erp.dal.mysql.order.RdOrderFulfillmentMapper;
 import com.ruiding.erp.dal.mysql.order.RdSaleOrderMapper;
+import com.ruiding.erp.dal.mysql.outbound.RdOutboundOrderLineMapper;
+import com.ruiding.erp.dal.mysql.outbound.RdOutboundOrderMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.enums.RdLoadingTaskActionEnum;
@@ -24,7 +29,9 @@ import com.ruiding.erp.enums.RdLoadingTaskActorEnum;
 import com.ruiding.erp.enums.RdLoadingTaskStatusEnum;
 import com.ruiding.erp.enums.RdOrderFulfillmentStatusEnum;
 import com.ruiding.erp.enums.RdOrderStatusEnum;
+import com.ruiding.erp.enums.RdOutboundOrderStatusEnum;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
+import com.ruiding.erp.service.outbound.RdOutboundOrderService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +41,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,17 +58,29 @@ import static com.ruiding.erp.enums.ErrorCodeConstants.*;
 @Service
 public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     private static final String DRIVER_ROLE = "rd_forklift_driver";
+    private static final String LINE_PLANNED = "PLANNED";
+    private static final String LINE_SCANNED = "SCANNED";
+    private static final String LINE_OUTBOUNDED = "OUTBOUNDED";
+    private static final String SCAN_DEVICE_LOADING_TASK = "LOADING_TASK";
+    private static final Set<String> PHYSICAL_STOCK_STATUSES = Set.of(
+            RdPackageStatusEnum.IN_STOCK.getStatus(),
+            RdPackageStatusEnum.OUTBOUND_PENDING.getStatus());
 
     @Resource private RdPickupSlipMapper slipMapper;
     @Resource private RdPickupSlipLineMapper slipLineMapper;
     @Resource private RdLoadingTaskMapper taskMapper;
     @Resource private RdLoadingTaskLineMapper taskLineMapper;
+    @Resource private RdLoadingScanRecordMapper scanRecordMapper;
+    @Resource private RdLoadingExceptionMapper exceptionMapper;
     @Resource private RdLoadingPackageClaimMapper claimMapper;
     @Resource private RdPackageUnitMapper packageMapper;
     @Resource private RdStockLotMapper stockLotMapper;
     @Resource private RdWarehouseLocationMapper locationMapper;
     @Resource private RdSaleOrderMapper saleOrderMapper;
     @Resource private RdOrderFulfillmentMapper fulfillmentMapper;
+    @Resource private RdOutboundOrderMapper outboundOrderMapper;
+    @Resource private RdOutboundOrderLineMapper outboundOrderLineMapper;
+    @Resource private RdOutboundOrderService outboundOrderService;
     @Resource private AdminUserService userService;
     @Resource private PermissionService permissionService;
 
@@ -347,7 +367,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
             line.setFurnaceNo(unit.getFurnaceNo());
             line.setFurnaceLayer(unit.getFurnaceLayer());
             line.setPackageWeight(unit.getPackageWeight());
-            line.setLineStatus("PLANNED");
+            line.setLineStatus(LINE_PLANNED);
             line.setPlanVersion(1);
             line.setVersion(0);
             taskLineMapper.insert(line);
@@ -367,6 +387,248 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         slip.setVersion(slip.getVersion() == null ? 1 : slip.getVersion() + 1);
         slipMapper.updateById(slip);
         return task.getId();
+    }
+
+    @Override
+    public RdLoadingBatchScanRespVO previewBatchScan(RdLoadingBatchScanPreviewReqVO req) {
+        String packageCode = normalizePackageCode(req.getPackageCode());
+        RdLoadingTaskLineDO matched = findLoadingLineForPackage(req.getTaskId(), packageCode);
+        if (matched == null) {
+            throw exception(LOADING_PACKAGE_NOT_IN_TASK);
+        }
+        RdLoadingTaskDO task = taskMapper.selectById(matched.getTaskId());
+        if (task == null) {
+            throw exception(LOADING_TASK_NOT_EXISTS);
+        }
+        List<RdLoadingTaskLineDO> lines = sortedTaskLines(task.getId());
+        return buildBatchScanResponse(null, task, lines, matched, packageCode,
+                "PREVIEW", true, false, 0, BigDecimal.ZERO,
+                "已识别装车任务，可核对后批量确认实际已装包件");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RdLoadingBatchScanRespVO confirmBatchScan(RdLoadingBatchScanConfirmReqVO req,
+                                                     Long keeperId,
+                                                     String keeperName) {
+        String packageCode = normalizePackageCode(req.getRepresentativePackageCode());
+        RdLoadingTaskDO task = taskMapper.selectByIdForUpdate(req.getTaskId());
+        if (task == null) {
+            throw exception(LOADING_TASK_NOT_EXISTS);
+        }
+        RdLoadingScanRecordDO replay = scanRecordMapper.selectByTaskAndIdempotencyKey(
+                task.getId(), req.getIdempotencyKey());
+        if (replay != null) {
+            List<RdLoadingTaskLineDO> replayLines = sortedTaskLines(task.getId());
+            RdLoadingTaskLineDO replayLine = replayLines.stream()
+                    .filter(item -> Objects.equals(item.getId(), replay.getTaskLineId()))
+                    .findFirst().orElse(null);
+            return buildBatchScanResponse(replay, task, replayLines, replayLine,
+                    replay.getPackageCode(), replay.getScanResult(), replay.getSuccess(), true,
+                    0, BigDecimal.ZERO, "重复提交已识别，已返回上一次装车扫码结果");
+        }
+
+        String statusBefore = task.getStatus();
+        RdLoadingTaskStatusEnum current = parseLoadingTaskStatus(task.getStatus());
+        if (current != RdLoadingTaskStatusEnum.ASSIGNED && current != RdLoadingTaskStatusEnum.LOADING) {
+            throw exception(LOADING_TASK_STATUS_INVALID);
+        }
+
+        List<RdLoadingTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
+        lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
+        RdLoadingTaskLineDO representative = lines.stream()
+                .filter(item -> Objects.equals(normalizeCode(item.getPackageCode()), normalizeCode(packageCode)))
+                .findFirst().orElse(null);
+        if (representative == null) {
+            throw exception(LOADING_PACKAGE_NOT_IN_TASK);
+        }
+
+        Set<Long> selectedIds = new HashSet<>(req.getTaskLineIds());
+        if (selectedIds.size() != req.getTaskLineIds().size()) {
+            throw exception(LOADING_PACKAGE_INVALID);
+        }
+        List<RdLoadingTaskLineDO> selectedLines = lines.stream()
+                .filter(item -> selectedIds.contains(item.getId()))
+                .collect(Collectors.toList());
+        if (selectedLines.size() != selectedIds.size()) {
+            throw exception(LOADING_PACKAGE_NOT_IN_TASK);
+        }
+        List<RdLoadingTaskLineDO> toConfirm = selectedLines.stream()
+                .filter(item -> !countedAsScanned(item.getLineStatus()))
+                .collect(Collectors.toList());
+        if (toConfirm.isEmpty()) {
+            throw exception(LOADING_PACKAGE_DUPLICATE);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal confirmedWeight = BigDecimal.ZERO;
+        for (RdLoadingTaskLineDO line : toConfirm) {
+            if (!LINE_PLANNED.equals(line.getLineStatus())) {
+                throw exception(LOADING_TASK_STATUS_INVALID);
+            }
+            line.setLineStatus(LINE_SCANNED);
+            line.setScanTime(now);
+            line.setVersion(nextVersion(line.getVersion()));
+            taskLineMapper.updateById(line);
+            confirmedWeight = confirmedWeight.add(zero(line.getPackageWeight()));
+        }
+
+        if (current == RdLoadingTaskStatusEnum.ASSIGNED) {
+            task.setStatus(RdLoadingTaskStatusMachine.transition(current,
+                    RdLoadingTaskActionEnum.START, RdLoadingTaskActorEnum.WAREHOUSE_KEEPER).getStatus());
+            if (task.getStartTime() == null) {
+                task.setStartTime(now);
+            }
+        }
+        int scanned = (int) lines.stream().filter(item -> countedAsScanned(item.getLineStatus())).count();
+        BigDecimal scannedWeight = lines.stream()
+                .filter(item -> countedAsScanned(item.getLineStatus()))
+                .map(item -> zero(item.getPackageWeight()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        task.setScannedPackageCount(scanned);
+        task.setScannedWeight(scannedWeight);
+        if (scanned == zero(task.getPlannedPackageCount())) {
+            task.setStatus(RdLoadingTaskStatusMachine.transition(parseLoadingTaskStatus(task.getStatus()),
+                    RdLoadingTaskActionEnum.COMPLETE_SCANNING,
+                    RdLoadingTaskActorEnum.WAREHOUSE_KEEPER).getStatus());
+            task.setScanCompleteTime(now);
+        }
+        task.setVersion(nextVersion(task.getVersion()));
+        taskMapper.updateById(task);
+
+        RdLoadingScanRecordDO record = insertScanRecord(req, task, representative, packageCode,
+                "BATCH_CONFIRMED", true, statusBefore, task.getStatus(), keeperId, keeperName, now);
+        return buildBatchScanResponse(record, task, lines, representative, packageCode,
+                record.getScanResult(), true, false, toConfirm.size(), confirmedWeight,
+                "已按代表码批量确认 " + toConfirm.size() + " 包，仍保留每包独立二维码记录");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RdLoadingConfirmOutboundRespVO confirmOutbound(RdLoadingConfirmOutboundReqVO req,
+                                                          Long keeperId,
+                                                          String keeperName) {
+        RdLoadingTaskDO task = taskMapper.selectByIdForUpdate(req.getTaskId());
+        if (task == null) {
+            throw exception(LOADING_TASK_NOT_EXISTS);
+        }
+        if (req.getVersion() != null && !Objects.equals(zero(task.getVersion()), req.getVersion())) {
+            throw exception(LOADING_TASK_VERSION_CONFLICT);
+        }
+        RdLoadingTaskStatusEnum current = parseLoadingTaskStatus(task.getStatus());
+        if (current != RdLoadingTaskStatusEnum.PENDING_REVIEW) {
+            throw exception(LOADING_TASK_STATUS_INVALID);
+        }
+        if (!exceptionMapper.selectOpenListByTaskIdForUpdate(task.getId()).isEmpty()) {
+            throw exception(LOADING_CONFIRM_HAS_OPEN_EXCEPTION);
+        }
+        List<RdLoadingTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
+        lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
+        if (lines.isEmpty() || lines.stream().anyMatch(line -> !LINE_SCANNED.equals(line.getLineStatus()))
+                || lines.stream().anyMatch(line -> line.getFulfillmentId() == null
+                || line.getSaleOrderId() == null || line.getStockLotId() == null
+                || line.getPackageId() == null || !positive(line.getPackageWeight()))) {
+            throw exception(LOADING_CONFIRM_PACKAGES_INCOMPLETE);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> outboundOrderIds = new ArrayList<>();
+        Set<Long> touchedLocationIds = new HashSet<>();
+        int totalPackages = 0;
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        int orderIndex = 1;
+        Map<Long, List<RdLoadingTaskLineDO>> linesByFulfillment = lines.stream()
+                .collect(Collectors.groupingBy(RdLoadingTaskLineDO::getFulfillmentId));
+        for (Map.Entry<Long, List<RdLoadingTaskLineDO>> entry : linesByFulfillment.entrySet()) {
+            RdOrderFulfillmentDO fulfillment = fulfillmentMapper.selectByIdForUpdate(entry.getKey());
+            if (fulfillment == null || fulfillment.getOrderId() == null || fulfillment.getStockLotId() == null) {
+                throw exception(LOADING_FULFILLMENT_INSUFFICIENT);
+            }
+            RdStockLotDO stockLot = stockLotMapper.selectByIdForUpdate(fulfillment.getStockLotId());
+            if (stockLot == null) {
+                throw exception(STOCK_LOT_NOT_EXISTS);
+            }
+
+            List<RdLoadingTaskLineDO> groupLines = entry.getValue();
+            RdOutboundOrderDO outboundOrder = buildLoadingOutboundOrder(task, fulfillment, stockLot,
+                    groupLines, keeperId, keeperName, now, orderIndex++, req.getRemark());
+            outboundOrderMapper.insert(outboundOrder);
+
+            for (RdLoadingTaskLineDO line : groupLines) {
+                RdPackageUnitDO unit = packageMapper.selectByIdForUpdate(line.getPackageId());
+                validateLoadingLineForOutbound(task, line, unit, fulfillment);
+                RdLoadingPackageClaimDO claim = claimMapper.selectByPackageIdForUpdate(line.getPackageId());
+                if (claim == null || !Objects.equals(claim.getTaskId(), task.getId())
+                        || !Objects.equals(claim.getTaskLineId(), line.getId())) {
+                    throw exception(LOADING_PACKAGE_INVALID);
+                }
+                touchedLocationIds.add(unit.getLocationId());
+                unit.setStatus(RdPackageStatusEnum.OUTBOUND_PENDING.getStatus());
+                unit.setVersion(nextVersion(unit.getVersion()));
+                packageMapper.updateById(unit);
+
+                RdOutboundOrderLineDO outboundLine = buildLoadingOutboundLine(outboundOrder, line,
+                        unit, keeperId, keeperName);
+                outboundOrderLineMapper.insert(outboundLine);
+                line.setOutboundOrderId(outboundOrder.getId());
+                line.setOutboundOrderLineId(outboundLine.getId());
+                line.setVersion(nextVersion(line.getVersion()));
+                taskLineMapper.updateById(line);
+            }
+
+            outboundOrderService.postOutboundOrder(outboundOrder.getId(), null, keeperId, keeperName);
+            Map<Long, RdOutboundOrderLineDO> postedLineMap = outboundOrderLineMapper
+                    .selectListByOrderId(outboundOrder.getId()).stream()
+                    .collect(Collectors.toMap(RdOutboundOrderLineDO::getPackageId, item -> item));
+            for (RdLoadingTaskLineDO line : groupLines) {
+                RdOutboundOrderLineDO postedLine = postedLineMap.get(line.getPackageId());
+                if (postedLine == null || postedLine.getStockTransactionId() == null) {
+                    throw exception(OUTBOUND_ORDER_STATUS_INVALID);
+                }
+                line.setLineStatus(LINE_OUTBOUNDED);
+                line.setStockTransactionId(postedLine.getStockTransactionId());
+                line.setVersion(nextVersion(line.getVersion()));
+                taskLineMapper.updateById(line);
+            }
+            outboundOrderIds.add(outboundOrder.getId());
+            totalPackages += groupLines.size();
+            totalWeight = totalWeight.add(groupLines.stream()
+                    .map(item -> zero(item.getPackageWeight()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add));
+        }
+
+        for (RdLoadingPackageClaimDO claim : claimMapper.selectListByTaskIdForUpdate(task.getId())) {
+            claimMapper.deleteById(claim.getId());
+        }
+        reconcileLocationOccupancy(touchedLocationIds);
+
+        task.setStatus(RdLoadingTaskStatusMachine.transition(current,
+                RdLoadingTaskActionEnum.CONFIRM_OUTBOUND, RdLoadingTaskActorEnum.WAREHOUSE_KEEPER).getStatus());
+        task.setReviewerId(keeperId);
+        task.setReviewerName(keeperName);
+        task.setScannedPackageCount(totalPackages);
+        task.setScannedWeight(totalWeight);
+        task.setConfirmTime(now);
+        task.setVersion(nextVersion(task.getVersion()));
+        taskMapper.updateById(task);
+
+        RdPickupSlipDO slip = slipMapper.selectByIdForUpdate(task.getPickupSlipId(), TenantContextHolder.getTenantId());
+        if (slip == null) {
+            throw exception(PICKUP_SLIP_NOT_EXISTS);
+        }
+        slip.setStatus("SHIPPED");
+        slip.setVersion(nextVersion(slip.getVersion()));
+        slipMapper.updateById(slip);
+
+        RdLoadingConfirmOutboundRespVO resp = new RdLoadingConfirmOutboundRespVO();
+        resp.setTaskId(task.getId());
+        resp.setTaskNo(task.getTaskNo());
+        resp.setOutboundOrderIds(outboundOrderIds);
+        resp.setOutboundPackageCount(totalPackages);
+        resp.setOutboundWeight(totalWeight);
+        resp.setMessage("已确认出库 " + totalPackages + " 包，生成并过账 "
+                + outboundOrderIds.size() + " 张出库单");
+        return resp;
     }
 
     @Override
@@ -399,4 +661,223 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     private static boolean positive(Integer value) { return value != null && value > 0; }
     private static boolean positive(BigDecimal value) { return value != null && value.signum() > 0; }
     private static String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private static int zero(Integer value) { return value == null ? 0 : value; }
+    private static BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
+    private static int nextVersion(Integer version) { return version == null ? 1 : version + 1; }
+
+    private RdLoadingTaskLineDO findLoadingLineForPackage(Long taskId, String packageCode) {
+        if (taskId != null) {
+            return taskLineMapper.selectListByTaskId(taskId).stream()
+                    .filter(item -> Objects.equals(normalizeCode(item.getPackageCode()), normalizeCode(packageCode)))
+                    .findFirst().orElse(null);
+        }
+        return taskLineMapper.selectActiveByPackageCode(packageCode);
+    }
+
+    private List<RdLoadingTaskLineDO> sortedTaskLines(Long taskId) {
+        List<RdLoadingTaskLineDO> lines = taskLineMapper.selectListByTaskId(taskId);
+        lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
+        return lines;
+    }
+
+    private RdLoadingScanRecordDO insertScanRecord(RdLoadingBatchScanConfirmReqVO req,
+                                                   RdLoadingTaskDO task,
+                                                   RdLoadingTaskLineDO line,
+                                                   String packageCode,
+                                                   String scanResult,
+                                                   boolean success,
+                                                   String statusBefore,
+                                                   String statusAfter,
+                                                   Long operatorId,
+                                                   String operatorName,
+                                                   LocalDateTime now) {
+        RdLoadingScanRecordDO record = new RdLoadingScanRecordDO();
+        record.setTaskId(task.getId());
+        record.setTaskLineId(line == null ? null : line.getId());
+        record.setPackageId(line == null ? null : line.getPackageId());
+        record.setPackageCode(packageCode);
+        record.setPlanVersion(task.getPlanVersion());
+        record.setIdempotencyKey(req.getIdempotencyKey());
+        record.setScanResult(scanResult);
+        record.setSuccess(success);
+        record.setTaskStatusBefore(statusBefore);
+        record.setTaskStatusAfter(statusAfter);
+        record.setObservedLocationCode(line == null ? null : line.getPlannedLocationCode());
+        record.setDeviceCode(req.getDeviceCode());
+        record.setOperatorId(operatorId);
+        record.setOperatorName(operatorName);
+        record.setDeviceTime(req.getDeviceTime());
+        record.setScanTime(now);
+        scanRecordMapper.insert(record);
+        return record;
+    }
+
+    private RdLoadingBatchScanRespVO buildBatchScanResponse(RdLoadingScanRecordDO record,
+                                                            RdLoadingTaskDO task,
+                                                            List<RdLoadingTaskLineDO> lines,
+                                                            RdLoadingTaskLineDO matched,
+                                                            String packageCode,
+                                                            String scanResult,
+                                                            boolean success,
+                                                            boolean replayed,
+                                                            int confirmedCount,
+                                                            BigDecimal confirmedWeight,
+                                                            String message) {
+        RdLoadingBatchScanRespVO resp = new RdLoadingBatchScanRespVO();
+        resp.setRecordId(record == null ? null : record.getId());
+        resp.setTask(task);
+        resp.setLines(lines);
+        resp.setMatchedTaskLineId(matched == null ? null : matched.getId());
+        resp.setRepresentativePackageCode(packageCode);
+        resp.setScanResult(scanResult);
+        resp.setSuccess(success);
+        resp.setReplayed(replayed);
+        resp.setConfirmedCount(confirmedCount);
+        resp.setRemainingCount((int) lines.stream().filter(item -> !countedAsScanned(item.getLineStatus())).count());
+        resp.setConfirmedWeight(confirmedWeight);
+        resp.setMessage(message);
+        return resp;
+    }
+
+    private RdOutboundOrderDO buildLoadingOutboundOrder(RdLoadingTaskDO task,
+                                                        RdOrderFulfillmentDO fulfillment,
+                                                        RdStockLotDO stockLot,
+                                                        List<RdLoadingTaskLineDO> lines,
+                                                        Long keeperId,
+                                                        String keeperName,
+                                                        LocalDateTime now,
+                                                        int orderIndex,
+                                                        String remark) {
+        BigDecimal weight = lines.stream()
+                .map(item -> zero(item.getPackageWeight()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        RdOutboundOrderDO outboundOrder = new RdOutboundOrderDO();
+        outboundOrder.setOutboundNo(generateLoadingOutboundNo(task.getTaskNo(), orderIndex));
+        outboundOrder.setOutboundDate(LocalDate.now());
+        outboundOrder.setOrderId(fulfillment.getOrderId());
+        outboundOrder.setFulfillmentId(fulfillment.getId());
+        outboundOrder.setStockLotId(fulfillment.getStockLotId());
+        outboundOrder.setQuantity(BigDecimal.valueOf(lines.size()));
+        outboundOrder.setPackageWeight(stockLot.getPackageWeight());
+        outboundOrder.setWeight(weight);
+        outboundOrder.setStatus(RdOutboundOrderStatusEnum.APPROVED.getStatus());
+        outboundOrder.setVersion(0);
+        outboundOrder.setSubmitterName("装车任务自动生成");
+        outboundOrder.setSubmitTime(now);
+        outboundOrder.setReviewerId(keeperId);
+        outboundOrder.setReviewerName(keeperName);
+        outboundOrder.setReviewTime(now);
+        outboundOrder.setRemark(joinRemark("来源装车任务 " + task.getTaskNo(), remark));
+        return outboundOrder;
+    }
+
+    private RdOutboundOrderLineDO buildLoadingOutboundLine(RdOutboundOrderDO order,
+                                                           RdLoadingTaskLineDO taskLine,
+                                                           RdPackageUnitDO unit,
+                                                           Long keeperId,
+                                                           String keeperName) {
+        RdOutboundOrderLineDO outboundLine = new RdOutboundOrderLineDO();
+        outboundLine.setOrderId(order.getId());
+        outboundLine.setPackageId(unit.getId());
+        outboundLine.setPackageCode(unit.getPackageCode());
+        outboundLine.setStockLotId(unit.getStockLotId());
+        outboundLine.setLocationId(unit.getLocationId());
+        outboundLine.setLocationCode(unit.getLocationCode());
+        outboundLine.setCustomerName(unit.getCustomerName());
+        outboundLine.setProductModel(unit.getProductModel());
+        outboundLine.setFurnaceNo(unit.getFurnaceNo());
+        outboundLine.setFurnaceLayer(unit.getFurnaceLayer());
+        outboundLine.setPackageWeight(unit.getPackageWeight());
+        outboundLine.setScanDevice(SCAN_DEVICE_LOADING_TASK);
+        outboundLine.setScannerId(keeperId);
+        outboundLine.setScannerName(keeperName);
+        return outboundLine;
+    }
+
+    private void validateLoadingLineForOutbound(RdLoadingTaskDO task,
+                                                RdLoadingTaskLineDO line,
+                                                RdPackageUnitDO unit,
+                                                RdOrderFulfillmentDO fulfillment) {
+        if (unit == null || !Objects.equals(unit.getTenantId(), task.getTenantId())
+                || !RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())
+                || !Objects.equals(unit.getId(), line.getPackageId())
+                || !Objects.equals(unit.getPackageCode(), line.getPackageCode())
+                || !Objects.equals(unit.getStockLotId(), line.getStockLotId())
+                || !Objects.equals(unit.getStockLotId(), fulfillment.getStockLotId())
+                || !Objects.equals(line.getSaleOrderId(), fulfillment.getOrderId())
+                || !Objects.equals(unit.getLocationId(), line.getPlannedLocationId())
+                || !Objects.equals(unit.getLocationCode(), line.getPlannedLocationCode())
+                || !Objects.equals(unit.getCustomerName(), line.getCustomerName())
+                || !Objects.equals(unit.getProductModel(), line.getProductModel())
+                || !Objects.equals(unit.getFurnaceNo(), line.getFurnaceNo())
+                || !Objects.equals(unit.getFurnaceLayer(), line.getFurnaceLayer())
+                || unit.getPackageWeight() == null
+                || unit.getPackageWeight().compareTo(zero(line.getPackageWeight())) != 0) {
+            throw exception(LOADING_PACKAGE_INVALID);
+        }
+    }
+
+    private void reconcileLocationOccupancy(Set<Long> locationIds) {
+        for (Long locationId : locationIds) {
+            if (locationId == null) {
+                continue;
+            }
+            RdWarehouseLocationDO location = locationMapper.selectByIdForUpdate(locationId);
+            if (location == null) {
+                continue;
+            }
+            RdLocationCapacitySummaryDO summary = packageMapper
+                    .selectLocationOccupancySummaryByLocationId(locationId, PHYSICAL_STOCK_STATUSES);
+            location.setOccupiedPackages(summary == null ? BigDecimal.ZERO : zero(summary.getPackageCount()));
+            location.setOccupiedWeight(summary == null ? BigDecimal.ZERO : zero(summary.getTotalWeight()));
+            location.setVersion(nextVersion(location.getVersion()));
+            locationMapper.updateById(location);
+        }
+    }
+
+    private static RdLoadingTaskStatusEnum parseLoadingTaskStatus(String status) {
+        try {
+            return RdLoadingTaskStatusEnum.valueOf(status);
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw exception(LOADING_TASK_STATUS_INVALID);
+        }
+    }
+
+    private static boolean countedAsScanned(String lineStatus) {
+        return LINE_SCANNED.equals(lineStatus) || "LOADED".equals(lineStatus) || "OUTBOUNDED".equals(lineStatus);
+    }
+
+    private static String normalizePackageCode(String value) {
+        String text = blankToNull(value);
+        if (text == null) {
+            return null;
+        }
+        int query = text.indexOf('?');
+        if (query >= 0) {
+            text = text.substring(0, query);
+        }
+        int hash = text.indexOf('#');
+        if (hash >= 0) {
+            text = text.substring(0, hash);
+        }
+        int slash = text.lastIndexOf('/');
+        if (slash >= 0 && slash < text.length() - 1) {
+            text = text.substring(slash + 1);
+        }
+        return text.trim();
+    }
+
+    private static String normalizeCode(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private static String generateLoadingOutboundNo(String taskNo, int orderIndex) {
+        return "CK" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))
+                + "-" + orderIndex + "-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+
+    private static String joinRemark(String prefix, String remark) {
+        String text = blankToNull(remark);
+        return text == null ? prefix : prefix + "；" + text;
+    }
 }

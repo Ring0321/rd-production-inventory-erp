@@ -788,7 +788,7 @@ SELECT 600007,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM
 WHERE id IN (600000,600200,600201,600203,600207,600208,600209,600214,600236,600244,600250,600251,600260,600261,600262,600263,600267);
 
 INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
-(600008,'RD_FORKLIFT_DRIVER','叉车司机岗',24,0,'执行上架与装车任务、扫码和异常上报','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
+(600008,'RD_FORKLIFT_DRIVER','叉车司机岗',24,0,'接收上架与装车任务、按派单搬运和反馈异常','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
 ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
 
 INSERT INTO `system_role` (`id`,`name`,`code`,`sort`,`data_scope`,`data_scope_dept_ids`,`status`,`type`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
@@ -909,7 +909,8 @@ INSERT INTO `system_menu`
 (600281,'提货单录入','rd:pickup-slip:create',3,10,600280,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
 (600282,'出库装车','rd:loading-task:query',2,40,600200,'loading','ep:van','rd/stock/loading/index','RdLoadingDispatch',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
 (600283,'装车派单','rd:loading-task:dispatch',3,10,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
-(600284,'执行装车任务','rd:loading-task:execute',3,20,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+(600284,'执行装车任务','rd:loading-task:execute',3,20,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
+(600285,'叉车装车','rd:loading-task:execute',2,41,600200,'driver-loading','lucide:truck','rd/pda/loading/index','RdDriverLoading',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`type`=VALUES(`type`),
 `sort`=VALUES(`sort`),`parent_id`=VALUES(`parent_id`),`path`=VALUES(`path`),`icon`=VALUES(`icon`),
 `component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`status`=0,
@@ -917,8 +918,8 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT 600003,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600281)
 UNION ALL SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600282,600283)
-UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600280 AND 600284
-UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id=600284;
+UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600280 AND 600285
+UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600284,600285);
 
 COMMIT;
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;

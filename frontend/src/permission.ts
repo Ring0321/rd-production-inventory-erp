@@ -24,6 +24,8 @@ const whiteList = [
   '/oauthLogin/gitee'
 ]
 
+const isPublicRoute = (path: string) => whiteList.includes(path) || path.startsWith('/pkg/')
+
 // 路由加载前
 router.beforeEach(async (to, from, next) => {
   start()
@@ -61,7 +63,7 @@ router.beforeEach(async (to, from, next) => {
       }
     }
   } else {
-    if (whiteList.indexOf(to.path) !== -1) {
+    if (isPublicRoute(to.path)) {
       next()
     } else {
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`) // 否则全部重定向到登录页

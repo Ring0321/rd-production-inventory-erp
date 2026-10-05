@@ -4,6 +4,11 @@ param(
     [switch]$SkipFrontendBuild,
     [ValidateSet("Auto", "Docker", "Local")]
     [string]$InfrastructureMode = "Auto",
+    [string]$InstanceName = "",
+    [int]$DbPort = 3307,
+    [int]$RedisPort = 6379,
+    [int]$BackendPort = 48080,
+    [int]$WebPort = 9000,
     [int]$StartupTimeoutSeconds = 240
 )
 
@@ -14,14 +19,14 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $backendRoot = Join-Path $repoRoot "backend"
 $frontendRoot = Join-Path $repoRoot "frontend"
 $composeFile = Join-Path $repoRoot "deploy\local-infra\compose.yaml"
-$envFile = Join-Path $repoRoot "deploy\local-infra\.env.local"
-$runtimeRoot = Join-Path $repoRoot "temp\local-runtime"
+$runtimeRoot = Join-Path $repoRoot $(if ($InstanceName) { "temp\local-runtime-$InstanceName" } else { "temp\local-runtime" })
+$envFile = if ($InstanceName) { Join-Path $runtimeRoot ".env.local" } else { Join-Path $repoRoot "deploy\local-infra\.env.local" }
 $backendPidFile = Join-Path $runtimeRoot "backend.pid"
 $frontendPidFile = Join-Path $runtimeRoot "frontend.pid"
 $mysqlPidFile = Join-Path $runtimeRoot "mysql.pid"
 $redisPidFile = Join-Path $runtimeRoot "redis.pid"
 $infraModeFile = Join-Path $runtimeRoot "infrastructure-mode.txt"
-$mysqlDataRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "RdErp\mysql-data"
+$mysqlDataRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) $(if ($InstanceName) { "RdErp\mysql-data-$InstanceName" } else { "RdErp\mysql-data" })
 $garnetToolRoot = Join-Path $runtimeRoot "garnet"
 $garnetDataRoot = Join-Path $runtimeRoot "garnet-data"
 
@@ -37,10 +42,10 @@ function Initialize-LocalEnvironment {
             "RD_DB_PASSWORD=$(New-LocalSecret 'Db')",
             "RD_REDIS_PASSWORD=$(New-LocalSecret 'Redis')",
             "RD_ADMIN_INITIAL_PASSWORD=$(New-LocalSecret 'Admin')",
-            "RD_DB_PORT=3307",
-            "RD_REDIS_PORT=6379",
-            "RD_BACKEND_PORT=48080",
-            "RD_WEB_PORT=9000"
+            "RD_DB_PORT=$DbPort",
+            "RD_REDIS_PORT=$RedisPort",
+            "RD_BACKEND_PORT=$BackendPort",
+            "RD_WEB_PORT=$WebPort"
         )
         [IO.File]::WriteAllLines($envFile, $lines, [Text.UTF8Encoding]::new($false))
     }
@@ -240,9 +245,9 @@ function Start-LocalMySql([int]$port) {
             "--datadir=`"$mysqlDataRoot`"",
             "--port=$port",
             "--bind-address=127.0.0.1",
-            "--mysqlx-port=33070",
+            "--mysqlx-port=$($port + 30000)",
             "--server-id=2026",
-            "--shared-memory-base-name=RD_ERP_MYSQL",
+            "--shared-memory-base-name=RD_ERP_MYSQL_$InstanceName",
             "--skip-log-bin",
             "--character-set-server=utf8mb4",
             "--collation-server=utf8mb4_unicode_ci",

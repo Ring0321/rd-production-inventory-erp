@@ -29,6 +29,15 @@
         >
           <Icon icon="ep:plus" class="mr-5px" />生成包码
         </el-button>
+        <el-button
+          type="success"
+          plain
+          :loading="exportLoading"
+          v-hasPermi="['rd:package-unit:query']"
+          @click="handleExport"
+        >
+          <Icon icon="ep:download" class="mr-5px" />导出 Excel
+        </el-button>
       </el-form-item>
     </el-form>
   </ContentWrap>
@@ -189,6 +198,9 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import QRCode from 'qrcode'
+import { useRoute } from 'vue-router'
+import download from '@/utils/download'
+import { getPackageDigitalLink } from '@/utils/rdDigitalLink'
 import { RdProductionOutputApi, type RdProductionOutputVO } from '@/api/rd/production/output'
 import {
   RdPackageUnitApi,
@@ -215,8 +227,10 @@ const packageStatusOptions: Array<{ value: RdPackageStatus; label: string; type:
 const packageStatusMap = Object.fromEntries(
   packageStatusOptions.map((item) => [item.value, item])
 ) as Record<RdPackageStatus, (typeof packageStatusOptions)[number]>
+const route = useRoute()
 const message = useMessage()
 const loading = ref(false)
+const exportLoading = ref(false)
 const list = ref<RdPackageUnitVO[]>([])
 const total = ref(0)
 const traceMode = ref(false)
@@ -255,19 +269,36 @@ const getList = async () => {
   }
 }
 const handleQuery = async () => {
-  if (!queryParams.productionOutputId) {
+  const packageCode = queryParams.packageCode?.trim()
+  if (!packageCode && !queryParams.productionOutputId) {
     pageParams.pageNo = 1
     await getList()
     return
   }
   loading.value = true
   try {
-    list.value = await RdPackageUnitApi.trace(queryParams.productionOutputId)
+    list.value = await RdPackageUnitApi.trace({
+      packageCode: packageCode || undefined,
+      productionOutputId: queryParams.productionOutputId
+    })
     total.value = list.value.length
     traceMode.value = true
   } finally {
     loading.value = false
   }
+}
+const getRouteString = (key: string) => {
+  const value = route.query[key]
+  return Array.isArray(value) ? value[0] || '' : String(value || '')
+}
+const getRouteNumber = (key: string) => {
+  const value = Number(getRouteString(key))
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+const applyRouteQuery = async () => {
+  queryParams.packageCode = getRouteString('packageCode') || undefined
+  queryParams.productionOutputId = getRouteNumber('productionOutputId')
+  await handleQuery()
 }
 const resetQuery = () => {
   queryFormRef.value?.resetFields()
@@ -275,6 +306,15 @@ const resetQuery = () => {
   queryParams.productionOutputId = undefined
   pageParams.pageNo = 1
   getList()
+}
+const handleExport = async () => {
+  exportLoading.value = true
+  try {
+    const data = await RdPackageUnitApi.exportExcel(queryParams)
+    download.excel(data, '吨袋包码台账.xlsx')
+  } finally {
+    exportLoading.value = false
+  }
 }
 const openGenerate = async () => {
   const data = await RdProductionOutputApi.getPage({ pageNo: 1, pageSize: -1 })
@@ -304,7 +344,7 @@ const submitGenerate = async () => {
 }
 const openPreview = async (row: RdPackageUnitVO) => {
   previewPackage.value = row
-  qrDataUrl.value = await QRCode.toDataURL(row.qrCode || row.packageCode, {
+  qrDataUrl.value = await QRCode.toDataURL(getPackageDigitalLink(row.packageCode, row.qrCode), {
     width: 220,
     margin: 1,
     errorCorrectionLevel: 'M'
@@ -335,7 +375,7 @@ const printLabel = async (item: RdPackageUnitVO, reprint: boolean) => {
     return
   }
   try {
-    const qrUrl = await QRCode.toDataURL(item.qrCode || item.packageCode, {
+    const qrUrl = await QRCode.toDataURL(getPackageDigitalLink(item.packageCode, item.qrCode), {
       width: 360,
       margin: 1,
       errorCorrectionLevel: 'M'
@@ -355,7 +395,15 @@ const printLabel = async (item: RdPackageUnitVO, reprint: boolean) => {
   }
 }
 
-onMounted(getList)
+onMounted(() => {
+  if (route.query.packageCode || route.query.productionOutputId) return applyRouteQuery()
+  return getList()
+})
+
+watch(
+  () => [route.query.packageCode, route.query.productionOutputId],
+  () => applyRouteQuery()
+)
 </script>
 
 <style scoped>

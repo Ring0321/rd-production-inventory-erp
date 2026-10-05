@@ -76,6 +76,7 @@ yudao:
     enable: ${RD_CAPTCHA_ENABLED:false}
 rd:
   erp:
+    digital-link-base-url: ${RD_DIGITAL_LINK_BASE_URL:https://id.tjldsic.com/pkg}
     bootstrap:
       admin-password: ${RD_ADMIN_INITIAL_PASSWORD:}
     auth:

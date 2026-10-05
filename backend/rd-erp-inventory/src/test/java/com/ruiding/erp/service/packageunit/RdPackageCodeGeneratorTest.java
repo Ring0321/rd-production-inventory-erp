@@ -18,7 +18,7 @@ class RdPackageCodeGeneratorTest {
             codes.add(generator.generate(LocalDate.of(2026, 7, 12), sequence));
         }
         assertEquals(100, codes.size());
-        assertEquals("20260712001", generator.generate(LocalDate.of(2026, 7, 12), 1));
-        assertEquals("20260712100", generator.generate(LocalDate.of(2026, 7, 12), 100));
+        assertEquals("LD20260712A0001", generator.generate(LocalDate.of(2026, 7, 12), 1));
+        assertEquals("LD20260712A0100", generator.generate(LocalDate.of(2026, 7, 12), 100));
     }
 }

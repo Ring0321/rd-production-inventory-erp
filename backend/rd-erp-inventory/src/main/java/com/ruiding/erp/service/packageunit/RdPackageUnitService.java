@@ -1,6 +1,7 @@
 package com.ruiding.erp.service.packageunit;
 
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceRespVO;
 
 import java.util.List;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
@@ -12,5 +13,6 @@ public interface RdPackageUnitService {
     RdPackageUnitDO get(Long id);
     List<RdPackageUnitDO> getByProductionOutputId(Long productionOutputId);
     List<RdPackageUnitDO> trace(String packageCode, Long productionOutputId);
+    RdPackageTraceRespVO getTraceDetail(String packageCode, boolean internalView);
     PageResult<RdPackageUnitDO> page(PageParam pageParam);
 }
