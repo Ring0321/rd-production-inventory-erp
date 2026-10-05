@@ -257,12 +257,24 @@ const previewVisible = ref(false)
 const previewPackage = ref<RdPackageUnitVO>()
 const qrDataUrl = ref('')
 
+const formatBusinessDate = (value: unknown): string => {
+  if (Array.isArray(value) && value.length >= 3) {
+    return `${value[0]}-${String(value[1]).padStart(2, '0')}-${String(value[2]).padStart(2, '0')}`
+  }
+  return typeof value === 'string' ? value : ''
+}
+const normalizePackageDates = (item: RdPackageUnitVO): RdPackageUnitVO => ({
+  ...item,
+  productionDate: formatBusinessDate(item.productionDate),
+  furnaceOutDate: formatBusinessDate(item.furnaceOutDate)
+})
+
 const getList = async () => {
   loading.value = true
   traceMode.value = false
   try {
     const data = await RdPackageUnitApi.getPage(pageParams)
-    list.value = data.list
+    list.value = data.list.map(normalizePackageDates)
     total.value = data.total
   } finally {
     loading.value = false
@@ -277,10 +289,11 @@ const handleQuery = async () => {
   }
   loading.value = true
   try {
-    list.value = await RdPackageUnitApi.trace({
+    const packages = await RdPackageUnitApi.trace({
       packageCode: packageCode || undefined,
       productionOutputId: queryParams.productionOutputId
     })
+    list.value = packages.map(normalizePackageDates)
     total.value = list.value.length
     traceMode.value = true
   } finally {
