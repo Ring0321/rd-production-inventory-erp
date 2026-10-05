@@ -309,7 +309,11 @@
         class="mb-12px"
         :type="batchScanResp.success ? 'success' : 'warning'"
         :closable="false"
-        :title="batchScanResp.message"
+        :title="
+          batchScanResp.task.status === 'OUTBOUNDED'
+            ? '该任务已完成出库，逐包明细只读，不能重复确认或过账'
+            : batchScanResp.message
+        "
       />
       <template v-if="batchScanResp">
         <el-descriptions :column="4" border>
@@ -631,13 +635,22 @@ const applyDefaultBatchSelection = async () => {
 const previewBatchScan = async () => {
   if (!batchScanForm.packageCode) return
   batchScanLoading.value = true
+  const packageCode = batchScanForm.packageCode.trim()
+  const scannedCode = packageCode.split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop()
+  const previousTaskId =
+    scannedCode?.toUpperCase() === batchScanResp.value?.representativePackageCode?.toUpperCase()
+      ? batchScanResp.value?.task.id
+      : undefined
   try {
     batchScanResp.value = await RdLoadingApi.previewBatchScan({
-      taskId: batchScanForm.taskId,
-      packageCode: batchScanForm.packageCode.trim(),
+      taskId: batchScanForm.taskId ?? previousTaskId,
+      packageCode,
       deviceCode: 'WEB_KEEPER'
     })
     await applyDefaultBatchSelection()
+  } catch {
+    batchScanResp.value = undefined
+    batchSelectedLineIds.value = []
   } finally {
     batchScanLoading.value = false
   }
@@ -707,6 +720,8 @@ const getRouteString = (key: string) => {
 const applyRouteScanQuery = () => {
   const packageCode = getRouteString('packageCode')
   const locationCode = getRouteString('locationCode')
+  const taskId = Number(getRouteString('taskId'))
+  batchScanForm.taskId = Number.isFinite(taskId) && taskId > 0 ? taskId : undefined
   if (!packageCode && !locationCode) return
   tab.value = packageCode ? 'batchScan' : 'dispatch'
   if (packageCode) {
@@ -733,7 +748,7 @@ onMounted(async () => {
 })
 
 watch(
-  () => [route.query.packageCode, route.query.locationCode],
+  () => [route.query.packageCode, route.query.locationCode, route.query.taskId],
   () => applyRouteScanQuery()
 )
 </script>

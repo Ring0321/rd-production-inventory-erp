@@ -171,7 +171,7 @@
               <dd>{{ trace.customerName || '-' }}</dd>
             </div>
             <div>
-              <dt>当前库位</dt>
+              <dt>{{ trace.status === 'OUTBOUNDED' ? '出库前库位' : '当前库位' }}</dt>
               <dd>{{ trace.locationCode || '暂未上架' }}</dd>
             </div>
             <div>
@@ -211,7 +211,7 @@
                 <strong>{{ batchStats.totalWeightText }}</strong>
               </div>
               <div class="batch-summary-card">
-                <span>涉及库位</span>
+                <span>涉及库位（含历史）</span>
                 <strong>{{ batchStats.locationCount }} 个</strong>
               </div>
               <div class="batch-summary-card">
@@ -334,14 +334,17 @@ const weightText = computed(() => {
   if (trace.value?.packageWeight === undefined || trace.value?.packageWeight === null) return '-'
   return `${trace.value.packageWeight} kg`
 })
+const qualityDecision = computed(() =>
+  String(trace.value?.qualityConclusion || trace.value?.qualityStatus || '').toUpperCase()
+)
 const qualityTone = computed(() => {
-  if (trace.value?.qualityConclusion === 'PASS') return 'success'
-  if (trace.value?.qualityConclusion === 'REJECT') return 'danger'
+  if (['PASS', 'PASSED'].includes(qualityDecision.value)) return 'success'
+  if (['REJECT', 'REJECTED'].includes(qualityDecision.value)) return 'danger'
   return 'pending'
 })
 const qualityText = computed(() => {
-  if (trace.value?.qualityConclusion === 'PASS') return '合格'
-  if (trace.value?.qualityConclusion === 'REJECT') return '不合格'
+  if (qualityTone.value === 'success') return '合格'
+  if (qualityTone.value === 'danger') return '不合格'
   if (trace.value?.qualityStatus) return '已送检'
   return '待质检'
 })
@@ -402,9 +405,9 @@ const featureCards = computed(() => {
       hint: '扫一包带出同生产记录'
     },
     {
-      label: '当前库位',
+      label: trace.value.status === 'OUTBOUNDED' ? '出库前库位' : '当前库位',
       value: trace.value.internalView ? trace.value.locationCode || '暂未上架' : '内部可见',
-      hint: '库管确认后同步'
+      hint: trace.value.status === 'OUTBOUNDED' ? '仅供历史追溯，当前已离库' : '库管确认后同步'
     },
     {
       label: '下一步',

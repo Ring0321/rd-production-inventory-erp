@@ -20,10 +20,14 @@ import org.springframework.context.annotation.Bean;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 @AutoConfiguration(after = JacksonAutoConfiguration.class)
 @Slf4j
 public class YudaoJacksonAutoConfiguration {
+
+    private static final LocalDateSerializer BUSINESS_DATE_SERIALIZER =
+            new LocalDateSerializer(DateTimeFormatter.ISO_LOCAL_DATE);
 
     /**
      * 从 Builder 源头定制（关键：使用 *ByType，避免 handledType 要求）
@@ -35,7 +39,7 @@ public class YudaoJacksonAutoConfiguration {
                 .serializerByType(Long.class, NumberSerializer.INSTANCE)
                 .serializerByType(Long.TYPE, NumberSerializer.INSTANCE)
                 // LocalDate / LocalTime
-                .serializerByType(LocalDate.class, LocalDateSerializer.INSTANCE)
+                .serializerByType(LocalDate.class, BUSINESS_DATE_SERIALIZER)
                 .deserializerByType(LocalDate.class, LocalDateDeserializer.INSTANCE)
                 .serializerByType(LocalTime.class, LocalTimeSerializer.INSTANCE)
                 .deserializerByType(LocalTime.class, LocalTimeDeserializer.INSTANCE)
@@ -54,7 +58,7 @@ public class YudaoJacksonAutoConfiguration {
         m.addSerializer(Long.class, NumberSerializer.INSTANCE);
         m.addSerializer(Long.TYPE, NumberSerializer.INSTANCE);
         // LocalDate / LocalTime
-        m.addSerializer(LocalDate.class, LocalDateSerializer.INSTANCE);
+        m.addSerializer(LocalDate.class, BUSINESS_DATE_SERIALIZER);
         m.addDeserializer(LocalDate.class, LocalDateDeserializer.INSTANCE);
         m.addSerializer(LocalTime.class, LocalTimeSerializer.INSTANCE);
         m.addDeserializer(LocalTime.class, LocalTimeDeserializer.INSTANCE);
