@@ -173,6 +173,8 @@ public interface ErrorCodeConstants {
     ErrorCode LOADING_EXCEPTION_HANDLE_REQUIRED = new ErrorCode(1_080_530_018, "处理装车异常必须填写处理说明");
     ErrorCode LOADING_EXCEPTION_ACTION_INVALID = new ErrorCode(1_080_530_019, "请选择有效的装车异常处理方式");
     ErrorCode LOADING_EXCEPTION_NOT_EXISTS = new ErrorCode(1_080_530_020, "装车任务没有待处理异常");
+    ErrorCode LOADING_REPLACEMENT_REQUIRED = new ErrorCode(1_080_530_021, "换货处理必须选择原任务包和替换包码");
+    ErrorCode LOADING_REPLACEMENT_LINE_INVALID = new ErrorCode(1_080_530_022, "只能替换未出库且未完成扫码的任务包件");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

@@ -226,6 +226,7 @@ export const RdLoadingApi = {
     handlingResult: string
     resolvedLocationId?: number
     resolvedLocationCode?: string
+    replacements?: Array<{ taskLineId: number; newPackageCode: string }>
   }) => request.put<boolean>({ url: '/rd/loading-task/exception/resolve', data }),
   getTaskPage: (params: PageParam & { taskNo?: string; pickupSlipNo?: string; status?: string }) =>
     request.get<PageResult<LoadingTask[]>>({ url: '/rd/loading-task/page', params }),

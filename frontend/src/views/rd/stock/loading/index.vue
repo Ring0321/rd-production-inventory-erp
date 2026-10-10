@@ -452,6 +452,9 @@
         <el-table-column prop="handlingResult" label="处理说明" min-width="220" />
       </el-table>
       <div v-if="taskDetail.task.status === 'EXCEPTION_PENDING'" class="exception-actions">
+        <el-button type="warning" plain @click="openResolveExceptionDialog('REPLACE_PACKAGE')">
+          替换包后继续
+        </el-button>
         <el-button type="primary" plain @click="openResolveExceptionDialog('RETURN_TO_DRIVER')">
           退回司机继续执行
         </el-button>
@@ -466,10 +469,35 @@
     <el-form label-width="96px">
       <el-form-item label="处理动作">
         <el-radio-group v-model="exceptionResolveForm.resolutionAction">
+          <el-radio-button label="REPLACE_PACKAGE">替换包后继续</el-radio-button>
           <el-radio-button label="RETURN_TO_DRIVER">退回司机继续执行</el-radio-button>
           <el-radio-button label="CANCEL">取消任务</el-radio-button>
         </el-radio-group>
       </el-form-item>
+      <template v-if="exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE'">
+        <el-form-item label="原任务包" required>
+          <el-select
+            v-model="exceptionResolveForm.taskLineId"
+            filterable
+            class="!w-full"
+            placeholder="选择需要替换的原计划包"
+          >
+            <el-option
+              v-for="line in replaceableTaskLines"
+              :key="line.id"
+              :value="line.id"
+              :label="`${line.packageCode} · ${line.plannedLocationCode} · ${line.productModel} ${line.furnaceLayer || ''}`"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="替换包码" required>
+          <el-input
+            v-model="exceptionResolveForm.newPackageCode"
+            clearable
+            placeholder="扫描或填写新包二维码链接/包码"
+          />
+        </el-form-item>
+      </template>
       <el-form-item label="处理说明" required>
         <el-input
           v-model="exceptionResolveForm.handlingResult"
@@ -545,7 +573,9 @@ const exceptionResolveVisible = ref(false)
 const exceptionResolving = ref(false)
 const exceptionResolveForm = reactive({
   resolutionAction: 'RETURN_TO_DRIVER',
-  handlingResult: ''
+  handlingResult: '',
+  taskLineId: undefined as number | undefined,
+  newPackageCode: ''
 })
 const batchScanForm = reactive({
   taskId: undefined as number | undefined,
@@ -609,6 +639,11 @@ const pendingScanLines = computed(
 )
 const openTaskExceptions = computed<LoadingException[]>(
   () => taskDetail.value?.exceptions?.filter((item) => item.exceptionStatus === 'OPEN') || []
+)
+const replaceableTaskLines = computed(
+  () =>
+    taskDetail.value?.lines.filter((line) => ['PLANNED', 'EXCEPTION'].includes(line.lineStatus)) ||
+    []
 )
 const batchLineSelectable = (row: LoadingTaskLine) => row.lineStatus === 'PLANNED'
 const createIdempotencyKey = () =>
@@ -707,12 +742,22 @@ const openTask = async (id: number) => {
   taskDetail.value = await RdLoadingApi.getTask(id)
   taskVisible.value = true
 }
-const openResolveExceptionDialog = (resolutionAction: 'RETURN_TO_DRIVER' | 'CANCEL') => {
+const openResolveExceptionDialog = (
+  resolutionAction: 'REPLACE_PACKAGE' | 'RETURN_TO_DRIVER' | 'CANCEL'
+) => {
   exceptionResolveForm.resolutionAction = resolutionAction
+  const firstOpenException = openTaskExceptions.value.find((item) => item.taskLineId)
+  exceptionResolveForm.taskLineId =
+    resolutionAction === 'REPLACE_PACKAGE'
+      ? firstOpenException?.taskLineId || replaceableTaskLines.value[0]?.id
+      : undefined
+  exceptionResolveForm.newPackageCode = ''
   exceptionResolveForm.handlingResult =
-    resolutionAction === 'RETURN_TO_DRIVER'
-      ? '仓管员已核实现场异常，退回司机按任务继续搬运。'
-      : '仓管员已核实现场异常，取消本次装车任务并释放未出库包件占用。'
+    resolutionAction === 'REPLACE_PACKAGE'
+      ? '仓管员已核实异常，使用同客户同型号替换包，退回司机继续执行。'
+      : resolutionAction === 'RETURN_TO_DRIVER'
+        ? '仓管员已核实现场异常，退回司机按任务继续搬运。'
+        : '仓管员已核实现场异常，取消本次装车任务并释放未出库包件占用。'
   exceptionResolveVisible.value = true
 }
 const resolveLoadingException = async () => {
@@ -722,6 +767,12 @@ const resolveLoadingException = async () => {
     message.warning('请填写处理说明')
     return
   }
+  if (exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE') {
+    if (!exceptionResolveForm.taskLineId || !exceptionResolveForm.newPackageCode.trim()) {
+      message.warning('请选择原任务包并扫描替换包码')
+      return
+    }
+  }
   exceptionResolving.value = true
   const taskId = taskDetail.value.task.id
   try {
@@ -729,7 +780,16 @@ const resolveLoadingException = async () => {
       taskId,
       version: taskDetail.value.task.version || 0,
       resolutionAction: exceptionResolveForm.resolutionAction,
-      handlingResult
+      handlingResult,
+      replacements:
+        exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE'
+          ? [
+              {
+                taskLineId: exceptionResolveForm.taskLineId!,
+                newPackageCode: exceptionResolveForm.newPackageCode.trim()
+              }
+            ]
+          : undefined
     })
     message.success('装车异常已处理')
     exceptionResolveVisible.value = false

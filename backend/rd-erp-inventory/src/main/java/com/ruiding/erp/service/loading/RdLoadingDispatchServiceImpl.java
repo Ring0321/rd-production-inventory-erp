@@ -68,11 +68,12 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     private static final String EXCEPTION_STATUS_RESOLVED = "RESOLVED";
     private static final String RESOLUTION_RETURN_TO_DRIVER = "RETURN_TO_DRIVER";
     private static final String RESOLUTION_CANCEL = "CANCEL";
+    private static final String RESOLUTION_REPLACE_PACKAGE = "REPLACE_PACKAGE";
     private static final Set<String> LOADING_EXCEPTION_TYPES = Set.of(
             "MISSING_PACKAGE", "LOCATION_MISMATCH", "WRONG_PACKAGE",
             "LABEL_DAMAGED", "VEHICLE_CHANGED", "OTHER");
     private static final Set<String> LOADING_EXCEPTION_RESOLUTION_ACTIONS = Set.of(
-            RESOLUTION_RETURN_TO_DRIVER, RESOLUTION_CANCEL);
+            RESOLUTION_RETURN_TO_DRIVER, RESOLUTION_CANCEL, RESOLUTION_REPLACE_PACKAGE);
     private static final Set<String> PHYSICAL_STOCK_STATUSES = Set.of(
             RdPackageStatusEnum.IN_STOCK.getStatus(),
             RdPackageStatusEnum.OUTBOUND_PENDING.getStatus());
@@ -719,6 +720,10 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
         LocalDateTime now = LocalDateTime.now();
         closeLoadingExceptions(openExceptions, req, keeperId, keeperName, now);
+        if (RESOLUTION_REPLACE_PACKAGE.equals(req.getResolutionAction())) {
+            replaceLoadingTaskPackages(task, lines, req.getReplacements(), now);
+            return;
+        }
         if (RESOLUTION_RETURN_TO_DRIVER.equals(req.getResolutionAction())) {
             returnLoadingTaskToDriver(task, lines, now);
             return;
@@ -806,6 +811,143 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
             item.setVersion(nextVersion(item.getVersion()));
             exceptionMapper.updateById(item);
         }
+    }
+
+    private void replaceLoadingTaskPackages(RdLoadingTaskDO task,
+                                            List<RdLoadingTaskLineDO> lines,
+                                            List<RdLoadingExceptionResolveReqVO.Replacement> replacements,
+                                            LocalDateTime now) {
+        if (replacements == null || replacements.isEmpty()) {
+            throw exception(LOADING_REPLACEMENT_REQUIRED);
+        }
+        Map<Long, RdLoadingTaskLineDO> lineMap = lines.stream()
+                .collect(Collectors.toMap(RdLoadingTaskLineDO::getId, item -> item));
+        Set<Long> replacedLineIds = new HashSet<>();
+        Set<String> replacementCodes = new HashSet<>();
+        for (RdLoadingExceptionResolveReqVO.Replacement replacement : replacements) {
+            String packageCode = normalizePackageCode(replacement == null ? null : replacement.getNewPackageCode());
+            if (replacement == null || replacement.getTaskLineId() == null
+                    || packageCode == null || !replacementCodes.add(normalizeCode(packageCode))) {
+                throw exception(LOADING_REPLACEMENT_REQUIRED);
+            }
+            RdLoadingTaskLineDO line = lineMap.get(replacement.getTaskLineId());
+            if (line == null || !replacedLineIds.add(line.getId())) {
+                throw exception(LOADING_PACKAGE_NOT_IN_TASK);
+            }
+            if (!LINE_PLANNED.equals(line.getLineStatus()) && !LINE_EXCEPTION.equals(line.getLineStatus())
+                    || line.getOutboundOrderId() != null || line.getStockTransactionId() != null) {
+                throw exception(LOADING_REPLACEMENT_LINE_INVALID);
+            }
+            if (Objects.equals(normalizeCode(line.getPackageCode()), normalizeCode(packageCode))) {
+                throw exception(LOADING_PACKAGE_INVALID);
+            }
+            RdPackageUnitDO unit = packageMapper.selectByPackageCodeForUpdate(packageCode);
+            RdOrderFulfillmentDO fulfillment = validateReplacementPackage(task, line, unit);
+            RdLoadingPackageClaimDO newClaim = claimMapper.selectByPackageIdForUpdate(unit.getId());
+            if (newClaim != null) {
+                throw exception(LOADING_PACKAGE_CLAIMED);
+            }
+            RdLoadingPackageClaimDO oldClaim = claimMapper.selectByPackageIdForUpdate(line.getPackageId());
+            if (oldClaim == null || !Objects.equals(oldClaim.getTaskId(), task.getId())
+                    || !Objects.equals(oldClaim.getTaskLineId(), line.getId())) {
+                throw exception(LOADING_PACKAGE_INVALID);
+            }
+            claimMapper.deleteById(oldClaim.getId());
+            applyReplacementPackage(line, unit, fulfillment);
+            taskLineMapper.updateById(line);
+            RdLoadingPackageClaimDO claim = new RdLoadingPackageClaimDO();
+            Long tenantId = task.getTenantId() == null ? TenantContextHolder.getTenantId() : task.getTenantId();
+            claim.setTenantId(tenantId);
+            claim.setPackageId(unit.getId());
+            claim.setTaskId(task.getId());
+            claim.setTaskLineId(line.getId());
+            claim.setClaimedTime(now);
+            try {
+                claimMapper.insert(claim);
+            } catch (DuplicateKeyException ex) {
+                throw exception(LOADING_PACKAGE_CLAIMED);
+            }
+        }
+        recalculateLoadingPlan(task, lines);
+        returnLoadingTaskToDriver(task, lines, now);
+    }
+
+    private RdOrderFulfillmentDO validateReplacementPackage(RdLoadingTaskDO task,
+                                                            RdLoadingTaskLineDO line,
+                                                            RdPackageUnitDO unit) {
+        Long tenantId = task.getTenantId() == null ? TenantContextHolder.getTenantId() : task.getTenantId();
+        if (unit == null || tenantId != null && !Objects.equals(unit.getTenantId(), tenantId)
+                || !RdPackageStatusEnum.IN_STOCK.getStatus().equals(unit.getStatus())
+                || unit.getLocationId() == null || unit.getStockLotId() == null
+                || !positive(unit.getPackageWeight())
+                || !Objects.equals(unit.getCustomerName(), line.getCustomerName())
+                || !Objects.equals(unit.getProductModel(), line.getProductModel())
+                || !Objects.equals(unit.getFurnaceNo(), line.getFurnaceNo())
+                || !Objects.equals(unit.getFurnaceLayer(), line.getFurnaceLayer())) {
+            throw exception(LOADING_PACKAGE_INVALID);
+        }
+        RdStockLotDO lot = stockLotMapper.selectById(unit.getStockLotId());
+        RdWarehouseLocationDO location = locationMapper.selectById(unit.getLocationId());
+        if (lot == null || location == null || !Boolean.TRUE.equals(location.getEnabled())
+                || Boolean.TRUE.equals(location.getFrozen())
+                || !Objects.equals(location.getLocationCode(), unit.getLocationCode())
+                || !Objects.equals(lot.getLocationId(), unit.getLocationId())
+                || !Objects.equals(lot.getCustomerName(), unit.getCustomerName())
+                || !Objects.equals(lot.getProductModel(), unit.getProductModel())
+                || !Objects.equals(lot.getFurnaceNo(), unit.getFurnaceNo())
+                || !Objects.equals(lot.getFurnaceLayer(), unit.getFurnaceLayer())) {
+            throw exception(LOADING_PACKAGE_INVALID);
+        }
+        if (line.getSaleOrderId() == null) {
+            return null;
+        }
+        RdSaleOrderDO order = saleOrderMapper.selectById(line.getSaleOrderId());
+        if (order == null || !Objects.equals(order.getCustomerName(), task.getCustomerName())
+                || !Objects.equals(order.getProductModel(), unit.getProductModel())
+                || RdOrderStatusEnum.CLOSED.getStatus().equals(order.getStatus())
+                || RdOrderStatusEnum.CANCELLED.getStatus().equals(order.getStatus())) {
+            throw exception(PICKUP_SLIP_ORDER_MISMATCH);
+        }
+        RdOrderFulfillmentDO fulfillment = fulfillmentMapper.selectActive(order.getId(), unit.getStockLotId());
+        if (fulfillment == null || !RdOrderFulfillmentStatusEnum.ALLOCATED.getStatus().equals(fulfillment.getStatus())) {
+            throw exception(LOADING_FULFILLMENT_INSUFFICIENT);
+        }
+        BigDecimal remaining = zero(fulfillment.getAllocatedQty()).subtract(zero(fulfillment.getOutboundQty()));
+        if (remaining.compareTo(BigDecimal.ONE) < 0) {
+            throw exception(LOADING_FULFILLMENT_INSUFFICIENT);
+        }
+        return fulfillment;
+    }
+
+    private void applyReplacementPackage(RdLoadingTaskLineDO line,
+                                         RdPackageUnitDO unit,
+                                         RdOrderFulfillmentDO fulfillment) {
+        line.setPackageId(unit.getId());
+        line.setPackageCode(unit.getPackageCode());
+        line.setFulfillmentId(fulfillment == null ? null : fulfillment.getId());
+        line.setStockLotId(unit.getStockLotId());
+        line.setPlannedLocationId(unit.getLocationId());
+        line.setPlannedLocationCode(unit.getLocationCode());
+        line.setCustomerName(unit.getCustomerName());
+        line.setProductModel(unit.getProductModel());
+        line.setFurnaceNo(unit.getFurnaceNo());
+        line.setFurnaceLayer(unit.getFurnaceLayer());
+        line.setPackageWeight(unit.getPackageWeight());
+        line.setLineStatus(LINE_PLANNED);
+        line.setScanTime(null);
+        line.setPlanVersion(nextVersion(line.getPlanVersion()));
+        line.setVersion(nextVersion(line.getVersion()));
+        line.setRemark(joinRemark("仓管异常换货", line.getRemark()));
+    }
+
+    private void recalculateLoadingPlan(RdLoadingTaskDO task, List<RdLoadingTaskLineDO> lines) {
+        List<RdLoadingTaskLineDO> activeLines = lines.stream()
+                .filter(item -> !LINE_CANCELLED.equals(item.getLineStatus()))
+                .collect(Collectors.toList());
+        task.setPlannedPackageCount(activeLines.size());
+        task.setPlannedWeight(activeLines.stream()
+                .map(item -> zero(item.getPackageWeight()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
     private void returnLoadingTaskToDriver(RdLoadingTaskDO task,

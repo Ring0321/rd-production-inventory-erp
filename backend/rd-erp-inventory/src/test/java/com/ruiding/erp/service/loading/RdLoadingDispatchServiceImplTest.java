@@ -14,6 +14,8 @@ import com.ruiding.erp.dal.dataobject.loading.RdLoadingTaskLineDO;
 import com.ruiding.erp.dal.dataobject.loading.RdPickupSlipDO;
 import com.ruiding.erp.dal.dataobject.loading.RdPickupSlipLineDO;
 import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
+import com.ruiding.erp.dal.dataobject.order.RdOrderFulfillmentDO;
+import com.ruiding.erp.dal.dataobject.order.RdSaleOrderDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.mysql.loading.RdLoadingExceptionMapper;
@@ -46,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -203,6 +206,69 @@ class RdLoadingDispatchServiceImplTest {
     }
 
     @Test
+    void shouldReplacePackageAndReturnTaskToDriverAfterException() {
+        TenantContextHolder.setTenantId(1L);
+        RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.EXCEPTION_PENDING, 2, 0);
+        task.setTenantId(1L);
+        task.setCustomerName("客户甲");
+        task.setVersion(3);
+        RdLoadingTaskLineDO exceptionLine = loadingLine(600L, "PK-OLD", "EXCEPTION");
+        exceptionLine.setSaleOrderId(3000L);
+        exceptionLine.setFulfillmentId(7000L);
+        RdLoadingExceptionDO openException = loadingException();
+        RdLoadingPackageClaimDO oldClaim = new RdLoadingPackageClaimDO();
+        oldClaim.setId(90L);
+        oldClaim.setTaskId(500L);
+        oldClaim.setTaskLineId(600L);
+        RdPackageUnitDO replacementUnit = mockPackage(103L, 203L, 303L, "A", "上层");
+        when(packageMapper.selectByPackageCodeForUpdate("PK103")).thenReturn(replacementUnit);
+        RdSaleOrderDO order = new RdSaleOrderDO();
+        order.setId(3000L);
+        order.setCustomerName("客户甲");
+        order.setProductModel("A");
+        when(saleOrderMapper.selectById(3000L)).thenReturn(order);
+        RdOrderFulfillmentDO fulfillment = new RdOrderFulfillmentDO();
+        fulfillment.setId(8000L);
+        fulfillment.setOrderId(3000L);
+        fulfillment.setStockLotId(303L);
+        fulfillment.setStatus("ALLOCATED");
+        fulfillment.setAllocatedQty(new BigDecimal("10"));
+        fulfillment.setOutboundQty(BigDecimal.ZERO);
+        when(fulfillmentMapper.selectActive(3000L, 303L)).thenReturn(fulfillment);
+        when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
+        when(exceptionMapper.selectOpenListByTaskIdForUpdate(500L)).thenReturn(List.of(openException));
+        when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(exceptionLine));
+        when(claimMapper.selectByPackageIdForUpdate(103L)).thenReturn(null);
+        when(claimMapper.selectByPackageIdForUpdate(exceptionLine.getPackageId())).thenReturn(oldClaim);
+        RdLoadingExceptionResolveReqVO reqVO = new RdLoadingExceptionResolveReqVO();
+        reqVO.setTaskId(500L);
+        reqVO.setVersion(3);
+        reqVO.setResolutionAction("REPLACE_PACKAGE");
+        reqVO.setHandlingResult("仓管改用同客户同型号替换包，退回司机继续装车");
+        RdLoadingExceptionResolveReqVO.Replacement replacement = new RdLoadingExceptionResolveReqVO.Replacement();
+        replacement.setTaskLineId(600L);
+        replacement.setNewPackageCode("https://id.tjldsic.com/pkg/PK103");
+        reqVO.setReplacements(List.of(replacement));
+
+        service.resolveException(reqVO, 20L, "仓管");
+
+        assertEquals("RESOLVED", openException.getExceptionStatus());
+        assertEquals("REPLACE_PACKAGE", openException.getResolutionAction());
+        assertEquals(RdLoadingTaskStatusEnum.ASSIGNED.getStatus(), task.getStatus());
+        assertEquals(103L, exceptionLine.getPackageId());
+        assertEquals("PK103", exceptionLine.getPackageCode());
+        assertEquals(8000L, exceptionLine.getFulfillmentId());
+        assertEquals("PLANNED", exceptionLine.getLineStatus());
+        verify(claimMapper).deleteById(90L);
+        ArgumentCaptor<RdLoadingPackageClaimDO> claims = ArgumentCaptor.forClass(RdLoadingPackageClaimDO.class);
+        verify(claimMapper).insert(claims.capture());
+        assertEquals(103L, claims.getValue().getPackageId());
+        assertEquals(600L, claims.getValue().getTaskLineId());
+        verify(taskLineMapper).updateById(exceptionLine);
+        verify(taskMapper).updateById(task);
+    }
+
+    @Test
     void shouldCancelLoadingTaskAndReleaseClaimsAfterException() {
         TenantContextHolder.setTenantId(1L);
         RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.EXCEPTION_PENDING, 2, 1);
@@ -258,7 +324,7 @@ class RdLoadingDispatchServiceImplTest {
         when(permissionService.hasAnyRoles(30L, "rd_forklift_driver")).thenReturn(true);
     }
 
-    private void mockPackage(Long id, Long locationId, Long lotId, String model, String layer) {
+    private RdPackageUnitDO mockPackage(Long id, Long locationId, Long lotId, String model, String layer) {
         RdPackageUnitDO unit = new RdPackageUnitDO();
         unit.setId(id);
         unit.setTenantId(1L);
@@ -272,7 +338,7 @@ class RdLoadingDispatchServiceImplTest {
         unit.setLocationCode("L" + locationId);
         unit.setStockLotId(lotId);
         unit.setPackageWeight(new BigDecimal("1000"));
-        when(packageMapper.selectByIdForUpdate(id)).thenReturn(unit);
+        lenient().when(packageMapper.selectByIdForUpdate(id)).thenReturn(unit);
         RdWarehouseLocationDO location = new RdWarehouseLocationDO();
         location.setId(locationId);
         location.setLocationCode(unit.getLocationCode());
@@ -287,6 +353,7 @@ class RdLoadingDispatchServiceImplTest {
         lot.setFurnaceNo(unit.getFurnaceNo());
         lot.setFurnaceLayer(layer);
         when(stockLotMapper.selectById(lotId)).thenReturn(lot);
+        return unit;
     }
 
     private static RdPickupSlipLineDO line(Long id, String model, String layer, int count) {
@@ -336,6 +403,13 @@ class RdLoadingDispatchServiceImplTest {
         line.setLineNo(id.intValue());
         line.setPackageId(id + 1000);
         line.setPackageCode(packageCode);
+        line.setCustomerName("客户甲");
+        line.setProductModel("A");
+        line.setFurnaceNo("1-01");
+        line.setFurnaceLayer("上层");
+        line.setStockLotId(301L);
+        line.setPlannedLocationId(201L);
+        line.setPlannedLocationCode("L201");
         line.setLineStatus(status);
         line.setPackageWeight(new BigDecimal("1000"));
         line.setVersion(0);

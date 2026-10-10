@@ -2,9 +2,11 @@ package com.ruiding.erp.controller.admin.loading.vo;
 
 import lombok.Data;
 
+import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+import java.util.List;
 
 @Data
 public class RdLoadingExceptionResolveReqVO {
@@ -26,4 +28,17 @@ public class RdLoadingExceptionResolveReqVO {
 
     @Size(max = 64, message = "处理后库位不能超过 64 个字符")
     private String resolvedLocationCode;
+
+    @Valid
+    private List<Replacement> replacements;
+
+    @Data
+    public static class Replacement {
+        @NotNull(message = "原任务包不能为空")
+        private Long taskLineId;
+
+        @NotBlank(message = "替换包码不能为空")
+        @Size(max = 128, message = "替换包码不能超过 128 个字符")
+        private String newPackageCode;
+    }
 }
