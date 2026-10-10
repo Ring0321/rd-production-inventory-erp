@@ -8,11 +8,21 @@ import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceEventRespVO
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceRespVO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdLabelPrintLogDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdPutawayScanRecordDO;
+import com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO;
+import com.ruiding.erp.dal.dataobject.loading.RdLoadingExceptionDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdPutawayExceptionDO;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdLabelPrintLogMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
+import com.ruiding.erp.dal.mysql.packageunit.RdPackageTaskEventMapper;
+import com.ruiding.erp.dal.mysql.putaway.RdPutawayScanRecordMapper;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingScanRecordMapper;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingExceptionMapper;
+import com.ruiding.erp.dal.mysql.putaway.RdPutawayExceptionMapper;
 import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
 import com.ruiding.erp.dal.mysql.quality.RdQualityInspectionMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockTransactionMapper;
@@ -47,6 +57,11 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
     private RdQualityInspectionMapper qualityInspectionMapper;
     @Resource
     private RdStockTransactionMapper stockTransactionMapper;
+    @Resource private RdPackageTaskEventMapper taskEventMapper;
+    @Resource private RdPutawayScanRecordMapper putawayScanRecordMapper;
+    @Resource private RdLoadingScanRecordMapper loadingScanRecordMapper;
+    @Resource private RdPutawayExceptionMapper putawayExceptionMapper;
+    @Resource private RdLoadingExceptionMapper loadingExceptionMapper;
 
     private final RdPackageCodeGenerator codeGenerator = new RdPackageCodeGenerator();
 
@@ -186,16 +201,92 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
         RdQualityInspectionDO latestInspection = inspections.isEmpty()
                 ? null : inspections.get(inspections.size() - 1);
         List<RdPackageTraceEventRespVO> events = new ArrayList<>();
-        addEvent(events, "PRODUCTION", "货物身份已生成", unit.getCreateTime(), "一包一码已建立");
+        addEvent(events, "PRODUCTION", "货物身份已生成", unit.getCreateTime(),
+                internalView ? "一包一码已建立 / 生产记录 " + unit.getProductionOutputId() : "一包一码已建立");
+        for (RdLabelPrintLogDO log : printLogMapper.selectList(new LambdaQueryWrapperX<RdLabelPrintLogDO>()
+                .eq(RdLabelPrintLogDO::getPackageId, unit.getId()).orderByAsc(RdLabelPrintLogDO::getId))) {
+            boolean reprint = Boolean.TRUE.equals(log.getReprint());
+            String detail = reprint ? "原包号保持不变" : "标签打印已登记";
+            if (internalView) {
+                detail = appendOperator("第 " + log.getPrintSequence() + " 次打印"
+                        + (reprint ? " / 原因：" + nonBlank(log.getReprintReason()) : ""), log.getPrinterName());
+            }
+            addEvent(events, "LABEL", reprint ? "标签补打已登记" : "标签首次打印已登记", log.getPrintTime(), detail);
+        }
         for (RdQualityInspectionDO inspection : inspections) {
             addEvent(events, "QUALITY", "已提交质检", inspection.getSubmitTime(),
                     internalView ? appendOperator("等待复核", inspection.getSubmitterName()) : "等待复核");
-            String qualityTitle = "PASS".equalsIgnoreCase(inspection.getConclusion())
-                    ? "质检通过" : "REJECT".equalsIgnoreCase(inspection.getConclusion())
-                    ? "质检未通过" : "质检已复核";
+            String qualityTitle = qualityTitle(inspection.getConclusion());
             addEvent(events, "QUALITY", qualityTitle, inspection.getReviewTime(),
-                    internalView ? appendOperator(inspection.getConclusion(), inspection.getReviewerName())
-                            : inspection.getConclusion());
+                    internalView ? appendOperator(qualityTitle, inspection.getReviewerName()) : qualityTitle);
+        }
+        if (internalView) {
+            List<RdPackageTaskEventDO> taskEvents = taskEventMapper.selectByPackageId(unit.getId());
+            for (RdPackageTaskEventDO event : taskEvents) {
+                String detail = nonBlank(event.getSourceNo()) + " / 版本 " + event.getSourceVersion();
+                if (event.getPreviousLocationCode() != null) {
+                    detail += " / 原计划库位 " + event.getPreviousLocationCode();
+                }
+                if (event.getLocationCode() != null) {
+                    detail += " / 库位 " + event.getLocationCode();
+                }
+                if (event.getRelatedPackageCode() != null) {
+                    detail += " / 关联包 " + event.getRelatedPackageCode();
+                }
+                if (event.getDetail() != null && !event.getDetail().isBlank()) {
+                    detail += " / " + event.getDetail();
+                }
+                addEvent(events, event.getStage(), taskEventTitle(event), event.getEventTime(),
+                        appendOperator(detail, event.getOperatorName()));
+            }
+            for (RdPutawayScanRecordDO scan : putawayScanRecordMapper.selectList(
+                    new LambdaQueryWrapperX<RdPutawayScanRecordDO>().eq(RdPutawayScanRecordDO::getPackageId, unit.getId())
+                            .eq(RdPutawayScanRecordDO::getSuccess, true).eq(RdPutawayScanRecordDO::getScanResult, "SUCCESS")
+                            .orderByAsc(RdPutawayScanRecordDO::getId))) {
+                addEvent(events, "PUTAWAY", "仓管已核验到位包件", scan.getScanTime(),
+                        appendOperator("上架任务 ID " + scan.getTaskId() + " / 仅核验，尚非库存入账",
+                                scan.getOperatorName()));
+            }
+            for (RdLoadingScanRecordDO scan : loadingScanRecordMapper.selectList(
+                    new LambdaQueryWrapperX<RdLoadingScanRecordDO>().eq(RdLoadingScanRecordDO::getPackageId, unit.getId())
+                            .eq(RdLoadingScanRecordDO::getSuccess, true).eq(RdLoadingScanRecordDO::getScanResult, "BATCH_CONFIRMED")
+                            .orderByAsc(RdLoadingScanRecordDO::getId))) {
+                boolean hasPackageSnapshot = taskEvents.stream().anyMatch(event ->
+                        "LOADING_SCAN".equals(event.getSourceType()) && scan.getId().equals(event.getSourceId()));
+                if (!hasPackageSnapshot && !taskEventMapper.hasSourceSnapshots("LOADING_SCAN", scan.getId())) {
+                    addEvent(events, "LOADING", "仓管已登记批次核验（代表码）", scan.getScanTime(),
+                            appendOperator("装车任务 ID " + scan.getTaskId() + " / 计划版本 " + scan.getPlanVersion(),
+                                    scan.getOperatorName()));
+                }
+            }
+            for (RdPutawayExceptionDO item : putawayExceptionMapper.selectList(
+                    new LambdaQueryWrapperX<RdPutawayExceptionDO>().eq(RdPutawayExceptionDO::getPackageId, unit.getId())
+                            .orderByAsc(RdPutawayExceptionDO::getId))) {
+                if (!hasTaskEvent(taskEvents, "PUTAWAY_EXCEPTION", item.getId(), "EXCEPTION_REPORTED")) {
+                    addEvent(events, "EXCEPTION", "现场异常已上报", item.getReportedTime(), appendOperator(
+                            item.getExceptionNo() + " / 上架任务 ID " + item.getTaskId() + " / " + item.getDescription(),
+                            item.getReporterName()));
+                }
+                if (!hasTaskEvent(taskEvents, "PUTAWAY_EXCEPTION", item.getId(), "EXCEPTION_RESOLVED")) {
+                    addEvent(events, "EXCEPTION", "仓管已处理现场异常", item.getHandleTime(), appendOperator(
+                            item.getExceptionNo() + " / " + item.getResolutionAction() + " / " + item.getHandlingResult(),
+                            item.getHandlerName()));
+                }
+            }
+            for (RdLoadingExceptionDO item : loadingExceptionMapper.selectList(
+                    new LambdaQueryWrapperX<RdLoadingExceptionDO>().eq(RdLoadingExceptionDO::getPackageId, unit.getId())
+                            .orderByAsc(RdLoadingExceptionDO::getId))) {
+                if (!hasTaskEvent(taskEvents, "LOADING_EXCEPTION", item.getId(), "EXCEPTION_REPORTED")) {
+                    addEvent(events, "EXCEPTION", "现场异常已上报", item.getReportedTime(), appendOperator(
+                            item.getExceptionNo() + " / 装车任务 ID " + item.getTaskId() + " / " + item.getDescription(),
+                            item.getReporterName()));
+                }
+                if (!hasTaskEvent(taskEvents, "LOADING_EXCEPTION", item.getId(), "EXCEPTION_RESOLVED")) {
+                    addEvent(events, "EXCEPTION", "仓管已处理现场异常", item.getHandleTime(), appendOperator(
+                            item.getExceptionNo() + " / " + item.getResolutionAction() + " / " + item.getHandlingResult(),
+                            item.getHandlerName()));
+                }
+            }
         }
         for (RdStockTransactionDO transaction : transactions) {
             String title = stockTransactionTitle(transaction.getTransactionType());
@@ -247,6 +338,37 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
 
     private static String nonBlank(String value) {
         return value == null || value.isBlank() ? "-" : value;
+    }
+
+    private static String qualityTitle(String conclusion) {
+        if ("PASS".equalsIgnoreCase(conclusion) || "PASSED".equalsIgnoreCase(conclusion)) {
+            return "质检通过";
+        }
+        if ("REJECT".equalsIgnoreCase(conclusion) || "REJECTED".equalsIgnoreCase(conclusion)) {
+            return "质检未通过";
+        }
+        return "质检已复核";
+    }
+
+    private static boolean hasTaskEvent(List<RdPackageTaskEventDO> events, String sourceType,
+                                         Long sourceId, String eventCode) {
+        return events.stream().anyMatch(event -> sourceType.equals(event.getSourceType())
+                && sourceId.equals(event.getSourceId()) && eventCode.equals(event.getEventCode()));
+    }
+
+    private static String taskEventTitle(RdPackageTaskEventDO event) {
+        return switch (event.getEventCode()) {
+            case "ASSIGNED" -> "PUTAWAY".equals(event.getStage()) ? "已派上架任务" : "已派装车任务";
+            case "REASSIGNED" -> "上架任务已改派";
+            case "RETURNED" -> "装车任务已恢复执行";
+            case "CANCELLED" -> "装车任务已取消";
+            case "REPLACED_OUT" -> "包件已从装车任务换出";
+            case "REPLACED_IN" -> "包件作为替代货加入装车任务";
+            case "SCAN_CONFIRMED" -> "仓管已核验装车包件";
+            case "EXCEPTION_REPORTED" -> "现场异常已上报";
+            case "EXCEPTION_RESOLVED" -> "仓管已处理现场异常";
+            default -> "任务状态已记录";
+        };
     }
 
     private static String stockTransactionTitle(String type) {

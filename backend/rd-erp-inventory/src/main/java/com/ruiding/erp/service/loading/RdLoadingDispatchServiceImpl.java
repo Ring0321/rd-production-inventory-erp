@@ -14,6 +14,8 @@ import com.ruiding.erp.dal.dataobject.order.RdSaleOrderDO;
 import com.ruiding.erp.dal.dataobject.outbound.RdOutboundOrderDO;
 import com.ruiding.erp.dal.dataobject.outbound.RdOutboundOrderLineDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO;
+import com.ruiding.erp.service.packageunit.RdPackageTaskHistoryService;
 import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
 import com.ruiding.erp.dal.mysql.loading.*;
@@ -95,6 +97,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     @Resource private RdOutboundOrderService outboundOrderService;
     @Resource private AdminUserService userService;
     @Resource private PermissionService permissionService;
+    @Resource private RdPackageTaskHistoryService taskHistoryService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -394,6 +397,9 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
             } catch (DuplicateKeyException ex) {
                 throw exception(LOADING_PACKAGE_CLAIMED);
             }
+            taskHistoryService.append(taskEvent(task, line, "ASSIGNED", task.getAssignedTime(),
+                    keeperId, keeperName).setDetail("提货单 " + task.getPickupSlipNo()
+                            + " / 叉车司机：" + task.getForkliftDriverName()));
         }
         slip.setStatus("DISPATCHED");
         slip.setVersion(slip.getVersion() == null ? 1 : slip.getVersion() + 1);
@@ -510,6 +516,12 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
 
         RdLoadingScanRecordDO record = insertScanRecord(req, task, representative, packageCode,
                 "BATCH_CONFIRMED", true, statusBefore, task.getStatus(), keeperId, keeperName, now);
+        for (RdLoadingTaskLineDO line : toConfirm) {
+            taskHistoryService.append(taskEvent(task, line, "SCAN_CONFIRMED", now, keeperId, keeperName)
+                    .setSourceType("LOADING_SCAN").setSourceId(record.getId())
+                    .setSourceVersion(zero(task.getPlanVersion()))
+                    .setDetail("提货单 " + task.getPickupSlipNo() + " / 计划库位核对，尚非出库过账"));
+        }
         return buildBatchScanResponse(record, task, lines, representative, packageCode,
                 record.getScanResult(), true, false, toConfirm.size(), confirmedWeight,
                 "已按代表码批量确认 " + toConfirm.size() + " 包，仍保留每包独立二维码记录");
@@ -679,6 +691,16 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         item.setReportedTime(now);
         item.setVersion(0);
         exceptionMapper.insert(item);
+        for (RdLoadingTaskLineDO affected : lines) {
+            if (!LINE_CANCELLED.equals(affected.getLineStatus()) && !LINE_OUTBOUNDED.equals(affected.getLineStatus())
+                    && (line == null || Objects.equals(line.getPackageId(), affected.getPackageId()))) {
+                taskHistoryService.append(taskEvent(task, affected, "EXCEPTION_REPORTED", now,
+                        driverId, driverName).setStage("EXCEPTION").setSourceType("LOADING_EXCEPTION")
+                        .setSourceId(item.getId()).setSourceNo(item.getExceptionNo()).setSourceVersion(0)
+                        .setDetail("装车任务 " + task.getTaskNo() + " / " + item.getExceptionType()
+                                + " / " + item.getDescription()));
+            }
+        }
 
         if (line != null && LINE_PLANNED.equals(line.getLineStatus())) {
             line.setLineStatus(LINE_EXCEPTION);
@@ -719,16 +741,24 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         List<RdLoadingTaskLineDO> lines = new ArrayList<>(taskLineMapper.selectListByTaskIdForUpdate(task.getId()));
         lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
         LocalDateTime now = LocalDateTime.now();
-        closeLoadingExceptions(openExceptions, req, keeperId, keeperName, now);
+        closeLoadingExceptions(task, lines, openExceptions, req, keeperId, keeperName, now);
         if (RESOLUTION_REPLACE_PACKAGE.equals(req.getResolutionAction())) {
-            replaceLoadingTaskPackages(task, lines, req.getReplacements(), now);
+            replaceLoadingTaskPackages(task, lines, req.getReplacements(), now, keeperId, keeperName);
+            recordLoadingTaskReturn(task, lines, now, keeperId, keeperName, req.getHandlingResult());
             return;
         }
         if (RESOLUTION_RETURN_TO_DRIVER.equals(req.getResolutionAction())) {
             returnLoadingTaskToDriver(task, lines, now);
+            recordLoadingTaskReturn(task, lines, now, keeperId, keeperName, req.getHandlingResult());
             return;
         }
         cancelLoadingTask(task, lines, req.getHandlingResult(), now);
+        for (RdLoadingTaskLineDO line : lines) {
+            if (LINE_CANCELLED.equals(line.getLineStatus())) {
+                taskHistoryService.append(taskEvent(task, line, "CANCELLED", now, keeperId, keeperName)
+                        .setDetail(req.getHandlingResult()));
+            }
+        }
     }
 
     @Override
@@ -794,7 +824,8 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         return matched;
     }
 
-    private void closeLoadingExceptions(List<RdLoadingExceptionDO> openExceptions,
+    private void closeLoadingExceptions(RdLoadingTaskDO task, List<RdLoadingTaskLineDO> lines,
+                                        List<RdLoadingExceptionDO> openExceptions,
                                         RdLoadingExceptionResolveReqVO req,
                                         Long keeperId,
                                         String keeperName,
@@ -810,13 +841,23 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
             item.setResolvedLocationCode(blankToNull(req.getResolvedLocationCode()));
             item.setVersion(nextVersion(item.getVersion()));
             exceptionMapper.updateById(item);
+            for (RdLoadingTaskLineDO line : lines) {
+                if (!LINE_CANCELLED.equals(line.getLineStatus()) && !LINE_OUTBOUNDED.equals(line.getLineStatus())
+                        && (item.getPackageId() == null || Objects.equals(item.getPackageId(), line.getPackageId()))) {
+                    taskHistoryService.append(taskEvent(task, line, "EXCEPTION_RESOLVED", now,
+                            keeperId, keeperName).setStage("EXCEPTION").setSourceType("LOADING_EXCEPTION")
+                            .setSourceId(item.getId()).setSourceNo(item.getExceptionNo())
+                            .setSourceVersion(item.getVersion()).setDetail("装车任务 " + task.getTaskNo()
+                                    + " / " + req.getResolutionAction() + " / " + req.getHandlingResult()));
+                }
+            }
         }
     }
 
     private void replaceLoadingTaskPackages(RdLoadingTaskDO task,
                                             List<RdLoadingTaskLineDO> lines,
                                             List<RdLoadingExceptionResolveReqVO.Replacement> replacements,
-                                            LocalDateTime now) {
+                                            LocalDateTime now, Long keeperId, String keeperName) {
         if (replacements == null || replacements.isEmpty()) {
             throw exception(LOADING_REPLACEMENT_REQUIRED);
         }
@@ -853,8 +894,13 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
                 throw exception(LOADING_PACKAGE_INVALID);
             }
             claimMapper.deleteById(oldClaim.getId());
+            String previousCode = line.getPackageCode();
+            taskHistoryService.append(taskEvent(task, line, "REPLACED_OUT", now, keeperId, keeperName)
+                    .setSourceVersion(nextVersion(task.getVersion())).setRelatedPackageCode(unit.getPackageCode()));
             applyReplacementPackage(line, unit, fulfillment);
             taskLineMapper.updateById(line);
+            taskHistoryService.append(taskEvent(task, line, "REPLACED_IN", now, keeperId, keeperName)
+                    .setSourceVersion(nextVersion(task.getVersion())).setRelatedPackageCode(previousCode));
             RdLoadingPackageClaimDO claim = new RdLoadingPackageClaimDO();
             Long tenantId = task.getTenantId() == null ? TenantContextHolder.getTenantId() : task.getTenantId();
             claim.setTenantId(tenantId);
@@ -1013,6 +1059,26 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         task.setScannedWeight(scannedWeight);
     }
 
+    private void recordLoadingTaskReturn(RdLoadingTaskDO task, List<RdLoadingTaskLineDO> lines,
+                                         LocalDateTime time, Long keeperId, String keeperName, String reason) {
+        for (RdLoadingTaskLineDO line : lines) {
+            if (!LINE_CANCELLED.equals(line.getLineStatus()) && !LINE_OUTBOUNDED.equals(line.getLineStatus())) {
+                taskHistoryService.append(taskEvent(task, line, "RETURNED", time, keeperId, keeperName)
+                        .setDetail(reason));
+            }
+        }
+    }
+
+    private RdPackageTaskEventDO taskEvent(RdLoadingTaskDO task, RdLoadingTaskLineDO line,
+                                           String eventCode, LocalDateTime time,
+                                           Long operatorId, String operatorName) {
+        return new RdPackageTaskEventDO().setPackageId(line.getPackageId()).setPackageCode(line.getPackageCode())
+                .setStage("LOADING").setEventCode(eventCode).setSourceType("LOADING_TASK")
+                .setSourceId(task.getId()).setSourceNo(task.getTaskNo()).setSourceVersion(zero(task.getVersion()))
+                .setOperatorId(operatorId).setOperatorName(operatorName).setEventTime(time)
+                .setLocationCode(line.getPlannedLocationCode());
+    }
+
     private RdLoadingTaskLineDO findLoadingLineForPackage(Long taskId, String packageCode) {
         if (taskId != null) {
             return taskLineMapper.selectListByTaskId(taskId).stream()
@@ -1023,7 +1089,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     }
 
     private List<RdLoadingTaskLineDO> sortedTaskLines(Long taskId) {
-        List<RdLoadingTaskLineDO> lines = taskLineMapper.selectListByTaskId(taskId);
+        List<RdLoadingTaskLineDO> lines = new ArrayList<>(taskLineMapper.selectListByTaskId(taskId));
         lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
         return lines;
     }

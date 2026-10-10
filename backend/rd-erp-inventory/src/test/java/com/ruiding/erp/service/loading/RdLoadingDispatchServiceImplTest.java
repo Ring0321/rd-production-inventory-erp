@@ -60,6 +60,7 @@ class RdLoadingDispatchServiceImplTest {
     @Mock private RdPickupSlipLineMapper slipLineMapper;
     @Mock private RdLoadingTaskMapper taskMapper;
     @Mock private RdLoadingTaskLineMapper taskLineMapper;
+    @Mock private com.ruiding.erp.dal.mysql.loading.RdLoadingScanRecordMapper scanRecordMapper;
     @Mock private RdLoadingExceptionMapper exceptionMapper;
     @Mock private RdLoadingPackageClaimMapper claimMapper;
     @Mock private RdPackageUnitMapper packageMapper;
@@ -69,6 +70,7 @@ class RdLoadingDispatchServiceImplTest {
     @Mock private RdOrderFulfillmentMapper fulfillmentMapper;
     @Mock private AdminUserService userService;
     @Mock private PermissionService permissionService;
+    @Mock private com.ruiding.erp.service.packageunit.RdPackageTaskHistoryService taskHistoryService;
     @InjectMocks private RdLoadingDispatchServiceImpl service;
 
     @AfterEach
@@ -103,6 +105,12 @@ class RdLoadingDispatchServiceImplTest {
         ArgumentCaptor<RdPickupSlipDO> slips = ArgumentCaptor.forClass(RdPickupSlipDO.class);
         verify(slipMapper).updateById(slips.capture());
         assertEquals("DISPATCHED", slips.getValue().getStatus());
+        ArgumentCaptor<com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO> history =
+                ArgumentCaptor.forClass(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO.class);
+        verify(taskHistoryService, times(2)).append(history.capture());
+        assertEquals(List.of(101L, 102L), history.getAllValues().stream()
+                .map(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO::getPackageId).toList());
+        assertEquals("ASSIGNED", history.getValue().getEventCode());
     }
 
     @Test
@@ -266,6 +274,58 @@ class RdLoadingDispatchServiceImplTest {
         assertEquals(600L, claims.getValue().getTaskLineId());
         verify(taskLineMapper).updateById(exceptionLine);
         verify(taskMapper).updateById(task);
+        ArgumentCaptor<com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO> history =
+                ArgumentCaptor.forClass(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO.class);
+        verify(taskHistoryService, times(4)).append(history.capture());
+        var oldEvent = history.getAllValues().stream().filter(item -> "REPLACED_OUT".equals(item.getEventCode()))
+                .findFirst().orElseThrow();
+        var newEvent = history.getAllValues().stream().filter(item -> "REPLACED_IN".equals(item.getEventCode()))
+                .findFirst().orElseThrow();
+        assertEquals("PK-OLD", oldEvent.getPackageCode());
+        assertEquals(1600L, oldEvent.getPackageId());
+        assertEquals("PK103", oldEvent.getRelatedPackageCode());
+        assertEquals("PK103", newEvent.getPackageCode());
+        assertEquals(103L, newEvent.getPackageId());
+        assertEquals("PK-OLD", newEvent.getRelatedPackageCode());
+        assertEquals(oldEvent.getEventTime(), newEvent.getEventTime());
+    }
+
+    @Test
+    void shouldRecordActualSelectedBagsAndNotDuplicateHistoryOnReplay() {
+        RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.ASSIGNED, 2, 0);
+        RdLoadingTaskLineDO selected = loadingLine(600L, "PK-001", "PLANNED");
+        RdLoadingTaskLineDO remaining = loadingLine(601L, "PK-002", "PLANNED");
+        when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
+        when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(selected, remaining));
+        doAnswer(invocation -> {
+            ((com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO) invocation.getArgument(0)).setId(88L);
+            return 1;
+        }).when(scanRecordMapper).insert(any(com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO.class));
+        var req = new com.ruiding.erp.controller.admin.loading.vo.RdLoadingBatchScanConfirmReqVO();
+        req.setTaskId(500L);
+        req.setRepresentativePackageCode("PK-002");
+        req.setTaskLineIds(List.of(600L));
+        req.setIdempotencyKey("test-partial");
+
+        service.confirmBatchScan(req, 20L, "warehouse");
+
+        ArgumentCaptor<com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO> history =
+                ArgumentCaptor.forClass(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO.class);
+        verify(taskHistoryService).append(history.capture());
+        assertEquals("PK-001", history.getValue().getPackageCode());
+        assertEquals("SCAN_CONFIRMED", history.getValue().getEventCode());
+        assertEquals(88L, history.getValue().getSourceId());
+        assertEquals("PLANNED", remaining.getLineStatus());
+        var replay = new com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO();
+        replay.setId(88L);
+        replay.setSuccess(true);
+        replay.setTaskId(500L);
+        replay.setScanResult("BATCH_CONFIRMED");
+        when(scanRecordMapper.selectByTaskAndIdempotencyKey(500L, "test-partial")).thenReturn(replay);
+        when(taskLineMapper.selectListByTaskId(500L)).thenReturn(List.of(selected, remaining));
+
+        assertEquals(true, service.confirmBatchScan(req, 20L, "warehouse").getReplayed());
+        verify(taskHistoryService, times(1)).append(any());
     }
 
     @Test

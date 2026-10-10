@@ -71,6 +71,7 @@ class RdPutawayTaskServiceImplTest {
     @Mock private RdProductionOutputMapper productionOutputMapper;
     @Mock private AdminUserService adminUserService;
     @Mock private PermissionService permissionService;
+    @Mock private com.ruiding.erp.service.packageunit.RdPackageTaskHistoryService taskHistoryService;
     @InjectMocks private RdPutawayTaskServiceImpl service;
 
     @Test
@@ -102,6 +103,13 @@ class RdPutawayTaskServiceImplTest {
         assertEquals(new BigDecimal("2"), location.getReservedPackages());
         assertEquals(new BigDecimal("1600"), location.getReservedWeight());
         assertEquals(1, location.getVersion());
+        ArgumentCaptor<com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO> history =
+                ArgumentCaptor.forClass(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO.class);
+        verify(taskHistoryService, times(2)).append(history.capture());
+        assertEquals(List.of("PK-001", "PK-002"), history.getAllValues().stream()
+                .map(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO::getPackageCode).toList());
+        assertEquals("A-01", history.getValue().getLocationCode());
+        assertEquals("ASSIGNED", history.getValue().getEventCode());
     }
 
     @Test
@@ -176,6 +184,8 @@ class RdPutawayTaskServiceImplTest {
         when(locationMapper.selectByIdForUpdate(10L)).thenReturn(oldLocation);
         when(locationMapper.selectByIdForUpdate(11L)).thenReturn(newLocation);
         when(exceptionMapper.selectOpenListByTaskIdForUpdate(50L)).thenReturn(List.of(openException));
+        when(taskLineMapper.selectListByTaskIdForUpdate(50L))
+                .thenReturn(List.of(putawayLine("PK-001", "PENDING", 0)));
         RdPutawayTaskReassignReqVO reqVO = new RdPutawayTaskReassignReqVO();
         reqVO.setId(50L);
         reqVO.setVersion(3);
@@ -192,6 +202,14 @@ class RdPutawayTaskServiceImplTest {
         assertEquals("RESOLVED", openException.getExceptionStatus());
         assertEquals("REASSIGN", openException.getResolutionAction());
         verify(exceptionMapper).updateById(openException);
+        ArgumentCaptor<com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO> history =
+                ArgumentCaptor.forClass(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO.class);
+        verify(taskHistoryService, times(2)).append(history.capture());
+        assertEquals(List.of("EXCEPTION_RESOLVED", "REASSIGNED"), history.getAllValues().stream()
+                .map(com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO::getEventCode).toList());
+        assertEquals("A-01", history.getValue().getPreviousLocationCode());
+        assertEquals("A-02", history.getValue().getLocationCode());
+        assertEquals(4, history.getValue().getSourceVersion());
     }
 
     @Test

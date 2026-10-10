@@ -314,6 +314,35 @@ CREATE TABLE IF NOT EXISTS `rd_putaway_scan_record` (
   KEY `idx_rd_putaway_scan_operator` (`tenant_id`,`operator_id`,`scan_time`,`deleted`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway scan record';
 
+-- E5 task history is append-only; no synthetic legacy task events are backfilled.
+CREATE TABLE IF NOT EXISTS `rd_package_task_event` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL DEFAULT 1,
+  `package_id` bigint NOT NULL,
+  `package_code` varchar(32) NOT NULL,
+  `stage` varchar(24) NOT NULL,
+  `event_code` varchar(40) NOT NULL,
+  `source_type` varchar(40) NOT NULL,
+  `source_id` bigint NOT NULL,
+  `source_no` varchar(64) NOT NULL,
+  `source_version` int NOT NULL,
+  `operator_id` bigint DEFAULT NULL,
+  `operator_name` varchar(64) DEFAULT NULL,
+  `event_time` datetime(6) NOT NULL,
+  `location_code` varchar(64) DEFAULT NULL,
+  `previous_location_code` varchar(64) DEFAULT NULL,
+  `related_package_code` varchar(32) DEFAULT NULL,
+  `detail` text,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_package_task_event_source` (`tenant_id`,`source_type`,`source_id`,`source_version`,`event_code`,`package_id`),
+  KEY `idx_package_task_event_time` (`tenant_id`,`package_id`,`event_time`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Append-only package task history';
+
 CREATE TABLE IF NOT EXISTS `rd_putaway_batch_scan_record` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `task_id` bigint NOT NULL,
   `representative_package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -940,6 +969,15 @@ SELECT 600003,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM
 UNION ALL SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600282,600283)
 UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600280 AND 600285
 UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600284,600285);
+
+-- Preserve sub-second event ordering for new trace records. Existing times are not reconstructed.
+ALTER TABLE `rd_package_unit` MODIFY `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
+ALTER TABLE `rd_quality_inspection` MODIFY `submit_time` datetime(6) DEFAULT NULL,
+  MODIFY `review_time` datetime(6) DEFAULT NULL;
+ALTER TABLE `rd_label_print_log` MODIFY `print_time` datetime(6) NOT NULL;
+ALTER TABLE `rd_putaway_scan_record` MODIFY `scan_time` datetime(6) NOT NULL;
+ALTER TABLE `rd_loading_scan_record` MODIFY `scan_time` datetime(6) NOT NULL;
+ALTER TABLE `rd_stock_transaction` MODIFY `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
 
 COMMIT;
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;

@@ -3,6 +3,10 @@ package com.ruiding.erp.service.packageunit;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceRespVO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdLabelPrintLogDO;
+import com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdPutawayScanRecordDO;
+import com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO;
+import com.ruiding.erp.dal.dataobject.loading.RdLoadingExceptionDO;
 import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdLabelPrintLogMapper;
@@ -52,6 +56,11 @@ class RdPackageUnitServiceImplTest {
     @Mock private RdDigitalLinkService digitalLinkService;
     @Mock private RdQualityInspectionMapper qualityInspectionMapper;
     @Mock private RdStockTransactionMapper stockTransactionMapper;
+    @Mock private com.ruiding.erp.dal.mysql.packageunit.RdPackageTaskEventMapper taskEventMapper;
+    @Mock private com.ruiding.erp.dal.mysql.putaway.RdPutawayScanRecordMapper putawayScanRecordMapper;
+    @Mock private com.ruiding.erp.dal.mysql.loading.RdLoadingScanRecordMapper loadingScanRecordMapper;
+    @Mock private com.ruiding.erp.dal.mysql.putaway.RdPutawayExceptionMapper putawayExceptionMapper;
+    @Mock private com.ruiding.erp.dal.mysql.loading.RdLoadingExceptionMapper loadingExceptionMapper;
     @InjectMocks private RdPackageUnitServiceImpl service;
 
     @Test
@@ -208,6 +217,119 @@ class RdPackageUnitServiceImplTest {
                 .setStatus(RdPackageStatusEnum.IN_STOCK.getStatus());
         unit.setCreateTime(LocalDateTime.of(2026, 7, 12, 8, 0));
         return unit;
+    }
+
+    @Test
+    void shouldSanitizeLabelHistoryAndNeverReadPrivateTaskStoresForPublicView() {
+        RdPackageUnitDO unit = buildTracePackage();
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        when(printLogMapper.selectList(any())).thenReturn(List.of(new RdLabelPrintLogDO()
+                .setId(1L).setReprint(true).setPrintSequence(2).setPrinterName("private operator")
+                .setReprintReason("private reason").setPrintTime(unit.getCreateTime().plusMinutes(1))));
+        RdQualityInspectionDO inspection = buildInspection();
+        inspection.setConclusion("PASSED");
+        when(qualityInspectionMapper.selectList(any())).thenReturn(List.of(inspection));
+
+        var result = service.getTraceDetail(unit.getPackageCode(), false);
+
+        assertTrue(result.getEvents().stream().anyMatch(event -> "质检通过".equals(event.getTitle())));
+        assertTrue(result.getEvents().stream().anyMatch(event -> "LABEL".equals(event.getStage())));
+        assertFalse(result.getEvents().toString().contains("private"));
+        verify(taskEventMapper, never()).selectByPackageId(anyLong());
+        verify(putawayScanRecordMapper, never()).selectList(any());
+        verify(loadingScanRecordMapper, never()).selectList(any());
+        verify(putawayExceptionMapper, never()).selectList(any());
+        verify(loadingExceptionMapper, never()).selectList(any());
+    }
+
+    @Test
+    void shouldMergeRealTimesAndDeduplicateBatchHeaderAndExceptionSnapshots() {
+        RdPackageUnitDO unit = buildTracePackage();
+        LocalDateTime time = unit.getCreateTime();
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        when(printLogMapper.selectList(any())).thenReturn(List.of(new RdLabelPrintLogDO()
+                .setId(1L).setPrintSequence(1).setReprint(false).setPrintTime(time.plusMinutes(1))));
+        RdPackageTaskEventDO loading = new RdPackageTaskEventDO().setId(1L).setPackageId(10L)
+                .setEventCode("SCAN_CONFIRMED").setStage("LOADING").setSourceType("LOADING_SCAN")
+                .setSourceId(80L).setSourceNo("LC-01").setSourceVersion(1)
+                .setLocationCode("A-01").setOperatorName("keeper").setEventTime(time.plusMinutes(5));
+        RdPackageTaskEventDO reported = new RdPackageTaskEventDO().setId(2L).setPackageId(10L)
+                .setEventCode("EXCEPTION_REPORTED").setStage("EXCEPTION").setSourceType("LOADING_EXCEPTION")
+                .setSourceId(81L).setSourceNo("EX-01").setSourceVersion(0)
+                .setDetail("exception detail").setEventTime(time.plusMinutes(3));
+        when(taskEventMapper.selectByPackageId(10L)).thenReturn(List.of(loading, reported));
+        when(putawayScanRecordMapper.selectList(any())).thenReturn(List.of(new RdPutawayScanRecordDO()
+                .setId(70L).setTaskId(60L).setPackageId(10L).setOperatorName("keeper")
+                .setScanTime(time.plusMinutes(2))));
+        RdLoadingScanRecordDO header = new RdLoadingScanRecordDO();
+        header.setId(80L);
+        header.setTaskId(61L);
+        header.setScanTime(time.plusMinutes(5));
+        when(loadingScanRecordMapper.selectList(any())).thenReturn(List.of(header));
+        RdLoadingExceptionDO exception = new RdLoadingExceptionDO();
+        exception.setId(81L);
+        exception.setReportedTime(time.plusMinutes(3));
+        exception.setHandleTime(time.plusMinutes(4));
+        exception.setHandlingResult("legacy resolution");
+        when(loadingExceptionMapper.selectList(any())).thenReturn(List.of(exception));
+        RdStockTransactionDO inbound = buildInboundTransaction();
+        inbound.setCreateTime(time.plusMinutes(6));
+        when(stockTransactionMapper.selectList(any())).thenReturn(List.of(inbound));
+
+        var result = service.getTraceDetail(unit.getPackageCode(), true);
+
+        assertEquals(List.of("PRODUCTION", "LABEL", "PUTAWAY", "EXCEPTION", "EXCEPTION", "LOADING", "STOCK"),
+                result.getEvents().stream().map(event -> event.getStage()).toList());
+        assertEquals(1L, result.getEvents().stream().filter(event -> "LOADING".equals(event.getStage())).count());
+        assertTrue(result.getEvents().get(5).getDetail().contains("LC-01"));
+        assertTrue(result.getEvents().get(5).getDetail().contains("A-01"));
+        assertTrue(result.getEvents().get(4).getDetail().contains("legacy resolution"));
+    }
+
+    @Test
+    void shouldKeepReplacementHistoryOnOriginalPackageWithoutReadingMutableTaskLines() {
+        RdPackageUnitDO unit = buildTracePackage();
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        when(taskEventMapper.selectByPackageId(10L)).thenReturn(List.of(new RdPackageTaskEventDO()
+                .setPackageId(10L).setPackageCode(unit.getPackageCode()).setEventCode("REPLACED_OUT")
+                .setStage("LOADING").setSourceType("LOADING_TASK").setSourceId(1L).setSourceNo("LC-01")
+                .setSourceVersion(4).setRelatedPackageCode("NEW-PACKAGE").setLocationCode("OLD-LOCATION")
+                .setEventTime(unit.getCreateTime().plusMinutes(1))));
+
+        var result = service.getTraceDetail(unit.getPackageCode(), true);
+
+        assertEquals(2, result.getEvents().size());
+        assertEquals("包件已从装车任务换出", result.getEvents().get(1).getTitle());
+        assertTrue(result.getEvents().get(1).getDetail().contains("OLD-LOCATION"));
+        assertTrue(result.getEvents().get(1).getDetail().contains("NEW-PACKAGE"));
+        assertFalse(result.getEvents().stream().anyMatch(event -> "仓管已核验装车包件".equals(event.getTitle())));
+    }
+
+    @Test
+    void shouldNotInventMilestonesWhenEventTimesAreMissing() {
+        RdPackageUnitDO unit = buildTracePackage();
+        unit.setCreateTime(null);
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        when(printLogMapper.selectList(any())).thenReturn(List.of(new RdLabelPrintLogDO().setPrintSequence(1)));
+
+        assertTrue(service.getTraceDetail(unit.getPackageCode(), true).getEvents().isEmpty());
+    }
+
+    @Test
+    void shouldNotTreatUnselectedRepresentativeAsConfirmedPackage() {
+        RdPackageUnitDO unit = buildTracePackage();
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        RdLoadingScanRecordDO header = new RdLoadingScanRecordDO();
+        header.setId(80L);
+        header.setPackageId(unit.getId());
+        header.setScanTime(unit.getCreateTime().plusMinutes(1));
+        when(loadingScanRecordMapper.selectList(any())).thenReturn(List.of(header));
+        when(taskEventMapper.hasSourceSnapshots("LOADING_SCAN", 80L)).thenReturn(true);
+
+        var result = service.getTraceDetail(unit.getPackageCode(), true);
+
+        assertEquals(1, result.getEvents().size());
+        assertEquals("PRODUCTION", result.getEvents().get(0).getStage());
     }
 
     private static RdQualityInspectionDO buildInspection() {

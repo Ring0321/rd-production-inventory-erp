@@ -31,6 +31,8 @@ import com.ruiding.erp.dal.dataobject.inbound.RdInboundOrderDO;
 import com.ruiding.erp.dal.dataobject.inbound.RdInboundOrderLineDO;
 import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.packageunit.RdPackageTaskEventDO;
+import com.ruiding.erp.service.packageunit.RdPackageTaskHistoryService;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayExceptionDO;
@@ -140,6 +142,7 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
     @Resource private RdProductionOutputMapper productionOutputMapper;
     @Resource private AdminUserService adminUserService;
     @Resource private PermissionService permissionService;
+    @Resource private RdPackageTaskHistoryService taskHistoryService;
 
     @Override
     public PageResult<RdPackageUnitDO> getPendingPackagePage(RdPendingPutawayPackagePageReqVO reqVO) {
@@ -241,7 +244,7 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
 
         int lineNo = 1;
         for (RdPackageUnitDO packageUnit : packages) {
-            taskLineMapper.insert(new RdPutawayTaskLineDO()
+            RdPutawayTaskLineDO line = new RdPutawayTaskLineDO()
                     .setTaskId(task.getId())
                     .setLineNo(lineNo++)
                     .setPackageId(packageUnit.getId())
@@ -253,7 +256,10 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                     .setFurnaceLayer(packageUnit.getFurnaceLayer())
                     .setPackageWeight(packageUnit.getPackageWeight())
                     .setScanCount(0)
-                    .setVersion(0));
+                    .setVersion(0);
+            taskLineMapper.insert(line);
+            taskHistoryService.append(taskEvent(task, line, "ASSIGNED", task.getAssignedTime(),
+                    warehouseKeeperId, warehouseKeeperName).setDetail("叉车司机：" + task.getForkliftDriverName()));
             packageUnit.setStatus(RdPackageStatusEnum.INBOUND_PENDING.getStatus())
                     .setLocationId(null)
                     .setLocationCode(null)
@@ -308,6 +314,8 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
 
         Long previousLocationId = task.getPlannedLocationId();
         String previousLocationCode = task.getPlannedLocationCode();
+        LocalDateTime now = LocalDateTime.now();
+        List<RdPutawayTaskLineDO> historyLines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
         if (current == RdPutawayTaskStatusEnum.EXCEPTION_PENDING) {
             task.setStatus(RdPutawayTaskStatusMachine.transition(current,
                     RdPutawayTaskActionEnum.REASSIGN).getStatus());
@@ -315,7 +323,7 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 item.setExceptionStatus("RESOLVED")
                         .setHandlerId(warehouseKeeperId)
                         .setHandlerName(warehouseKeeperName)
-                        .setHandleTime(LocalDateTime.now())
+                        .setHandleTime(now)
                         .setHandlingResult(reqVO.getHandlingResult())
                         .setResolutionAction("REASSIGN")
                         .setPreviousLocationId(previousLocationId)
@@ -324,8 +332,19 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                         .setResolvedLocationCode(newLocation.getLocationCode())
                         .setVersion(nextVersion(item.getVersion()));
                 exceptionMapper.updateById(item);
+                for (RdPutawayTaskLineDO line : historyLines) {
+                    if (item.getPackageId() == null || Objects.equals(item.getPackageId(), line.getPackageId())) {
+                        taskHistoryService.append(taskEvent(task, line, "EXCEPTION_RESOLVED", now,
+                                warehouseKeeperId, warehouseKeeperName).setStage("EXCEPTION")
+                                .setSourceType("PUTAWAY_EXCEPTION").setSourceId(item.getId())
+                                .setSourceNo(item.getExceptionNo()).setSourceVersion(item.getVersion())
+                                .setPreviousLocationCode(previousLocationCode)
+                                .setLocationCode(newLocation.getLocationCode())
+                                .setDetail("上架任务 " + task.getTaskNo() + " / " + reqVO.getHandlingResult()));
+                    }
+                }
             }
-            for (RdPutawayTaskLineDO line : taskLineMapper.selectListByTaskIdForUpdate(task.getId())) {
+            for (RdPutawayTaskLineDO line : historyLines) {
                 if (LINE_EXCEPTION.equals(line.getLineStatus()) && zero(line.getScanCount()) == 0) {
                     line.setLineStatus(LINE_PENDING).setVersion(nextVersion(line.getVersion()));
                     taskLineMapper.updateById(line);
@@ -339,10 +358,15 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 .setForkliftDriverName(displayName(driver))
                 .setWarehouseKeeperId(warehouseKeeperId)
                 .setWarehouseKeeperName(warehouseKeeperName)
-                .setAssignedTime(LocalDateTime.now())
+                .setAssignedTime(now)
                 .setVersion(nextVersion(task.getVersion()))
                 .setRemark(appendRemark(task.getRemark(), reqVO.getHandlingResult()));
         taskMapper.updateById(task);
+        for (RdPutawayTaskLineDO line : historyLines) {
+            taskHistoryService.append(taskEvent(task, line, "REASSIGNED", now,
+                    warehouseKeeperId, warehouseKeeperName).setPreviousLocationCode(previousLocationCode)
+                    .setDetail("叉车司机：" + task.getForkliftDriverName() + " / " + reqVO.getHandlingResult()));
+        }
     }
 
     @Override
@@ -564,6 +588,9 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 .filter(item -> Objects.equals(normalizeCode(item.getPackageCode()),
                         normalizeCode(packageCode)))
                 .findFirst().orElse(null) : null;
+        if (hasText(packageCode) && line == null) {
+            throw exception(PUTAWAY_SCAN_PACKAGE_MISMATCH);
+        }
         LocalDateTime now = LocalDateTime.now();
         RdPutawayExceptionDO exceptionDO = new RdPutawayExceptionDO()
                 .setExceptionNo(generateExceptionNo())
@@ -581,6 +608,16 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 .setReportedTime(now)
                 .setVersion(0);
         exceptionMapper.insert(exceptionDO);
+        for (RdPutawayTaskLineDO affected : lines) {
+            if (line == null || Objects.equals(line.getPackageId(), affected.getPackageId())) {
+                taskHistoryService.append(taskEvent(task, affected, "EXCEPTION_REPORTED", now,
+                        forkliftDriverId, forkliftDriverName).setStage("EXCEPTION")
+                        .setSourceType("PUTAWAY_EXCEPTION").setSourceId(exceptionDO.getId())
+                        .setSourceNo(exceptionDO.getExceptionNo()).setSourceVersion(0)
+                        .setDetail("上架任务 " + task.getTaskNo() + " / " + exceptionDO.getExceptionType()
+                                + " / " + exceptionDO.getDescription()));
+            }
+        }
         if (line != null && zero(line.getScanCount()) == 0) {
             line.setLineStatus(LINE_EXCEPTION).setVersion(nextVersion(line.getVersion()));
             taskLineMapper.updateById(line);
@@ -716,6 +753,16 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         detail.setLines(taskLineMapper.selectListByTaskId(task.getId()));
         detail.setExceptions(exceptionMapper.selectListByTaskId(task.getId()));
         return detail;
+    }
+
+    private RdPackageTaskEventDO taskEvent(RdPutawayTaskDO task, RdPutawayTaskLineDO line,
+                                           String eventCode, LocalDateTime time,
+                                           Long operatorId, String operatorName) {
+        return new RdPackageTaskEventDO().setPackageId(line.getPackageId()).setPackageCode(line.getPackageCode())
+                .setStage("PUTAWAY").setEventCode(eventCode).setSourceType("PUTAWAY_TASK")
+                .setSourceId(task.getId()).setSourceNo(task.getTaskNo()).setSourceVersion(zero(task.getVersion()))
+                .setOperatorId(operatorId).setOperatorName(operatorName).setEventTime(time)
+                .setLocationCode(task.getPlannedLocationCode());
     }
 
     private RdPutawayScanRecordDO insertScanRecord(RdPutawayScanReqVO reqVO,

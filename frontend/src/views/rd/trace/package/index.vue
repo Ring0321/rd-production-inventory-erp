@@ -146,7 +146,7 @@
               <dd>
                 <span :class="['quality-result', `quality-result--${qualityTone}`]">
                   <Icon :icon="qualityIcon" />
-                  {{ qualityText }}
+                  <span class="quality-result__text">{{ qualityText }}</span>
                 </span>
               </dd>
             </div>
@@ -267,22 +267,48 @@
             <Icon icon="lucide:history" />
             <div>
               <h2 id="timeline-heading">流转记录</h2>
-              <p>生产、质检和库存状态按时间排列</p>
             </div>
           </div>
-          <el-timeline v-if="trace.events?.length" class="trace-timeline">
+          <div class="timeline-filter">
+            <label for="timeline-stage">流转阶段</label>
+            <el-select
+              id="timeline-stage"
+              v-model="timelineStage"
+              class="timeline-filter__select"
+              size="small"
+              aria-label="流转阶段"
+            >
+              <el-option label="全部阶段" value="ALL" />
+              <el-option
+                v-for="stage in timelineStages"
+                :key="stage.value"
+                :label="stage.label"
+                :value="stage.value"
+              />
+            </el-select>
+          </div>
+          <el-timeline v-if="filteredEvents.length" class="trace-timeline">
             <el-timeline-item
-              v-for="event in trace.events"
-              :key="`${event.stage}-${event.eventTime}-${event.title}`"
+              v-for="(event, index) in filteredEvents"
+              :key="`${event.stage}-${event.eventTime}-${event.title}-${index}`"
               :timestamp="dateTimeText(event.eventTime)"
               :type="eventType(event.stage)"
               placement="top"
             >
-              <strong>{{ event.title }}</strong>
+              <div class="timeline-milestone">
+                <el-tag :type="eventType(event.stage)" effect="plain" size="small">
+                  {{ eventStageLabel(event.stage) }}
+                </el-tag>
+                <strong>{{ event.title }}</strong>
+              </div>
               <p v-if="event.detail">{{ event.detail }}</p>
             </el-timeline-item>
           </el-timeline>
-          <el-empty v-else description="暂无流转记录" :image-size="72" />
+          <el-empty
+            v-else
+            :description="timelineStage === 'ALL' ? '暂无流转记录' : '该阶段暂无流转记录'"
+            :image-size="72"
+          />
         </section>
 
         <footer class="trace-footer">
@@ -335,6 +361,22 @@ const batchUnavailable = ref(false)
 const workContext = ref<RdPackageWorkContextVO | null>(null)
 const workContextUnavailable = ref(false)
 const queryTime = ref('-')
+const timelineStage = ref('ALL')
+const timelineStages: { value: string; label: string; type: TagType }[] = [
+  { value: 'PRODUCTION', label: '生产', type: 'info' },
+  { value: 'LABEL', label: '贴码', type: 'info' },
+  { value: 'QUALITY', label: '质检', type: 'warning' },
+  { value: 'PUTAWAY', label: '上架', type: 'success' },
+  { value: 'LOADING', label: '装车', type: 'warning' },
+  { value: 'EXCEPTION', label: '异常', type: 'danger' },
+  { value: 'STOCK', label: '库存', type: 'success' }
+]
+const filteredEvents = computed(() => {
+  const events = trace.value?.events || []
+  return timelineStage.value === 'ALL'
+    ? events
+    : events.filter((event) => event.stage === timelineStage.value)
+})
 let traceRequestSequence = 0
 
 const packageCode = computed(() => String(route.params.packageCode || '').trim())
@@ -350,9 +392,15 @@ const weightText = computed(() => {
   if (trace.value?.packageWeight === undefined || trace.value?.packageWeight === null) return '-'
   return `${trace.value.packageWeight} kg`
 })
-const qualityDecision = computed(() =>
-  String(trace.value?.qualityConclusion || trace.value?.qualityStatus || '').toUpperCase()
-)
+const qualityDecision = computed(() => {
+  const status = String(trace.value?.qualityStatus || '')
+    .trim()
+    .toUpperCase()
+  if (['DRAFT', 'SUBMITTED', 'CORRECTED', 'RESUBMITTED'].includes(status)) return status
+  return String(trace.value?.qualityConclusion || status)
+    .trim()
+    .toUpperCase()
+})
 const qualityTone = computed(() => {
   if (['PASS', 'PASSED'].includes(qualityDecision.value)) return 'success'
   if (['REJECT', 'REJECTED'].includes(qualityDecision.value)) return 'danger'
@@ -361,8 +409,14 @@ const qualityTone = computed(() => {
 const qualityText = computed(() => {
   if (qualityTone.value === 'success') return '合格'
   if (qualityTone.value === 'danger') return '不合格'
-  if (trace.value?.qualityStatus) return '已送检'
-  return '待质检'
+  const statusText: Record<string, string> = {
+    DRAFT: '草稿（未提交）',
+    SUBMITTED: '已提交，待审核',
+    CORRECTED: '已更正（未提交）',
+    RESUBMITTED: '已重提，待审核',
+    REVIEWED: '已审核'
+  }
+  return statusText[qualityDecision.value] || qualityDecision.value || '待质检'
 })
 const qualityIcon = computed(() => {
   if (qualityTone.value === 'success') return 'lucide:circle-check'
@@ -892,18 +946,23 @@ const runTraceAction = (action: TraceAction) => {
 const dateTimeText = (value?: string) =>
   value ? formatDate(new Date(value), 'YYYY-MM-DD HH:mm:ss') : '-'
 
-const eventType = (stage: string): TagType => {
-  if (stage === 'QUALITY') return 'warning'
-  if (stage === 'STOCK') return 'success'
-  return 'info'
-}
+const eventType = (stage: string): TagType =>
+  timelineStages.find((item) => item.value === stage)?.type || 'info'
 
+const eventStageLabel = (stage: string) =>
+  timelineStages.find((item) => item.value === stage)?.label || stage || '其他'
+
+watch(packageCode, () => {
+  timelineStage.value = 'ALL'
+})
 watch(packageCode, loadTrace, { immediate: true })
 </script>
 
 <style scoped lang="scss">
 .package-trace-page {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 100%;
+  overflow: auto;
   color: #17212b;
   background: #f3f6f8;
 }
@@ -935,6 +994,10 @@ watch(packageCode, loadTrace, { immediate: true })
   width: 92px;
   height: 48px;
   object-fit: contain;
+}
+
+.brand > div {
+  min-width: 0;
 }
 
 .brand strong,
@@ -1333,6 +1396,11 @@ watch(packageCode, loadTrace, { immediate: true })
   display: inline-flex;
   gap: 6px;
   align-items: center;
+  max-width: 100%;
+}
+
+.quality-result__text {
+  min-width: 0;
 }
 
 .quality-result--success {
@@ -1351,13 +1419,46 @@ watch(packageCode, loadTrace, { immediate: true })
   border-bottom: 0;
 }
 
+.timeline-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #687985;
+}
+
+.timeline-filter__select {
+  width: 160px;
+  max-width: 100%;
+}
+
 .trace-timeline {
   max-width: 760px;
   padding-left: 2px;
 }
 
+.timeline-milestone {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: flex-start;
+}
+
+.timeline-milestone :deep(.el-tag) {
+  flex: none;
+  height: auto;
+  max-width: 100%;
+  min-height: 20px;
+  white-space: normal;
+}
+
 .trace-timeline strong {
   display: block;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 15px;
   line-height: 22px;
   color: #243847;
@@ -1365,9 +1466,15 @@ watch(packageCode, loadTrace, { immediate: true })
 
 .trace-timeline p {
   margin: 4px 0 0;
+  overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 20px;
   color: #687985;
+}
+
+.trace-timeline :deep(.el-timeline-item__timestamp),
+.timeline-milestone :deep(.el-tag__content) {
+  overflow-wrap: anywhere;
 }
 
 .trace-footer {

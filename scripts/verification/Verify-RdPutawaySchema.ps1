@@ -173,6 +173,21 @@ WHERE tenant_id = 1 AND role_id IN (600004,600005)
   AND menu_id IN (600270,600271,600272,600273) AND deleted = b'0';
 "@
 
+    $traceColumnCount = Invoke-Scalar $Database "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '$Database' AND table_name = 'rd_package_task_event';"
+    $traceIndexCount = Invoke-Scalar $Database "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema = '$Database' AND table_name = 'rd_package_task_event' AND index_name != 'PRIMARY';"
+    $traceRowCount = Invoke-Scalar $Database "SELECT COUNT(*) FROM rd_package_task_event;"
+    $tracePrecisionCount = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '$Database' AND datetime_precision = 6
+AND ((table_name IN ('rd_package_unit','rd_stock_transaction') AND column_name = 'create_time')
+  OR (table_name = 'rd_quality_inspection' AND column_name IN ('submit_time','review_time'))
+  OR (table_name = 'rd_label_print_log' AND column_name = 'print_time')
+  OR (table_name IN ('rd_putaway_scan_record','rd_loading_scan_record') AND column_name = 'scan_time')
+  OR (table_name = 'rd_package_task_event' AND column_name = 'event_time'));
+"@
+    Assert-Equal "trace event column count" "22" $traceColumnCount
+    Assert-Equal "trace event index count" "2" $traceIndexCount
+    Assert-Equal "trace event seed row count" "0" $traceRowCount
+    Assert-Equal "trace source precision count" "8" $tracePrecisionCount
     Assert-Equal "putaway table count" "5" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
     Assert-Equal "putaway column count" "127" $putawayColumnCount
@@ -183,7 +198,7 @@ WHERE tenant_id = 1 AND role_id IN (600004,600005)
     Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
     Assert-Equal "audit and readonly putaway query grant count" "2" $readOnlyQueryGrantCount
     Assert-Equal "audit and readonly putaway mutation grant count" "0" $readOnlyMutationGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount"
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount"
 }
 
 Import-LocalEnvironment
