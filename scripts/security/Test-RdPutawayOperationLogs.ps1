@@ -49,10 +49,12 @@ function Remove-TestData {
     $parts = @()
     if ($null -ne $taskId) {
         $parts += "DELETE FROM system_operate_log WHERE biz_id = $taskId AND HEX(type) = '$putawayTypeHex';"
+        $parts += "DELETE FROM rd_putaway_batch_scan_record WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_exception WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_scan_record WHERE task_id = $taskId;"
     }
     if ($null -ne $packageId) {
+        $parts += "DELETE FROM rd_package_task_event WHERE package_id = $packageId;"
         $parts += "DELETE FROM rd_daily_stock_summary WHERE stock_lot_id IN (SELECT id FROM rd_stock_lot WHERE customer_name = '$runId');"
         $parts += "DELETE FROM rd_stock_transaction WHERE package_id = $packageId;"
         $parts += "DELETE FROM rd_inbound_order_line WHERE package_id = $packageId;"

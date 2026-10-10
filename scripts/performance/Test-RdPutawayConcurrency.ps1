@@ -41,12 +41,14 @@ function Remove-TestData {
     $parts = @()
     if ($null -ne $taskId) {
         $parts += "DELETE FROM system_operate_log WHERE biz_id = $taskId AND type = 'RD 入库上架';"
+        $parts += "DELETE FROM rd_putaway_batch_scan_record WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_exception WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_scan_record WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_task_line WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_task WHERE id = $taskId;"
     }
     if ($null -ne $packageId) {
+        $parts += "DELETE FROM rd_package_task_event WHERE package_id = $packageId;"
         $parts += "DELETE FROM rd_package_unit WHERE id = $packageId;"
     }
     if ($null -ne $productionId) {
