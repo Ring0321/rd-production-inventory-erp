@@ -520,6 +520,7 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import { hasPermission } from '@/directives/permission/hasPermi'
 import {
   RdLoadingApi,
   type LoadingBatchScanResp,
@@ -898,11 +899,19 @@ const getRouteString = (key: string) => {
   const value = route.query[key]
   return Array.isArray(value) ? value[0] || '' : String(value || '')
 }
-const applyRouteScanQuery = () => {
+const applyRouteScanQuery = async () => {
   const packageCode = getRouteString('packageCode')
   const locationCode = getRouteString('locationCode')
   const taskId = Number(getRouteString('taskId'))
   batchScanForm.taskId = Number.isFinite(taskId) && taskId > 0 ? taskId : undefined
+  if (
+    batchScanForm.taskId &&
+    (getRouteString('mode') === 'view' || !hasPermission(['rd:loading-task:dispatch']))
+  ) {
+    tab.value = 'tasks'
+    await openTask(batchScanForm.taskId)
+    return
+  }
   if (!packageCode && !locationCode) return
   tab.value = packageCode ? 'batchScan' : 'dispatch'
   if (packageCode) {
@@ -918,14 +927,16 @@ const applyRouteScanQuery = () => {
 }
 onMounted(async () => {
   await Promise.all([
-    searchSlips(''),
-    loadLocations(),
-    RdLoadingApi.getDriverOptions().then((data) => {
-      drivers.value = data
-    }),
+    hasPermission(['rd:pickup-slip:query']) ? searchSlips('') : Promise.resolve(),
+    hasPermission(['rd:putaway-task:query']) ? loadLocations() : Promise.resolve(),
+    hasPermission(['rd:loading-task:dispatch'])
+      ? RdLoadingApi.getDriverOptions().then((data) => {
+          drivers.value = data
+        })
+      : Promise.resolve(),
     loadTasks()
   ])
-  applyRouteScanQuery()
+  await applyRouteScanQuery()
 })
 
 watch(

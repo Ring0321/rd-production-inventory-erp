@@ -326,6 +326,11 @@ const getRouteNumber = (key: string) => {
   return Number.isFinite(value) && value > 0 ? value : undefined
 }
 const openCreateFromRoute = async () => {
+  const inspectionId = getRouteNumber('inspectionId')
+  if (inspectionId && hasPermission(['rd:quality-inspection:query'])) {
+    await openDetail(inspectionId)
+    return
+  }
   const packageCode = getRouteString('packageCode')
   const productionOutputId = getRouteNumber('productionOutputId')
   if (!packageCode && !productionOutputId) return
@@ -399,7 +404,7 @@ onMounted(async () => {
 })
 
 watch(
-  () => [route.query.packageCode, route.query.productionOutputId],
+  () => [route.query.packageCode, route.query.productionOutputId, route.query.inspectionId],
   () => openCreateFromRoute()
 )
 </script>

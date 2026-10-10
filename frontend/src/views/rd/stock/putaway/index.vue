@@ -514,6 +514,7 @@
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
+import { hasPermission } from '@/directives/permission/hasPermi'
 import { formatDate } from '@/utils/formatTime'
 import {
   RdPutawayTaskApi,
@@ -713,6 +714,7 @@ const getTasks = async () => {
 }
 
 const getDriverOptions = async () => {
+  if (!hasPermission(['rd:putaway-task:create'])) return
   driverOptions.value = await RdPutawayTaskApi.getDriverOptions()
 }
 
@@ -722,6 +724,11 @@ const getRouteString = (key: string) => {
 }
 
 const prepareRouteScanQuery = () => {
+  const taskId = Number(getRouteString('taskId'))
+  if (Number.isSafeInteger(taskId) && taskId > 0) {
+    activeTab.value = 'task'
+    return
+  }
   const packageCode = getRouteString('packageCode')
   if (!packageCode) return
   activeTab.value = 'dispatch'
@@ -745,6 +752,8 @@ const refreshAll = async () => {
     prepareRouteScanQuery()
     await Promise.all([getLocations(), getPendingPackages(), getTasks(), getDriverOptions()])
     applyRouteLocation()
+    const taskId = Number(getRouteString('taskId'))
+    if (Number.isSafeInteger(taskId) && taskId > 0) await openTaskDetail(taskId)
   } finally {
     refreshing.value = false
   }
@@ -956,7 +965,7 @@ function dateTimeText(value?: string) {
 onMounted(refreshAll)
 
 watch(
-  () => [route.query.packageCode, route.query.locationCode],
+  () => [route.query.packageCode, route.query.locationCode, route.query.taskId],
   () => refreshAll()
 )
 </script>

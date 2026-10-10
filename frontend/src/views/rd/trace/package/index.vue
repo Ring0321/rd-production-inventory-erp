@@ -61,8 +61,7 @@
           <div class="section-heading">
             <Icon icon="lucide:scan-line" />
             <div>
-              <h2 id="action-heading">扫码动作建议</h2>
-              <p>按当前包码状态提示现场岗位下一步处理</p>
+              <h2 id="action-heading">现场办理</h2>
             </div>
           </div>
           <div class="next-action-card">
@@ -75,11 +74,12 @@
                 <span>{{ fieldAction.role }}</span>
               </div>
               <p>{{ fieldAction.detail }}</p>
-              <ul class="action-rules">
-                <li>扫码只识别身份、状态和关联任务，不代替仓管员确认入库、库位或出库。</li>
-                <li>一包一码保留每包独立流水；同批次信息只用于批量核对和减少重复扫描。</li>
-                <li>公开扫码不显示客户、库位和内部单据，内部账号登录后按权限显示。</li>
-              </ul>
+              <el-alert
+                v-if="workContextUnavailable"
+                title="关联任务读取失败，请刷新后办理"
+                type="warning"
+                :closable="false"
+              />
               <div v-if="traceActions.length" class="action-entry-list">
                 <el-tooltip
                   v-for="action in traceActions"
@@ -200,6 +200,12 @@
             description="当前包码未关联生产记录，暂不能展开同批次信息"
             :image-size="72"
           />
+          <el-alert
+            v-else-if="batchUnavailable"
+            title="同批次信息读取失败，请刷新重试"
+            type="warning"
+            :closable="false"
+          />
           <template v-else>
             <div class="batch-summary-grid">
               <div class="batch-summary-card">
@@ -231,7 +237,14 @@
                 role="listitem"
               >
                 <div class="batch-package-main">
-                  <strong>{{ pkg.packageCode }}</strong>
+                  <el-link
+                    :href="`/pkg/${encodeURIComponent(pkg.packageCode)}`"
+                    @click.prevent="
+                      router.push({ path: `/pkg/${encodeURIComponent(pkg.packageCode)}` })
+                    "
+                  >
+                    {{ pkg.packageCode }}
+                  </el-link>
                   <span>{{ pkg.productModel || trace.productModel || '-' }}</span>
                 </div>
                 <div class="batch-package-meta">
@@ -288,11 +301,11 @@ import {
   RdPackageUnitApi,
   type RdPackageStatus,
   type RdPackageTraceVO,
+  type RdPackageWorkContextVO,
   type RdPackageUnitVO
 } from '@/api/rd/stock/package'
 import { getAccessToken } from '@/utils/auth'
 import { formatDate } from '@/utils/formatTime'
-import { useUserStoreWithOut } from '@/store/modules/user'
 import { hasPermission } from '@/directives/permission/hasPermi'
 
 defineOptions({ name: 'RdPackageTrace' })
@@ -314,17 +327,20 @@ type TraceAction = {
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStoreWithOut()
 const loading = ref(false)
 const batchLoading = ref(false)
 const trace = ref<RdPackageTraceVO | null>(null)
 const batchPackages = ref<RdPackageUnitVO[]>([])
+const batchUnavailable = ref(false)
+const workContext = ref<RdPackageWorkContextVO | null>(null)
+const workContextUnavailable = ref(false)
 const queryTime = ref('-')
+let traceRequestSequence = 0
 
 const packageCode = computed(() => String(route.params.packageCode || '').trim())
 const hasAccessToken = computed(() => Boolean(getAccessToken()))
 const canViewInternal = computed(
-  () => hasAccessToken.value && userStore.getPermissions.has('rd:package-unit:query')
+  () => hasAccessToken.value && hasPermission(['rd:package-unit:query'])
 )
 const statusTagType = computed<TagType>(() => {
   if (!trace.value) return 'info'
@@ -353,7 +369,26 @@ const qualityIcon = computed(() => {
   if (qualityTone.value === 'danger') return 'lucide:circle-x'
   return 'lucide:clock-3'
 })
-const fieldAction = computed(() => getFieldAction(trace.value?.status))
+const fieldAction = computed(() => {
+  const task = workContext.value?.tasks[0]
+  if (task) {
+    return {
+      title: task.type === 'LOADING' ? '已关联装车任务' : '已关联上架任务',
+      role: task.myTask ? '叉车司机' : '仓管员',
+      detail: `${task.taskNo} · 按任务处理；扫码确认和库位登记由仓管员负责。`,
+      icon: task.type === 'LOADING' ? 'lucide:truck' : 'lucide:warehouse'
+    }
+  }
+  if (workContext.value?.pickupSlipNo) {
+    return {
+      title: '已关联提货单',
+      role: '商务',
+      detail: workContext.value.pickupSlipNo,
+      icon: 'lucide:file-check-2'
+    }
+  }
+  return getFieldAction(trace.value?.status)
+})
 const traceActions = computed<TraceAction[]>(() => buildTraceActions())
 const actionEntryEmptyText = computed(() => {
   if (!hasAccessToken.value)
@@ -400,7 +435,9 @@ const featureCards = computed(() => {
       value: trace.value.internalView
         ? batchLoading.value
           ? '读取中'
-          : `${batchStats.value.totalPackages} 包 / ${batchStats.value.totalWeightText}`
+          : batchUnavailable.value
+            ? '读取失败'
+            : `${batchStats.value.totalPackages} 包 / ${batchStats.value.totalWeightText}`
         : '内部登录后查看',
       hint: '扫一包带出同生产记录'
     },
@@ -484,15 +521,77 @@ const buildTraceActions = () => {
   const query = baseActionQuery()
   const actions: TraceAction[] = []
   const addAction = (permissions: string[], action: TraceAction) => {
-    if (canDo(permissions) && !actions.some((item) => item.key === action.key)) actions.push(action)
+    if (
+      canDo(permissions) &&
+      (!action.routeName || router.hasRoute(action.routeName)) &&
+      !actions.some((item) => item.key === action.key)
+    )
+      actions.push(action)
   }
+
+  for (const task of workContext.value?.tasks || []) {
+    const taskQuery = { ...query, taskId: task.taskId }
+    if (task.type === 'LOADING') {
+      addAction(['rd:loading-task:dispatch', 'rd:loading-task:query'], {
+        key: 'loading-review',
+        label: canDo(['rd:loading-task:dispatch']) ? '出库扫码复核' : '查看装车任务',
+        description: '打开该包关联的装车任务；由仓管核对实际装车包件。',
+        icon: 'lucide:clipboard-list',
+        routeName: 'RdLoadingDispatch',
+        query: { ...taskQuery, mode: canDo(['rd:loading-task:dispatch']) ? 'scan' : 'view' },
+        type: 'primary',
+        primary: true
+      })
+      if (task.myTask)
+        addAction(['rd:loading-task:execute'], {
+          key: 'driver-loading',
+          label: '查看本人装车任务',
+          description: '查看本次派单的货位和货物资料。',
+          icon: 'lucide:truck',
+          routeName: 'RdDriverLoading',
+          query: taskQuery,
+          type: 'primary',
+          primary: true
+        })
+    } else {
+      addAction(['rd:putaway-task:query'], {
+        key: 'putaway-workbench',
+        label: '处理上架任务',
+        description: '打开该包关联的上架任务。',
+        icon: 'lucide:warehouse',
+        routeName: 'RdPutawayWorkbench',
+        query: taskQuery,
+        type: 'success',
+        primary: true
+      })
+      if (task.myTask)
+        addAction(['rd:putaway-task:execute'], {
+          key: 'driver-putaway',
+          label: '查看本人上架任务',
+          description: '查看本次派单的目标库位和货物资料。',
+          icon: 'lucide:forklift',
+          routeName: 'RdDriverPutaway',
+          query: taskQuery
+        })
+    }
+  }
+  if (workContext.value?.pickupSlipId)
+    addAction(['rd:pickup-slip:query'], {
+      key: 'pickup-slip',
+      label: '关联提货单',
+      description: '查看该包对应的提货单。',
+      icon: 'lucide:file-check-2',
+      routeName: 'RdPickupSlip',
+      query: { pickupSlipId: workContext.value.pickupSlipId },
+      type: 'info'
+    })
 
   addAction(['rd:package-unit:query'], {
     key: 'package-ledger',
     label: '包码台账',
     description: '打开包码台账，继续查看同批次包件和标签打印记录。',
     icon: 'lucide:list-filter',
-    routeName: 'RdStockPackage',
+    routeName: 'RdPackageUnit',
     query
   })
 
@@ -507,18 +606,30 @@ const buildTraceActions = () => {
       type: 'primary',
       primary: status === 'CREATED'
     })
-    addAction(['rd:label-print:print', 'rd:label-print:reprint'], {
+  }
+  if (status !== 'VOIDED' && trace.value.internalView) {
+    addAction(status === 'CREATED' ? ['rd:label-print:print'] : ['rd:label-print:reprint'], {
       key: 'label-print',
-      label: '打印/补打标签',
+      label: status === 'CREATED' ? '打印吨袋标签' : '补打吨袋标签',
       description: '进入包码台账，对该包或同批次标签进行打印、补打。',
       icon: 'lucide:printer',
-      routeName: 'RdStockPackage',
-      query,
+      routeName: 'RdPackageUnit',
+      query: { ...query, labelAction: 'preview' },
       type: 'success',
       primary: status === 'LABELED'
     })
   }
 
+  if (trace.value.qualityInspectionId)
+    addAction(['rd:quality-inspection:query'], {
+      key: 'quality-history',
+      label: '质检记录',
+      description: '打开该包关联的质检记录。',
+      icon: 'lucide:clipboard-check',
+      routeName: 'RdQualityInspection',
+      query: cleanQuery({ ...query, inspectionId: trace.value.qualityInspectionId }),
+      type: 'warning'
+    })
   if (['LABELED', 'QC_PENDING', 'QC_REJECTED'].includes(status)) {
     addAction(
       [
@@ -539,7 +650,7 @@ const buildTraceActions = () => {
     )
   }
 
-  if (['QC_PASSED', 'INBOUND_PENDING'].includes(status)) {
+  if (['QC_PASSED', 'INBOUND_PENDING'].includes(status) && !workContextUnavailable.value) {
     addAction(['rd:putaway-task:create', 'rd:putaway-task:assign', 'rd:putaway-task:confirm'], {
       key: 'putaway-workbench',
       label: status === 'QC_PASSED' ? '安排入库上架' : '处理上架任务',
@@ -555,31 +666,26 @@ const buildTraceActions = () => {
       label: '入库单',
       description: '打开入库单模块，核对生产记录、入库数量、重量和库存流水。',
       icon: 'lucide:log-in',
-      routeName: 'RdStockInbound',
+      routeName: 'RdInboundOrder',
       query
-    })
-    addAction(['rd:putaway-task:execute'], {
-      key: 'driver-putaway',
-      label: '叉车上架 PDA',
-      description: '叉车司机进入本人上架任务列表，按仓管任务执行扫码搬运。',
-      icon: 'lucide:forklift',
-      routeName: 'RdDriverPutaway',
-      query,
-      type: 'info'
     })
   }
 
   if (status === 'IN_STOCK') {
-    addAction(['rd:loading-task:dispatch'], {
-      key: 'loading-dispatch',
-      label: '装车派单',
-      description: '进入装车派单，按提货单、库位和包件清单安排装车任务。',
-      icon: 'lucide:truck',
-      routeName: 'RdLoadingDispatch',
-      query,
-      type: 'primary',
-      primary: true
-    })
+    if (
+      !workContextUnavailable.value &&
+      !workContext.value?.tasks.some((task) => task.type === 'LOADING')
+    )
+      addAction(['rd:loading-task:dispatch'], {
+        key: 'loading-dispatch',
+        label: '装车派单',
+        description: '进入装车派单，按提货单、库位和包件清单安排装车任务。',
+        icon: 'lucide:truck',
+        routeName: 'RdLoadingDispatch',
+        query,
+        type: 'primary',
+        primary: true
+      })
     addAction(['rd:outbound-order:create', 'rd:outbound-order:query'], {
       key: 'outbound-order',
       label: '出库单',
@@ -598,27 +704,6 @@ const buildTraceActions = () => {
     })
   }
 
-  if (status === 'OUTBOUND_PENDING') {
-    addAction(['rd:loading-task:execute'], {
-      key: 'driver-loading',
-      label: '执行装车任务',
-      description: '进入装车任务，叉车司机按派单信息搬运，不修改最终出库确认。',
-      icon: 'lucide:truck',
-      routeName: 'RdDriverLoading',
-      query,
-      type: 'primary',
-      primary: true
-    })
-    addAction(['rd:loading-task:dispatch', 'rd:loading-task:query'], {
-      key: 'loading-review',
-      label: '装车复核',
-      description: '库管员查看装车任务和已锁定包件，复核发货进度。',
-      icon: 'lucide:clipboard-list',
-      routeName: 'RdLoadingDispatch',
-      query
-    })
-  }
-
   if (status === 'OUTBOUNDED') {
     addAction(['rd:outbound-order:query', 'rd:stock-transaction:query'], {
       key: 'outbound-trace',
@@ -631,7 +716,7 @@ const buildTraceActions = () => {
     })
   }
 
-  return actions.slice(0, 6)
+  return actions
 }
 
 const getFieldAction = (status?: RdPackageStatus | string) => {
@@ -715,36 +800,73 @@ const getFieldAction = (status?: RdPackageStatus | string) => {
   )
 }
 
-const loadBatchContext = async () => {
+const loadBatchContext = async (requestId: number, currentTrace: RdPackageTraceVO | null) => {
+  if (requestId !== traceRequestSequence) return
   batchPackages.value = []
-  if (!trace.value?.internalView || !trace.value.productionOutputId) return
+  batchUnavailable.value = false
+  batchLoading.value = false
+  if (!currentTrace?.internalView || !currentTrace.productionOutputId) return
   batchLoading.value = true
   try {
-    batchPackages.value = await RdPackageUnitApi.trace(trace.value.productionOutputId)
+    const packages = await RdPackageUnitApi.trace(currentTrace.productionOutputId)
+    if (requestId === traceRequestSequence) batchPackages.value = packages
+  } catch {
+    if (requestId === traceRequestSequence) batchUnavailable.value = true
   } finally {
-    batchLoading.value = false
+    if (requestId === traceRequestSequence) batchLoading.value = false
+  }
+}
+
+const loadWorkContext = async (requestId: number, code: string) => {
+  if (requestId !== traceRequestSequence) return
+  workContext.value = null
+  workContextUnavailable.value = false
+  if (
+    !hasAccessToken.value ||
+    !hasPermission([
+      'rd:package-unit:query',
+      'rd:putaway-task:execute',
+      'rd:loading-task:execute',
+      'rd:pickup-slip:query'
+    ])
+  )
+    return
+  try {
+    const context = await RdPackageUnitApi.getWorkContext(code)
+    if (requestId === traceRequestSequence) workContext.value = context
+  } catch {
+    if (requestId === traceRequestSequence) workContextUnavailable.value = true
   }
 }
 
 const loadTrace = async () => {
-  if (!packageCode.value || loading.value) return
+  const code = packageCode.value
+  if (!code) return
+  const requestId = ++traceRequestSequence
   loading.value = true
+  let currentTrace: RdPackageTraceVO | null = null
   try {
-    trace.value = canViewInternal.value
-      ? await RdPackageUnitApi.getTraceDetail(packageCode.value)
-      : await RdPackageUnitApi.getPublicTrace(packageCode.value)
-    queryTime.value = formatDate(new Date(), 'YYYY-MM-DD HH:mm:ss')
-    await loadBatchContext()
+    currentTrace = canViewInternal.value
+      ? await RdPackageUnitApi.getTraceDetail(code)
+      : await RdPackageUnitApi.getPublicTrace(code)
   } catch {
     if (canViewInternal.value) {
-      trace.value = await RdPackageUnitApi.getPublicTrace(packageCode.value)
-      queryTime.value = formatDate(new Date(), 'YYYY-MM-DD HH:mm:ss')
-      await loadBatchContext()
-    } else {
-      trace.value = null
-      batchPackages.value = []
+      try {
+        currentTrace = await RdPackageUnitApi.getPublicTrace(code)
+      } catch {
+        currentTrace = null
+      }
     }
-  } finally {
+  }
+  if (requestId !== traceRequestSequence) return
+  trace.value = currentTrace
+  workContext.value = null
+  queryTime.value = formatDate(new Date(), 'YYYY-MM-DD HH:mm:ss')
+  await Promise.all([
+    loadBatchContext(requestId, currentTrace),
+    currentTrace ? loadWorkContext(requestId, code) : Promise.resolve()
+  ])
+  if (requestId === traceRequestSequence) {
     loading.value = false
   }
 }

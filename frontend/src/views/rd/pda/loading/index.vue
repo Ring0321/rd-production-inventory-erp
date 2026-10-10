@@ -290,8 +290,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { RdPackageUnitApi } from '@/api/rd/stock/package'
 import { useAppStore } from '@/store/modules/app'
 import {
   RdLoadingApi,
@@ -473,6 +474,7 @@ const loadMore = async () => {
 
 const openTask = async (id: number) => {
   detailLoading.value = true
+  taskDetail.value = undefined
   try {
     taskDetail.value = await RdLoadingApi.getMyTask(id)
   } finally {
@@ -531,18 +533,31 @@ const submitException = async () => {
 
 const openTaskByPackageQuery = async () => {
   const code = normalizePackageCode(getRouteString('packageCode'))
-  if (!code || routePackageHandled.value || taskDetail.value) return
+  const requestedId = Number(getRouteString('taskId'))
+  if ((!code && !requestedId) || routePackageHandled.value) return
   routePackageHandled.value = true
   highlightedPackageCode.value = code
-  for (const task of taskList.value) {
-    const detail = await RdLoadingApi.getMyTask(task.id)
-    if (detail.lines.some((line) => normalizePackageCode(line.packageCode) === code)) {
-      taskDetail.value = detail
-      await nextTick()
-      return
-    }
+  const context =
+    !Number.isSafeInteger(requestedId) || requestedId <= 0
+      ? await RdPackageUnitApi.getWorkContext(code)
+      : null
+  const taskId =
+    Number.isSafeInteger(requestedId) && requestedId > 0
+      ? requestedId
+      : context?.tasks.find((task) => task.type === 'LOADING' && task.myTask)?.taskId
+  if (!taskId) {
+    taskDetail.value = undefined
+    message.info('该包没有分配给本人的有效装车任务')
+    return
   }
-  message.info('该包码未在当前司机的前 20 条装车任务中找到，请从任务列表进入查看。')
+  await openTask(taskId)
+  if (
+    code &&
+    !taskDetail.value?.lines.some((line) => normalizePackageCode(line.packageCode) === code)
+  ) {
+    taskDetail.value = undefined
+    message.warning('该包不属于当前装车任务，请重新查询')
+  }
 }
 
 watch(
@@ -563,7 +578,7 @@ watch(
 )
 
 watch(
-  () => route.query.packageCode,
+  () => [route.query.packageCode, route.query.taskId],
   () => {
     routePackageHandled.value = false
     openTaskByPackageQuery()

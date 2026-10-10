@@ -187,6 +187,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import { RdSaleOrderApi, type RdSaleOrderVO } from '@/api/rd/order/sale'
 import {
   RdLoadingApi,
@@ -197,6 +198,7 @@ import {
 
 defineOptions({ name: 'RdPickupSlip' })
 const message = useMessage()
+const route = useRoute()
 const loading = ref(false)
 const submitting = ref(false)
 const createVisible = ref(false)
@@ -280,7 +282,15 @@ const showDetail = async (id: number) => {
   detail.value = await RdLoadingApi.getPickupSlip(id)
   detailVisible.value = true
 }
-onMounted(loadPage)
+const applyPickupContext = async () => {
+  const id = Number(route.query.pickupSlipId)
+  if (Number.isSafeInteger(id) && id > 0) await showDetail(id)
+}
+watch(() => route.query.pickupSlipId, applyPickupContext)
+onMounted(async () => {
+  await loadPage()
+  await applyPickupContext()
+})
 </script>
 
 <style scoped>
@@ -292,8 +302,9 @@ onMounted(loadPage)
   gap: 12px;
   margin-bottom: 16px;
 }
+
 .page-heading h2 {
-  font-size: 18px;
   margin: 0;
+  font-size: 18px;
 }
 </style>

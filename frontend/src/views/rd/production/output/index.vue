@@ -154,6 +154,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import download from '@/utils/download'
 import { dateFormatter } from '@/utils/formatTime'
 import { useMessage } from '@/hooks/web/useMessage'
@@ -166,6 +167,7 @@ import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.
 defineOptions({ name: 'RdProductionOutput' })
 
 const message = useMessage()
+const route = useRoute()
 const loading = ref(true)
 const list = ref<RdProductionOutputVO[]>([])
 const total = ref(0)
@@ -202,6 +204,13 @@ const statusMap = statusOptions.reduce(
 const getList = async () => {
   loading.value = true
   try {
+    const outputId = Number(route.query.productionOutputId)
+    if (Number.isSafeInteger(outputId) && outputId > 0) {
+      const output = await RdProductionOutputApi.get(outputId)
+      list.value = [output]
+      total.value = 1
+      return
+    }
     const data = await RdProductionOutputApi.getPage(queryParams)
     list.value = data.list
     total.value = data.total
@@ -209,6 +218,8 @@ const getList = async () => {
     loading.value = false
   }
 }
+
+watch(() => route.query.productionOutputId, getList)
 
 const handleQuery = () => {
   queryParams.pageNo = 1

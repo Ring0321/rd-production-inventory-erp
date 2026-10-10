@@ -82,7 +82,21 @@ export interface RdPackageTraceVO {
   customerName?: string
   locationCode?: string
   productionOutputId?: number
+  qualityInspectionId?: number
   events: RdPackageTraceEventVO[]
+}
+
+export interface RdPackageWorkContextVO {
+  packageCode: string
+  tasks: Array<{
+    type: 'PUTAWAY' | 'LOADING'
+    taskId: number
+    taskNo: string
+    status: string
+    myTask: boolean
+  }>
+  pickupSlipId?: number
+  pickupSlipNo?: string
 }
 
 export const RdPackageUnitApi = {
@@ -103,6 +117,10 @@ export const RdPackageUnitApi = {
   getTraceDetail: (packageCode: string) =>
     request.get<RdPackageTraceVO | null>({
       url: `/rd/package-unit/trace-detail/${encodeURIComponent(packageCode)}`
+    }),
+  getWorkContext: (packageCode: string) =>
+    request.get<RdPackageWorkContextVO | null>({
+      url: `/rd/package-unit/work-context/${encodeURIComponent(packageCode)}`
     }),
   generate: (data: RdPackageGenerateReqVO) =>
     request.post<RdPackageUnitVO[]>({ url: '/rd/package-unit/generate', data }),

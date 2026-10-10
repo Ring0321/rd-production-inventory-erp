@@ -384,6 +384,9 @@ const applyRouteQuery = async () => {
   queryParams.packageCode = getRouteString('packageCode') || undefined
   queryParams.productionOutputId = getRouteNumber('productionOutputId')
   await handleQuery()
+  if (getRouteString('labelAction') === 'preview' && list.value.length === 1) {
+    await openPreview(list.value[0])
+  }
 }
 const resetQuery = () => {
   queryFormRef.value?.resetFields()
