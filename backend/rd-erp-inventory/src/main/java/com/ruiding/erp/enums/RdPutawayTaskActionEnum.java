@@ -7,8 +7,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum RdPutawayTaskActionEnum {
     ASSIGN(RdPutawayTaskActorEnum.WAREHOUSE_KEEPER),
-    START(RdPutawayTaskActorEnum.FORKLIFT_DRIVER),
-    COMPLETE_SCANNING(RdPutawayTaskActorEnum.FORKLIFT_DRIVER),
+    START(RdPutawayTaskActorEnum.WAREHOUSE_KEEPER),
+    COMPLETE_SCANNING(RdPutawayTaskActorEnum.WAREHOUSE_KEEPER),
     REPORT_EXCEPTION(RdPutawayTaskActorEnum.FORKLIFT_DRIVER),
     REASSIGN(RdPutawayTaskActorEnum.WAREHOUSE_KEEPER),
     RETURN_TO_DRIVER(RdPutawayTaskActorEnum.WAREHOUSE_KEEPER),

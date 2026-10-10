@@ -8,6 +8,9 @@ import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayLocationMapRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanPreviewReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanConfirmReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskConfirmReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskDetailRespVO;
@@ -29,8 +32,13 @@ public interface RdPutawayTaskService {
 
     void reassignTask(RdPutawayTaskReassignReqVO reqVO, Long warehouseKeeperId, String warehouseKeeperName);
 
-    RdPutawayScanRespVO scanPackage(RdPutawayScanReqVO reqVO, Long forkliftDriverId,
-                                    String forkliftDriverName);
+    RdPutawayScanRespVO scanPackage(RdPutawayScanReqVO reqVO, Long warehouseKeeperId,
+                                    String warehouseKeeperName);
+
+    RdPutawayBatchScanRespVO previewBatchScan(RdPutawayBatchScanPreviewReqVO reqVO);
+
+    RdPutawayBatchScanRespVO confirmBatchScan(RdPutawayBatchScanConfirmReqVO reqVO,
+                                            Long warehouseKeeperId, String warehouseKeeperName);
 
     Long reportException(RdPutawayExceptionCreateReqVO reqVO, Long forkliftDriverId,
                          String forkliftDriverName);

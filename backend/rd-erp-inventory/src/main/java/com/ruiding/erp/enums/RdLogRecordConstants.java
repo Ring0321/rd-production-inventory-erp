@@ -29,7 +29,7 @@ public interface RdLogRecordConstants {
     String PUTAWAY_CREATE_SUCCESS = "创建上架任务【{{#rdBizId}}】，计划库位【{{#reqVO.plannedLocationId}}】，叉车司机【{{#reqVO.forkliftDriverId}}】";
     String PUTAWAY_REASSIGN_SUB_TYPE = "仓管处理上架异常";
     String PUTAWAY_REASSIGN_SUCCESS = "调整上架任务【{{#reqVO.id}}】，计划库位【{{#reqVO.plannedLocationId}}】，叉车司机【{{#reqVO.forkliftDriverId}}】";
-    String PUTAWAY_SCAN_SUB_TYPE = "司机扫码上架";
+    String PUTAWAY_SCAN_SUB_TYPE = "仓管扫码核验上架";
     String PUTAWAY_SCAN_SUCCESS = "上架任务【{{#reqVO.id}}】扫描包码【{{#reqVO.packageCode}}】";
     String PUTAWAY_EXCEPTION_SUB_TYPE = "司机上报上架异常";
     String PUTAWAY_EXCEPTION_SUCCESS = "上架任务【{{#reqVO.id}}】上报异常【{{#reqVO.exceptionType}}】";

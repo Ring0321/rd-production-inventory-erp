@@ -977,6 +977,7 @@ CREATE TABLE `rd_scan_event` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD scan event';
 
 DROP TABLE IF EXISTS `rd_putaway_exception`;
+DROP TABLE IF EXISTS `rd_putaway_batch_scan_record`;
 DROP TABLE IF EXISTS `rd_putaway_scan_record`;
 DROP TABLE IF EXISTS `rd_putaway_task_line`;
 DROP TABLE IF EXISTS `rd_putaway_task`;
@@ -1044,6 +1045,21 @@ CREATE TABLE `rd_putaway_scan_record` (
   KEY `idx_rd_putaway_scan_package` (`tenant_id`,`package_code`,`scan_time`,`deleted`,`id`),
   KEY `idx_rd_putaway_scan_operator` (`tenant_id`,`operator_id`,`scan_time`,`deleted`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD putaway scan record';
+
+CREATE TABLE `rd_putaway_batch_scan_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `task_id` bigint NOT NULL,
+  `representative_package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `idempotency_key` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `request_digest` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `task_version` int NOT NULL,
+  `confirmed_line_ids` text COLLATE utf8mb4_unicode_ci NOT NULL, `confirmed_count` int NOT NULL,
+  `operator_id` bigint NOT NULL, `operator_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `device_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `scan_time` datetime NOT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '', `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_putaway_batch_key` (`tenant_id`,`task_id`,`idempotency_key`,`deleted`),
+  KEY `idx_rd_putaway_batch_task` (`tenant_id`,`task_id`,`scan_time`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD warehouse batch putaway verification';
 
 CREATE TABLE `rd_putaway_exception` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',

@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
@@ -17,6 +19,9 @@ import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayLocationMapRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanPreviewReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanConfirmReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskConfirmReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskDetailRespVO;
@@ -30,6 +35,7 @@ import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdLocationCapacitySummaryDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayExceptionDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayScanRecordDO;
+import com.ruiding.erp.dal.dataobject.putaway.RdPutawayBatchScanRecordDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayTaskDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayTaskLineDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
@@ -40,6 +46,7 @@ import com.ruiding.erp.dal.mysql.masterdata.RdWarehouseLocationMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayExceptionMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayScanRecordMapper;
+import com.ruiding.erp.dal.mysql.putaway.RdPutawayBatchScanRecordMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayTaskLineMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayTaskMapper;
 import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
@@ -79,6 +86,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.FORBIDDEN;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_SCAN_KEY_CONFLICT;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_BATCH_SELECTION_INVALID;
+import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_SCAN_PACKAGE_MISMATCH;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_CONFIRM_HAS_OPEN_EXCEPTION;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_CONFIRM_PACKAGE_INVALID;
 import static com.ruiding.erp.enums.ErrorCodeConstants.PUTAWAY_CONFIRM_PACKAGES_INCOMPLETE;
@@ -121,6 +132,7 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
     @Resource private RdPutawayTaskLineMapper taskLineMapper;
     @Resource private RdPutawayExceptionMapper exceptionMapper;
     @Resource private RdPutawayScanRecordMapper scanRecordMapper;
+    @Resource private RdPutawayBatchScanRecordMapper batchScanRecordMapper;
     @Resource private RdInboundOrderMapper inboundOrderMapper;
     @Resource private RdInboundOrderLineMapper inboundOrderLineMapper;
     @Resource private RdStockLotMapper stockLotMapper;
@@ -338,8 +350,11 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
     @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE,
             subType = RdLogRecordConstants.PUTAWAY_SCAN_SUB_TYPE,
             bizNo = "{{#reqVO.id}}", success = RdLogRecordConstants.PUTAWAY_SCAN_SUCCESS)
-    public RdPutawayScanRespVO scanPackage(RdPutawayScanReqVO reqVO, Long forkliftDriverId,
-                                           String forkliftDriverName) {
+    public RdPutawayScanRespVO scanPackage(RdPutawayScanReqVO reqVO, Long warehouseKeeperId,
+                                           String warehouseKeeperName) {
+        if (!permissionService.hasAnyPermissions(warehouseKeeperId, "rd:putaway-task:confirm")) {
+            throw exception(FORBIDDEN);
+        }
         RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
         if (task == null) {
             throw exception(PUTAWAY_TASK_NOT_EXISTS);
@@ -347,13 +362,12 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         RdPutawayScanRecordDO replay = scanRecordMapper.selectByTaskAndIdempotencyKey(
                 task.getId(), reqVO.getIdempotencyKey());
         if (replay != null) {
-            if (!Objects.equals(task.getForkliftDriverId(), forkliftDriverId)) {
-                throw exception(PUTAWAY_TASK_NOT_ASSIGNED);
+            if (!Objects.equals(replay.getOperatorId(), warehouseKeeperId)
+                    || !Objects.equals(normalizeCode(replay.getPackageCode()),
+                    normalizeCode(normalizePackageCode(reqVO.getPackageCode())))) {
+                throw exception(PUTAWAY_SCAN_KEY_CONFLICT);
             }
             return toScanResponse(replay, task, true);
-        }
-        if (!Objects.equals(task.getForkliftDriverId(), forkliftDriverId)) {
-            throw exception(PUTAWAY_TASK_NOT_ASSIGNED);
         }
 
         String packageCode = normalizePackageCode(reqVO.getPackageCode());
@@ -365,14 +379,14 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         if (line == null) {
             RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, null, packageCode,
                     "MISMATCH", false, "PACKAGE_MISMATCH", "该包码不属于当前上架任务",
-                    statusBefore, statusBefore, forkliftDriverId, forkliftDriverName);
+                    statusBefore, statusBefore, warehouseKeeperId, warehouseKeeperName);
             return toScanResponse(record, task, false);
         }
         if (zero(line.getScanCount()) > 0 || LINE_SCANNED.equals(line.getLineStatus())
                 || LINE_CONFIRMED.equals(line.getLineStatus())) {
             RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, line, packageCode,
                     "DUPLICATE", false, "PACKAGE_ALREADY_SCANNED", "该包码已经扫码，不重复计数",
-                    statusBefore, statusBefore, forkliftDriverId, forkliftDriverName);
+                    statusBefore, statusBefore, warehouseKeeperId, warehouseKeeperName);
             return toScanResponse(record, task, false);
         }
 
@@ -381,7 +395,7 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
                 && current != RdPutawayTaskStatusEnum.MOVING) {
             RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, line, packageCode,
                     "STATUS_INVALID", false, "TASK_STATUS_INVALID", "当前任务状态不能继续扫码",
-                    statusBefore, statusBefore, forkliftDriverId, forkliftDriverName);
+                    statusBefore, statusBefore, warehouseKeeperId, warehouseKeeperName);
             return toScanResponse(record, task, false);
         }
 
@@ -410,8 +424,114 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         taskMapper.updateById(task);
         RdPutawayScanRecordDO record = insertScanRecord(reqVO, task, line, packageCode,
                 "SUCCESS", true, null, null, statusBefore, task.getStatus(),
-                forkliftDriverId, forkliftDriverName);
+                warehouseKeeperId, warehouseKeeperName);
         return toScanResponse(record, task, false);
+    }
+
+    @Override
+    public RdPutawayBatchScanRespVO previewBatchScan(RdPutawayBatchScanPreviewReqVO reqVO) {
+        String code = normalizePackageCode(reqVO.getPackageCode());
+        Long taskId = reqVO.getId();
+        if (taskId == null) {
+            RdPutawayTaskLineDO line = taskLineMapper.selectActiveByPackageCode(code);
+            if (line == null) throw exception(PUTAWAY_SCAN_PACKAGE_MISMATCH);
+            taskId = line.getTaskId();
+        }
+        RdPutawayTaskDO task = taskMapper.selectById(taskId);
+        if (task == null) throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        List<RdPutawayTaskLineDO> lines = taskLineMapper.selectListByTaskId(taskId);
+        if (lines.stream().noneMatch(line -> Objects.equals(normalizeCode(line.getPackageCode()), normalizeCode(code)))) {
+            throw exception(PUTAWAY_SCAN_PACKAGE_MISMATCH);
+        }
+        return batchScanResponse(task, lines, code, null, false, 0);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = RdLogRecordConstants.PUTAWAY_TYPE, subType = "仓管批次核验上架",
+            bizNo = "{{#reqVO.id}}", success = "上架任务【{{#reqVO.id}}】批次代表码【{{#reqVO.packageCode}}】核验")
+    public RdPutawayBatchScanRespVO confirmBatchScan(RdPutawayBatchScanConfirmReqVO reqVO,
+                                                    Long warehouseKeeperId, String warehouseKeeperName) {
+        if (!permissionService.hasAnyPermissions(warehouseKeeperId, "rd:putaway-task:confirm")) {
+            throw exception(FORBIDDEN);
+        }
+        List<Long> selectedIds = reqVO.getTaskLineIds();
+        if (reqVO.getId() == null || reqVO.getVersion() == null || !hasText(reqVO.getIdempotencyKey())
+                || reqVO.getIdempotencyKey().length() > 128 || selectedIds == null || selectedIds.isEmpty()
+                || selectedIds.size() > 500 || selectedIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new LinkedHashSet<>(selectedIds).size() != selectedIds.size()) {
+            throw exception(PUTAWAY_BATCH_SELECTION_INVALID);
+        }
+        String code = normalizePackageCode(reqVO.getPackageCode());
+        List<Long> orderedIds = selectedIds.stream().sorted().toList();
+        Map<String, Object> payload = new java.util.TreeMap<>();
+        payload.put("taskId", reqVO.getId());
+        payload.put("version", reqVO.getVersion());
+        payload.put("packageCode", normalizeCode(code));
+        payload.put("lineIds", orderedIds);
+        payload.put("operatorId", warehouseKeeperId);
+        String digest = DigestUtil.sha256Hex(JsonUtils.toJsonString(payload));
+        RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
+        if (task == null) throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        RdPutawayBatchScanRecordDO replay = batchScanRecordMapper.selectByTaskAndKey(task.getId(), reqVO.getIdempotencyKey());
+        if (replay != null) {
+            if (!Objects.equals(replay.getRequestDigest(), digest)) throw exception(PUTAWAY_SCAN_KEY_CONFLICT);
+            return batchScanResponse(task, taskLineMapper.selectListByTaskId(task.getId()),
+                    replay.getRepresentativePackageCode(), replay.getId(), true, 0);
+        }
+        if (!Objects.equals(reqVO.getVersion(), task.getVersion())) throw exception(PUTAWAY_TASK_VERSION_CONFLICT);
+        if (!Set.of("ASSIGNED", "MOVING").contains(task.getStatus())) throw exception(PUTAWAY_TASK_STATUS_INVALID);
+        List<RdPutawayTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
+        if (lines.stream().noneMatch(line -> Objects.equals(normalizeCode(line.getPackageCode()), normalizeCode(code)))) {
+            throw exception(PUTAWAY_SCAN_PACKAGE_MISMATCH);
+        }
+        List<RdPutawayTaskLineDO> selected = lines.stream().filter(line -> orderedIds.contains(line.getId()))
+                .sorted(Comparator.comparing(RdPutawayTaskLineDO::getPackageId)).toList();
+        if (selected.size() != orderedIds.size()) throw exception(PUTAWAY_SCAN_PACKAGE_MISMATCH);
+        // Verify the whole selection before the first scan record is written.
+        for (RdPutawayTaskLineDO line : selected) {
+            if (!LINE_PENDING.equals(line.getLineStatus()) || zero(line.getScanCount()) != 0) {
+                throw exception(PUTAWAY_BATCH_SELECTION_INVALID);
+            }
+            RdPackageUnitDO unit = packageMapper.selectByIdForUpdate(line.getPackageId());
+            if (unit == null || !RdPackageStatusEnum.INBOUND_PENDING.getStatus().equals(unit.getStatus())
+                    || !Objects.equals(unit.getPackageCode(), line.getPackageCode())
+                    || !Objects.equals(unit.getCustomerName(), line.getCustomerName())
+                    || !Objects.equals(unit.getProductModel(), line.getProductModel())
+                    || !Objects.equals(unit.getFurnaceNo(), line.getFurnaceNo())
+                    || !Objects.equals(unit.getFurnaceLayer(), line.getFurnaceLayer())
+                    || unit.getPackageWeight() == null || unit.getPackageWeight().compareTo(line.getPackageWeight()) != 0) {
+                throw exception(PUTAWAY_CONFIRM_PACKAGE_INVALID);
+            }
+        }
+        for (RdPutawayTaskLineDO line : selected) {
+            RdPutawayScanReqVO single = new RdPutawayScanReqVO();
+            single.setId(task.getId());
+            single.setPackageCode(line.getPackageCode());
+            single.setIdempotencyKey("batch:" + DigestUtil.sha256Hex(reqVO.getIdempotencyKey()) + ":" + line.getId());
+            single.setDeviceCode(reqVO.getDeviceCode());
+            single.setDeviceTime(reqVO.getDeviceTime());
+            RdPutawayScanRespVO result = scanPackage(single, warehouseKeeperId, warehouseKeeperName);
+            if (!Boolean.TRUE.equals(result.getSuccess()) || Boolean.TRUE.equals(result.getReplayed())) {
+                throw exception(PUTAWAY_BATCH_SELECTION_INVALID);
+            }
+        }
+        RdPutawayBatchScanRecordDO record = new RdPutawayBatchScanRecordDO().setTaskId(task.getId())
+                .setRepresentativePackageCode(code).setIdempotencyKey(reqVO.getIdempotencyKey())
+                .setRequestDigest(digest).setTaskVersion(reqVO.getVersion())
+                .setConfirmedLineIds(JsonUtils.toJsonString(orderedIds)).setConfirmedCount(selected.size())
+                .setOperatorId(warehouseKeeperId).setOperatorName(warehouseKeeperName)
+                .setDeviceCode(reqVO.getDeviceCode()).setScanTime(LocalDateTime.now());
+        batchScanRecordMapper.insert(record);
+        return batchScanResponse(taskMapper.selectById(task.getId()), taskLineMapper.selectListByTaskId(task.getId()),
+                code, record.getId(), false, selected.size());
+    }
+
+    private RdPutawayBatchScanRespVO batchScanResponse(RdPutawayTaskDO task, List<RdPutawayTaskLineDO> lines,
+                                                     String code, Long recordId, boolean replayed, int confirmedCount) {
+        return new RdPutawayBatchScanRespVO().setTask(task).setLines(lines)
+                .setExceptions(exceptionMapper.selectListByTaskId(task.getId())).setRepresentativePackageCode(code)
+                .setRecordId(recordId).setReplayed(replayed).setConfirmedCount(confirmedCount);
     }
 
     @Override

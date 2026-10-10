@@ -114,7 +114,7 @@ function Get-SchemaFingerprint {
     $tableCount = Invoke-Scalar $Database @"
 SELECT COUNT(*) FROM information_schema.tables
 WHERE table_schema = DATABASE()
-  AND table_name IN ('rd_putaway_task','rd_putaway_task_line','rd_putaway_scan_record','rd_putaway_exception');
+  AND table_name IN ('rd_putaway_task','rd_putaway_task_line','rd_putaway_scan_record','rd_putaway_exception','rd_putaway_batch_scan_record');
 "@
     $locationColumnCount = Invoke-Scalar $Database @"
 SELECT COUNT(*) FROM information_schema.columns
@@ -125,7 +125,7 @@ WHERE table_schema = DATABASE() AND table_name = 'rd_location'
     $putawayColumnCount = Invoke-Scalar $Database @"
 SELECT COUNT(*) FROM information_schema.columns
 WHERE table_schema = DATABASE()
-  AND table_name IN ('rd_putaway_task','rd_putaway_task_line','rd_putaway_scan_record','rd_putaway_exception');
+  AND table_name IN ('rd_putaway_task','rd_putaway_task_line','rd_putaway_scan_record','rd_putaway_exception','rd_putaway_batch_scan_record');
 "@
     $indexCount = Invoke-Scalar $Database @"
 SELECT COUNT(DISTINCT CONCAT(table_name, ':', index_name)) FROM information_schema.statistics
@@ -136,13 +136,15 @@ WHERE table_schema = DATABASE()
                      'idx_rd_putaway_line_task','idx_rd_putaway_line_package','uk_rd_putaway_scan_idempotency',
                      'idx_rd_putaway_scan_task','idx_rd_putaway_scan_package','idx_rd_putaway_scan_operator',
                      'uk_rd_putaway_exception_no','idx_rd_putaway_exception_task',
-                     'idx_rd_putaway_exception_handler','idx_rd_putaway_exception_package');
+                     'idx_rd_putaway_exception_handler','idx_rd_putaway_exception_package',
+                     'uk_rd_putaway_batch_key','idx_rd_putaway_batch_task');
 "@
     $rowCount = Invoke-Scalar $Database @"
 SELECT (SELECT COUNT(*) FROM rd_putaway_task)
      + (SELECT COUNT(*) FROM rd_putaway_task_line)
      + (SELECT COUNT(*) FROM rd_putaway_scan_record)
-     + (SELECT COUNT(*) FROM rd_putaway_exception);
+     + (SELECT COUNT(*) FROM rd_putaway_exception)
+     + (SELECT COUNT(*) FROM rd_putaway_batch_scan_record);
 "@
     $driverMenuCount = Invoke-Scalar $Database @"
 SELECT COUNT(*) FROM system_menu
@@ -171,10 +173,10 @@ WHERE tenant_id = 1 AND role_id IN (600004,600005)
   AND menu_id IN (600270,600271,600272,600273) AND deleted = b'0';
 "@
 
-    Assert-Equal "putaway table count" "4" $tableCount
+    Assert-Equal "putaway table count" "5" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
-    Assert-Equal "putaway column count" "109" $putawayColumnCount
-    Assert-Equal "putaway index count" "19" $indexCount
+    Assert-Equal "putaway column count" "127" $putawayColumnCount
+    Assert-Equal "putaway index count" "21" $indexCount
     Assert-Equal "putaway seed row count" "0" $rowCount
     Assert-Equal "forklift driver PDA menu count" "1" $driverMenuCount
     Assert-Equal "forklift driver minimum grant count" "4" $driverGrantCount
@@ -214,7 +216,7 @@ try {
 
     Invoke-MySqlFile -Database $upgradeDatabase -Path $cleanSql
     [void](Invoke-MySql -Database $upgradeDatabase -Sql @"
-DROP TABLE IF EXISTS rd_putaway_exception, rd_putaway_scan_record, rd_putaway_task_line, rd_putaway_task;
+DROP TABLE IF EXISTS rd_putaway_exception, rd_putaway_batch_scan_record, rd_putaway_scan_record, rd_putaway_task_line, rd_putaway_task;
 ALTER TABLE rd_location
   DROP INDEX idx_rd_location_map,
   DROP INDEX idx_rd_location_availability,

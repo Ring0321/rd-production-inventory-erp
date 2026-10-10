@@ -54,6 +54,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 @ExtendWith(MockitoExtension.class)
 class RdPutawayTaskServiceImplTest {
@@ -242,6 +243,7 @@ class RdPutawayTaskServiceImplTest {
 
     @Test
     void shouldPersistScanAndMoveLastPackageToPendingConfirmation() {
+        allowKeeperScan();
         RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.ASSIGNED, 1, 0, 0);
         RdPutawayTaskLineDO line = putawayLine("PK-001", "PENDING", 0);
         when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
@@ -252,7 +254,7 @@ class RdPutawayTaskServiceImplTest {
             return 1;
         }).when(scanRecordMapper).insert(any(RdPutawayScanRecordDO.class));
 
-        var result = service.scanPackage(scanReq("PK-001", "scan-001"), 30L, "司机30");
+        var result = service.scanPackage(scanReq("PK-001", "scan-001"), 20L, "仓管20");
 
         assertEquals(Boolean.TRUE, result.getSuccess());
         assertEquals(Boolean.FALSE, result.getReplayed());
@@ -268,15 +270,16 @@ class RdPutawayTaskServiceImplTest {
 
     @Test
     void shouldReturnOriginalScanResultForIdempotentRetry() {
+        allowKeeperScan();
         RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.PENDING_CONFIRMATION, 1, 1, 1);
         RdPutawayScanRecordDO record = new RdPutawayScanRecordDO().setId(70L).setTaskId(50L)
                 .setPackageCode("PK-001").setIdempotencyKey("scan-001")
-                .setScanResult("SUCCESS").setSuccess(true);
+                .setScanResult("SUCCESS").setSuccess(true).setOperatorId(20L);
         when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
         when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-001"))
                 .thenReturn(record);
 
-        var result = service.scanPackage(scanReq("PK-001", "scan-001"), 30L, "司机30");
+        var result = service.scanPackage(scanReq("PK-001", "scan-001"), 20L, "仓管20");
 
         assertEquals(Boolean.TRUE, result.getSuccess());
         assertEquals(Boolean.TRUE, result.getReplayed());
@@ -287,13 +290,14 @@ class RdPutawayTaskServiceImplTest {
 
     @Test
     void shouldRecordDuplicatePackageWithoutIncreasingProgress() {
+        allowKeeperScan();
         RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.MOVING, 2, 1, 1);
         RdPutawayTaskLineDO line = putawayLine("PK-001", "SCANNED", 1);
         when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
         when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-002")).thenReturn(null);
         when(taskLineMapper.selectListByTaskIdForUpdate(50L)).thenReturn(List.of(line));
 
-        var result = service.scanPackage(scanReq("PK-001", "scan-002"), 30L, "司机30");
+        var result = service.scanPackage(scanReq("PK-001", "scan-002"), 20L, "仓管20");
 
         assertEquals(Boolean.FALSE, result.getSuccess());
         assertEquals("DUPLICATE", result.getScanResult());
@@ -305,13 +309,14 @@ class RdPutawayTaskServiceImplTest {
 
     @Test
     void shouldRecordWrongPackageWithoutChangingTask() {
+        allowKeeperScan();
         RdPutawayTaskDO task = putawayTask(RdPutawayTaskStatusEnum.ASSIGNED, 1, 0, 0);
         when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
         when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-wrong")).thenReturn(null);
         when(taskLineMapper.selectListByTaskIdForUpdate(50L))
                 .thenReturn(List.of(putawayLine("PK-001", "PENDING", 0)));
 
-        var result = service.scanPackage(scanReq("PK-WRONG", "scan-wrong"), 30L, "司机30");
+        var result = service.scanPackage(scanReq("PK-WRONG", "scan-wrong"), 20L, "仓管20");
 
         assertEquals(Boolean.FALSE, result.getSuccess());
         assertEquals("MISMATCH", result.getScanResult());
@@ -346,6 +351,29 @@ class RdPutawayTaskServiceImplTest {
         verify(exceptionMapper).insert(any(RdPutawayExceptionDO.class));
         verify(taskLineMapper).updateById(line);
         verify(taskMapper).updateById(task);
+    }
+
+    @Test
+    void shouldRejectDriverScanBeforeReadingTask() {
+        assertThrows(RuntimeException.class, () -> service.scanPackage(scanReq("PK-001", "denied"),
+                30L, "司机30"));
+        verify(taskMapper, never()).selectByIdForUpdate(anyLong());
+        verify(scanRecordMapper, never()).insert(any(RdPutawayScanRecordDO.class));
+    }
+
+    @Test
+    void shouldRejectSingleScanKeyReusedForAnotherPackage() {
+        allowKeeperScan();
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(putawayTask(RdPutawayTaskStatusEnum.MOVING, 2, 1, 1));
+        when(scanRecordMapper.selectByTaskAndIdempotencyKey(50L, "scan-001")).thenReturn(
+                new RdPutawayScanRecordDO().setOperatorId(20L).setPackageCode("PK-001"));
+        assertThrows(RuntimeException.class, () -> service.scanPackage(scanReq("PK-002", "scan-001"),
+                20L, "仓管20"));
+        verify(taskLineMapper, never()).selectListByTaskIdForUpdate(anyLong());
+    }
+
+    private void allowKeeperScan() {
+        when(permissionService.hasAnyPermissions(20L, "rd:putaway-task:confirm")).thenReturn(true);
     }
 
     @Test

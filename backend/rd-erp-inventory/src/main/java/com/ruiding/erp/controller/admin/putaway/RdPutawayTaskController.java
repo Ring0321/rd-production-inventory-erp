@@ -9,6 +9,9 @@ import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayLocationMapRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayScanRespVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanPreviewReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanConfirmReqVO;
+import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayBatchScanRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskConfirmReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayTaskDetailRespVO;
@@ -76,10 +79,24 @@ public class RdPutawayTaskController {
     }
 
     @PostMapping("/scan")
-    @PreAuthorize("@ss.hasPermission('rd:putaway-task:execute')")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:confirm')")
     public CommonResult<RdPutawayScanRespVO> scanPackage(
             @Valid @RequestBody RdPutawayScanReqVO reqVO) {
         return success(service.scanPackage(reqVO, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PostMapping("/batch-scan/preview")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:query')")
+    public CommonResult<RdPutawayBatchScanRespVO> previewBatchScan(
+            @Valid @RequestBody RdPutawayBatchScanPreviewReqVO reqVO) {
+        return success(service.previewBatchScan(reqVO));
+    }
+
+    @PostMapping("/batch-scan/confirm")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:confirm')")
+    public CommonResult<RdPutawayBatchScanRespVO> confirmBatchScan(
+            @Valid @RequestBody RdPutawayBatchScanConfirmReqVO reqVO) {
+        return success(service.confirmBatchScan(reqVO, getLoginUserId(), getLoginUserNickname()));
     }
 
     @PostMapping("/exception")

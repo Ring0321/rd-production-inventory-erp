@@ -137,6 +137,9 @@ public interface ErrorCodeConstants {
 
     // ========== RD putaway 1-080-520-000 ==========
     ErrorCode PUTAWAY_TASK_NOT_EXISTS = new ErrorCode(1_080_520_000, "上架任务不存在");
+    ErrorCode PUTAWAY_SCAN_KEY_CONFLICT = new ErrorCode(1_080_520_017, "扫码请求已用于其他内容或操作人，请重新核对");
+    ErrorCode PUTAWAY_BATCH_SELECTION_INVALID = new ErrorCode(1_080_520_018, "请选择 1-500 个不同的待核验包件");
+    ErrorCode PUTAWAY_SCAN_PACKAGE_MISMATCH = new ErrorCode(1_080_520_019, "代表包或所选包件不属于当前上架任务");
     ErrorCode PUTAWAY_TASK_STATUS_INVALID = new ErrorCode(1_080_520_001, "当前上架任务状态不允许该操作");
     ErrorCode PUTAWAY_TASK_VERSION_CONFLICT = new ErrorCode(1_080_520_002, "上架任务已被其他人员更新，请刷新后重试");
     ErrorCode PUTAWAY_PACKAGE_STATUS_INVALID = new ErrorCode(1_080_520_003, "仅质检合格且未派单的包允许创建上架任务");
