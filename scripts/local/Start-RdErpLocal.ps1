@@ -87,6 +87,9 @@ function Get-ManagedProcess([string]$pidFile) {
         return $null
     }
     $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($process -and $process.HasExited) {
+        $process = $null
+    }
     if (-not $process) {
         Remove-Item -LiteralPath $pidFile -Force
     }

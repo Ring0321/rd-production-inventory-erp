@@ -36,7 +36,7 @@ function Invoke-RdLocalSql {
         [Parameter(Mandatory = $true)][string]$Password,
         [string]$Database = 'rd_erp',
         [string]$HostName = '127.0.0.1',
-        [int]$Port = 3307,
+        [int]$Port = $(if ($env:RD_DB_PORT) { [int]$env:RD_DB_PORT } else { 3307 }),
         [switch]$ReturnOutput
     )
 
@@ -214,7 +214,7 @@ function Clear-RdPermissionCache {
         [Parameter(Mandatory = $true)][string]$Password,
         [Parameter(Mandatory = $true)][string[]]$Keys,
         [string]$HostName = '127.0.0.1',
-        [int]$Port = 6379
+        [int]$Port = $(if ($env:RD_REDIS_PORT) { [int]$env:RD_REDIS_PORT } else { 6379 })
     )
 
     if ($HostName -notin @('127.0.0.1', 'localhost')) {
