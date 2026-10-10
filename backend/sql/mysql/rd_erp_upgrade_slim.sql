@@ -775,6 +775,11 @@ INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_tim
 SELECT 600006,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu
 WHERE id IN (600000,600225,600226,600230,600233,600236,600240,600241,600242,600243);
 
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600001,600200,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1
+UNION ALL SELECT 600006,600200,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1
+UNION ALL SELECT 600002,600300,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1;
+
 INSERT INTO `system_post` (`id`,`code`,`name`,`sort`,`status`,`remark`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`) VALUES
 (600007,'RD_WAREHOUSE_OPERATOR','库房操作岗',22,0,'包码扫码、出入库制单与盘点录入','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1)
 ON DUPLICATE KEY UPDATE `code`=VALUES(`code`),`name`=VALUES(`name`),`status`=0,`deleted`=b'0',`tenant_id`=1;
