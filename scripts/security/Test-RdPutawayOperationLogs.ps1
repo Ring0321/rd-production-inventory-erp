@@ -184,7 +184,7 @@ VALUES
     if ($reassign.code -ne 0) { throw "Reassign task failed: $($reassign.msg)" }
 
     $scan = Invoke-RdApiResponse -ApiBase $ApiBase -Method Post -Path '/rd/putaway-task/scan' `
-            -Headers $driverHeaders -Body @{
+            -Headers $warehouseHeaders -Body @{
         id = $taskId
         packageCode = $packageCode
         idempotencyKey = "$runId-SCAN"
@@ -244,7 +244,7 @@ WHERE biz_id = $taskId AND HEX(type) = '$putawayTypeHex'
     if ([int]$audit[0] -ne 5 -or [int]$audit[1] -ne 5 -or [int]$audit[2] -ne 5) {
         throw "Expected five successful putaway audit actions, got $auditLine"
     }
-    if ([int]$audit[3] -ne 2 -or [int]$audit[4] -ne 3 -or [int]$audit[5] -ne 2) {
+    if ([int]$audit[3] -ne 2 -or [int]$audit[4] -ne 4 -or [int]$audit[5] -ne 1) {
         throw "Putaway audit operator ownership is incorrect: $auditLine"
     }
 

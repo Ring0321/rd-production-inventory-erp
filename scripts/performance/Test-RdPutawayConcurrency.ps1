@@ -40,7 +40,7 @@ $fixtureStarted = $false
 function Remove-TestData {
     $parts = @()
     if ($null -ne $taskId) {
-        $parts += "DELETE FROM system_operate_log WHERE biz_id = $taskId AND type LIKE 'RD %';"
+        $parts += "DELETE FROM system_operate_log WHERE biz_id = $taskId AND type = 'RD 入库上架';"
         $parts += "DELETE FROM rd_putaway_exception WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_scan_record WHERE task_id = $taskId;"
         $parts += "DELETE FROM rd_putaway_task_line WHERE task_id = $taskId;"
@@ -111,12 +111,12 @@ try {
     $fixtureSql = @"
 INSERT INTO system_users
   (id, username, password, nickname, remark, status, creator, create_time, updater, update_time, deleted, tenant_id)
-SELECT $driverUserId, '$driverUsername', password, 'B6 concurrent driver', 'B6 concurrency test', 0,
+SELECT $driverUserId, '$driverUsername', password, 'B6 warehouse scan tester', 'B6 concurrency test', 0,
        'b6-test', NOW(), 'b6-test', NOW(), b'0', $TenantId
 FROM system_users WHERE id = 1 AND tenant_id = $TenantId;
 INSERT INTO system_user_role
   (user_id, role_id, creator, create_time, updater, update_time, deleted, tenant_id)
-VALUES ($driverUserId, 600008, 'b6-test', NOW(), 'b6-test', NOW(), b'0', $TenantId);
+VALUES ($driverUserId, 600002, 'b6-test', NOW(), 'b6-test', NOW(), b'0', $TenantId);
 INSERT INTO rd_location
   (tenant_id, location_code, location_name, warehouse_code, warehouse_name, area_code, area_name,
    row_code, column_code, level_code, capacity_packages, capacity_weight, occupied_packages,

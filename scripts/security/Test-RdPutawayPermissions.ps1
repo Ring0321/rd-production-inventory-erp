@@ -136,6 +136,15 @@ VALUES ($($user.userId), $($user.roleId), 'b6-test', NOW(), 'b6-test', NOW(), b'
             throw "Denied API returned $($denied.code) for $($user.username), expected 403"
         }
 
+        if ($user.roleId -ne 600002) {
+            $scanProbe = Invoke-RdApiResponse -ApiBase $ApiBase -Method Post -Path '/rd/putaway-task/scan' `
+                    -Headers $headers -Body @{ id = 1; packageCode = 'PERMISSION-PROBE'; idempotencyKey = 'permission-probe' }
+            if ($scanProbe.code -ne 403) { throw "Non-warehouse scan was not rejected for $($user.username)" }
+            $batchProbe = Invoke-RdApiResponse -ApiBase $ApiBase -Method Post -Path '/rd/putaway-task/batch-scan/confirm' `
+                    -Headers $headers -Body @{ id = 1; version = 0; packageCode = 'PERMISSION-PROBE'; idempotencyKey = 'permission-batch-probe'; taskLineIds = @(1) }
+            if ($batchProbe.code -ne 403) { throw "Non-warehouse batch scan was not rejected for $($user.username)" }
+        }
+
         $reports += [pscustomobject]@{
             roleId = $user.roleId
             username = $user.username
