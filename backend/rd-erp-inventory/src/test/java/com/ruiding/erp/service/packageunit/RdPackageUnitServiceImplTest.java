@@ -166,6 +166,7 @@ class RdPackageUnitServiceImplTest {
         assertNull(result.getCustomerName());
         assertNull(result.getLocationCode());
         assertNull(result.getProductionOutputId());
+        assertNull(result.getQualityInspectionId());
         assertEquals("在库", result.getStatusName());
         assertEquals(4, result.getEvents().size());
         assertTrue(result.getEvents().stream().noneMatch(event ->
@@ -187,6 +188,7 @@ class RdPackageUnitServiceImplTest {
         assertEquals("示例客户", result.getCustomerName());
         assertEquals("A-01", result.getLocationCode());
         assertEquals(99L, result.getProductionOutputId());
+        assertEquals(20L, result.getQualityInspectionId());
         assertTrue(result.getEvents().stream().anyMatch(event ->
                 event.getDetail().contains("仓管员张三") && event.getDetail().contains("A-01")));
     }

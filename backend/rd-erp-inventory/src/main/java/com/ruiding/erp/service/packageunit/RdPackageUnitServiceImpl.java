@@ -226,7 +226,8 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
         if (internalView) {
             response.setCustomerName(unit.getCustomerName())
                     .setLocationCode(unit.getLocationCode())
-                    .setProductionOutputId(unit.getProductionOutputId());
+                    .setProductionOutputId(unit.getProductionOutputId())
+                    .setQualityInspectionId(latestInspection == null ? null : latestInspection.getId());
         }
         return response;
     }

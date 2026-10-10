@@ -8,8 +8,10 @@ import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageUnitExportRespVO
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackagePrintReqVO;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageBatchPrintReqVO;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceRespVO;
+import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageWorkContextRespVO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.service.packageunit.RdPackageUnitService;
+import com.ruiding.erp.service.packageunit.RdPackageWorkContextService;
 import javax.annotation.Resource;
 import javax.annotation.security.PermitAll;
 import javax.validation.Valid;
@@ -28,6 +30,7 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 @RestController @RequestMapping("/rd/package-unit")
 public class RdPackageUnitController {
     @Resource private RdPackageUnitService service;
+    @Resource private RdPackageWorkContextService workContextService;
     @PostMapping("/generate") @PreAuthorize("@ss.hasPermission('rd:package-unit:generate')")
     public CommonResult<List<RdPackageUnitDO>> generate(@Valid @RequestBody RdPackageGenerateReqVO reqVO) {
         return success(service.generate(reqVO.getProductionOutputId(), reqVO.getPackageCount()));
@@ -63,6 +66,11 @@ public class RdPackageUnitController {
     @GetMapping("/trace-detail/{packageCode}") @PreAuthorize("@ss.hasPermission('rd:package-unit:query')")
     public CommonResult<RdPackageTraceRespVO> traceDetail(@PathVariable String packageCode) {
         return success(service.getTraceDetail(packageCode, true));
+    }
+    @GetMapping("/work-context/{packageCode}")
+    @PreAuthorize("@ss.hasAnyPermissions('rd:package-unit:query', 'rd:putaway-task:execute', 'rd:loading-task:execute', 'rd:pickup-slip:query')")
+    public CommonResult<RdPackageWorkContextRespVO> workContext(@PathVariable String packageCode) {
+        return success(workContextService.getContext(packageCode, getLoginUserId()));
     }
     @PostMapping("/print") @PreAuthorize("@ss.hasPermission('rd:label-print:print')")
     public CommonResult<Boolean> print(@Valid @RequestBody RdPackagePrintReqVO reqVO) {
