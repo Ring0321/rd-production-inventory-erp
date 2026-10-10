@@ -9,7 +9,8 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 
 public interface RdPackageUnitService {
     List<RdPackageUnitDO> generate(Long productionOutputId, Integer packageCount);
-    void markPrinted(Long packageId, Long operatorId, String operatorName, String reprintReason);
+    void markPrinted(List<Long> packageIds, Long operatorId, String operatorName,
+                     boolean reprint, String reprintReason);
     RdPackageUnitDO get(Long id);
     List<RdPackageUnitDO> getByProductionOutputId(Long productionOutputId);
     List<RdPackageUnitDO> trace(String packageCode, Long productionOutputId);

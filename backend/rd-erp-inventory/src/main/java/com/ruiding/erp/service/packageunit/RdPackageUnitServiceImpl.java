@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.HashSet;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.ruiding.erp.enums.ErrorCodeConstants.*;
@@ -98,25 +99,47 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void markPrinted(Long packageId, Long operatorId, String operatorName, String reprintReason) {
-        RdPackageUnitDO unit = packageMapper.selectByIdForUpdate(packageId);
-        if (unit == null) {
-            throw exception(PACKAGE_NOT_EXISTS);
+    public void markPrinted(List<Long> packageIds, Long operatorId, String operatorName,
+                            boolean reprint, String reprintReason) {
+        if (packageIds == null || packageIds.isEmpty() || packageIds.size() > 500
+                || packageIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new HashSet<>(packageIds).size() != packageIds.size()) {
+            throw exception(LABEL_PRINT_SELECTION_INVALID);
         }
-        boolean firstPrint = RdPackageStatusEnum.CREATED.getStatus().equals(unit.getStatus());
-        if (!firstPrint && !RdPackageStatusEnum.LABELED.getStatus().equals(unit.getStatus())) {
-            throw exception(PACKAGE_STATUS_INVALID);
-        }
-        if (firstPrint) {
-            unit.setStatus(RdPackageStatusEnum.LABELED.getStatus());
-            packageMapper.updateById(unit);
-        } else if (reprintReason == null || reprintReason.isBlank()) {
+        if (reprint && (reprintReason == null || reprintReason.isBlank())) {
             throw exception(LABEL_REPRINT_REASON_REQUIRED);
         }
-        long previous = printLogMapper.selectCount(RdLabelPrintLogDO::getPackageId, packageId);
-        printLogMapper.insert(new RdLabelPrintLogDO().setPackageId(packageId).setTemplateCode("GOODS_CARD")
-                .setPrintSequence((int) previous + 1).setReprint(!firstPrint).setReprintReason(reprintReason)
-                .setPrinterId(operatorId).setPrinterName(operatorName).setPrintTime(LocalDateTime.now()));
+        if (reprintReason != null && reprintReason.length() > 500) {
+            throw exception(LABEL_PRINT_SELECTION_INVALID);
+        }
+        List<RdPackageUnitDO> units = new ArrayList<>(packageIds.size());
+        // Lock in ID order and validate the whole selection before changing any package.
+        for (Long packageId : packageIds.stream().sorted().toList()) {
+            RdPackageUnitDO unit = packageMapper.selectByIdForUpdate(packageId);
+            if (unit == null) {
+                throw exception(PACKAGE_NOT_EXISTS);
+            }
+            boolean created = RdPackageStatusEnum.CREATED.getStatus().equals(unit.getStatus());
+            boolean printable = java.util.Arrays.stream(RdPackageStatusEnum.values())
+                    .anyMatch(status -> status.getStatus().equals(unit.getStatus())
+                            && status != RdPackageStatusEnum.VOIDED);
+            if (!printable || (reprint ? created : !created)) {
+                throw exception(PACKAGE_STATUS_INVALID);
+            }
+            units.add(unit);
+        }
+        LocalDateTime printTime = LocalDateTime.now();
+        for (RdPackageUnitDO unit : units) {
+            if (!reprint) {
+                unit.setStatus(RdPackageStatusEnum.LABELED.getStatus());
+                packageMapper.updateById(unit);
+            }
+            long previous = printLogMapper.selectCount(RdLabelPrintLogDO::getPackageId, unit.getId());
+            printLogMapper.insert(new RdLabelPrintLogDO().setPackageId(unit.getId()).setTemplateCode("GOODS_CARD")
+                    .setPrintSequence((int) previous + 1).setReprint(reprint)
+                    .setReprintReason(reprint ? reprintReason.trim() : null)
+                    .setPrinterId(operatorId).setPrinterName(operatorName).setPrintTime(printTime));
+        }
     }
 
     @Override

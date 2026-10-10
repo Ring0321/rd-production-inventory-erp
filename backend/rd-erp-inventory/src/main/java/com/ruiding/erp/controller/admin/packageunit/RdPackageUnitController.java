@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageGenerateReqVO;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageUnitExportRespVO;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackagePrintReqVO;
+import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageBatchPrintReqVO;
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceRespVO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.service.packageunit.RdPackageUnitService;
@@ -65,10 +66,24 @@ public class RdPackageUnitController {
     }
     @PostMapping("/print") @PreAuthorize("@ss.hasPermission('rd:label-print:print')")
     public CommonResult<Boolean> print(@Valid @RequestBody RdPackagePrintReqVO reqVO) {
-        service.markPrinted(reqVO.getPackageId(), getLoginUserId(), getLoginUserNickname(), null); return success(true);
+        service.markPrinted(List.of(reqVO.getPackageId()), getLoginUserId(), getLoginUserNickname(), false, null);
+        return success(true);
     }
     @PostMapping("/reprint") @PreAuthorize("@ss.hasPermission('rd:label-print:reprint')")
     public CommonResult<Boolean> reprint(@Valid @RequestBody RdPackagePrintReqVO reqVO) {
-        service.markPrinted(reqVO.getPackageId(), getLoginUserId(), getLoginUserNickname(), reqVO.getReprintReason()); return success(true);
+        service.markPrinted(List.of(reqVO.getPackageId()), getLoginUserId(), getLoginUserNickname(), true,
+                reqVO.getReprintReason());
+        return success(true);
+    }
+    @PostMapping("/print-batch") @PreAuthorize("@ss.hasPermission('rd:label-print:print')")
+    public CommonResult<Boolean> printBatch(@Valid @RequestBody RdPackageBatchPrintReqVO reqVO) {
+        service.markPrinted(reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), false, null);
+        return success(true);
+    }
+    @PostMapping("/reprint-batch") @PreAuthorize("@ss.hasPermission('rd:label-print:reprint')")
+    public CommonResult<Boolean> reprintBatch(@Valid @RequestBody RdPackageBatchPrintReqVO reqVO) {
+        service.markPrinted(reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), true,
+                reqVO.getReprintReason());
+        return success(true);
     }
 }

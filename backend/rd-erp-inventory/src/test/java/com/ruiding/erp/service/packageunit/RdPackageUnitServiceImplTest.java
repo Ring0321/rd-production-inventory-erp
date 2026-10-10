@@ -2,6 +2,7 @@ package com.ruiding.erp.service.packageunit;
 
 import com.ruiding.erp.controller.admin.packageunit.vo.RdPackageTraceRespVO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
+import com.ruiding.erp.dal.dataobject.packageunit.RdLabelPrintLogDO;
 import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdLabelPrintLogMapper;
@@ -26,6 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import com.ruiding.erp.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 
 import org.mockito.ArgumentCaptor;
 
@@ -47,10 +56,74 @@ class RdPackageUnitServiceImplTest {
 
     @Test
     void shouldRequireReasonWhenReprintingLabel() {
-        when(packageMapper.selectByIdForUpdate(1L)).thenReturn(new RdPackageUnitDO()
-                .setId(1L).setStatus(RdPackageStatusEnum.LABELED.getStatus()));
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.markPrinted(List.of(1L), 2L, "operator", true, " "));
+        assertEquals(ErrorCodeConstants.LABEL_REPRINT_REASON_REQUIRED.getCode(), error.getCode());
+        verify(packageMapper, never()).selectByIdForUpdate(anyLong());
+    }
 
-        assertThrows(RuntimeException.class, () -> service.markPrinted(1L, 2L, "operator", null));
+    @Test
+    void shouldPrintBatchWithOneLogPerPackageAndOrderedLocks() {
+        for (Long id : List.of(1L, 2L)) {
+            when(packageMapper.selectByIdForUpdate(id)).thenReturn(new RdPackageUnitDO()
+                    .setId(id).setStatus("CREATED"));
+        }
+
+        service.markPrinted(List.of(2L, 1L), 3L, "operator", false, null);
+
+        var locks = inOrder(packageMapper);
+        locks.verify(packageMapper).selectByIdForUpdate(1L);
+        locks.verify(packageMapper).selectByIdForUpdate(2L);
+        ArgumentCaptor<RdPackageUnitDO> units = ArgumentCaptor.forClass(RdPackageUnitDO.class);
+        verify(packageMapper, times(2)).updateById(units.capture());
+        assertTrue(units.getAllValues().stream().allMatch(unit -> "LABELED".equals(unit.getStatus())));
+        ArgumentCaptor<RdLabelPrintLogDO> logs = ArgumentCaptor.forClass(RdLabelPrintLogDO.class);
+        verify(printLogMapper, times(2)).insert(logs.capture());
+        assertEquals(List.of(1L, 2L), logs.getAllValues().stream().map(RdLabelPrintLogDO::getPackageId).toList());
+        assertTrue(logs.getAllValues().stream().allMatch(log -> !log.getReprint() && log.getPrintSequence() == 1));
+    }
+
+    @Test
+    void shouldRejectMixedStateBatchBeforeWritingAnyLog() {
+        when(packageMapper.selectByIdForUpdate(1L)).thenReturn(new RdPackageUnitDO().setId(1L).setStatus("CREATED"));
+        when(packageMapper.selectByIdForUpdate(2L)).thenReturn(new RdPackageUnitDO().setId(2L).setStatus("IN_STOCK"));
+
+        assertThrows(ServiceException.class,
+                () -> service.markPrinted(List.of(1L, 2L), 3L, "operator", false, null));
+
+        verify(packageMapper, never()).updateById(any(RdPackageUnitDO.class));
+        verify(printLogMapper, never()).insert(any(RdLabelPrintLogDO.class));
+    }
+
+    @Test
+    void shouldPreserveInventoryAndIdentityWhenReprinting() {
+        RdPackageUnitDO unit = buildTracePackage();
+        when(packageMapper.selectByIdForUpdate(10L)).thenReturn(unit);
+        when(printLogMapper.selectCount(org.mockito.ArgumentMatchers.<SFunction<RdLabelPrintLogDO, ?>>any(),
+                eq(10L))).thenReturn(1L);
+
+        service.markPrinted(List.of(10L), 3L, "operator", true, " damaged label ");
+
+        assertEquals("IN_STOCK", unit.getStatus());
+        assertEquals("A-01", unit.getLocationCode());
+        assertEquals("LD20260712A0001", unit.getPackageCode());
+        verify(packageMapper, never()).updateById(any(RdPackageUnitDO.class));
+        ArgumentCaptor<RdLabelPrintLogDO> log = ArgumentCaptor.forClass(RdLabelPrintLogDO.class);
+        verify(printLogMapper).insert(log.capture());
+        assertTrue(log.getValue().getReprint());
+        assertEquals(2, log.getValue().getPrintSequence());
+        assertEquals("damaged label", log.getValue().getReprintReason());
+    }
+
+    @Test
+    void shouldRejectDuplicateIdsAndVoidPackage() {
+        assertThrows(ServiceException.class,
+                () -> service.markPrinted(List.of(1L, 1L), 3L, "operator", false, null));
+        verify(packageMapper, never()).selectByIdForUpdate(anyLong());
+        when(packageMapper.selectByIdForUpdate(1L)).thenReturn(new RdPackageUnitDO().setId(1L).setStatus("VOIDED"));
+        assertThrows(ServiceException.class,
+                () -> service.markPrinted(List.of(1L), 3L, "operator", true, "damaged"));
+        verify(printLogMapper, never()).insert(any(RdLabelPrintLogDO.class));
     }
 
     @Test

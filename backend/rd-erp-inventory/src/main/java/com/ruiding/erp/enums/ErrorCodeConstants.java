@@ -49,6 +49,7 @@ public interface ErrorCodeConstants {
     ErrorCode PACKAGE_COUNT_MISMATCH = new ErrorCode(1_080_220_003, "拆包数量必须等于生产记录产量包数");
     ErrorCode PACKAGE_DAILY_SEQUENCE_EXHAUSTED = new ErrorCode(1_080_220_004, "当日包码流水已达到 9999，请联系管理员调整编码规则");
     ErrorCode LABEL_REPRINT_REASON_REQUIRED = new ErrorCode(1_080_220_005, "补打标签必须填写补打原因");
+    ErrorCode LABEL_PRINT_SELECTION_INVALID = new ErrorCode(1_080_220_006, "请选择 1-500 个不同包件打印，补打原因不超过 500 字");
 
     // ========== RD quality 1-080-230-000 ==========
     ErrorCode QUALITY_INSPECTION_NOT_EXISTS = new ErrorCode(1_080_230_000, "质检单不存在");
