@@ -8,6 +8,7 @@ export type RdPackageStatus =
   | 'QC_REJECTED'
   | 'INBOUND_PENDING'
   | 'IN_STOCK'
+  | 'STOCKTAKE_MISSING'
   | 'OUTBOUND_PENDING'
   | 'OUTBOUNDED'
   | 'VOIDED'
@@ -42,6 +43,11 @@ export interface RdPackageGenerateReqVO {
 
 export interface RdPackagePrintReqVO {
   packageId: number
+  reprintReason?: string
+}
+
+export interface RdPackageBatchPrintReqVO {
+  packageIds: number[]
   reprintReason?: string
 }
 
@@ -104,6 +110,10 @@ export const RdPackageUnitApi = {
     request.post<boolean>({ url: '/rd/package-unit/print', data }),
   reprint: (data: RdPackagePrintReqVO) =>
     request.post<boolean>({ url: '/rd/package-unit/reprint', data }),
+  printBatch: (data: RdPackageBatchPrintReqVO) =>
+    request.post<boolean>({ url: '/rd/package-unit/print-batch', data }),
+  reprintBatch: (data: RdPackageBatchPrintReqVO) =>
+    request.post<boolean>({ url: '/rd/package-unit/reprint-batch', data }),
   exportExcel: (params: { packageCode?: string; productionOutputId?: number }) =>
     request.download({ url: '/rd/package-unit/export-excel', params })
 }
