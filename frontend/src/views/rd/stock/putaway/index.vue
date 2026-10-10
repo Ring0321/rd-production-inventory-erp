@@ -12,6 +12,7 @@
     <el-tabs v-model="activeTab">
       <el-tab-pane label="库位与派单" name="dispatch" />
       <el-tab-pane label="上架任务" name="task" />
+      <el-tab-pane label="扫码核验" name="scan" />
     </el-tabs>
   </ContentWrap>
 
@@ -200,7 +201,7 @@
     </ContentWrap>
   </template>
 
-  <template v-else>
+  <template v-else-if="activeTab === 'task'">
     <ContentWrap>
       <el-form ref="taskQueryFormRef" :inline="true" :model="taskQuery">
         <el-form-item label="任务号" prop="taskNo">
@@ -309,6 +310,102 @@
       />
     </ContentWrap>
   </template>
+
+  <ContentWrap v-if="activeTab === 'scan'">
+    <el-form :inline="true" @submit.prevent="loadScanPreview">
+      <el-form-item label="代表包码">
+        <el-input
+          v-model="scanForm.packageCode"
+          placeholder="包号或二维码链接"
+          clearable
+          :disabled="!!pendingBatchRequest"
+          @keyup.enter="loadScanPreview"
+        />
+      </el-form-item>
+      <el-form-item>
+        <el-button :loading="scanLoading" :disabled="!!pendingBatchRequest" @click="loadScanPreview"
+          ><Icon icon="lucide:scan-line" class="mr-5px" />识别任务</el-button
+        >
+        <el-button v-if="scanResp" :disabled="scanSubmitting" @click="refreshScanState"
+          ><Icon icon="lucide:refresh-cw" class="mr-5px" />刷新核验状态</el-button
+        >
+      </el-form-item>
+    </el-form>
+    <template v-if="scanResp">
+      <el-descriptions :column="2" border class="mb-16px">
+        <el-descriptions-item label="上架任务">{{ scanResp.task.taskNo }}</el-descriptions-item>
+        <el-descriptions-item label="计划库位">{{
+          scanResp.task.plannedLocationCode
+        }}</el-descriptions-item>
+        <el-descriptions-item label="已核验"
+          >{{ scanResp.task.scannedPackageCount }} /
+          {{ scanResp.task.packageCount }} 包</el-descriptions-item
+        >
+        <el-descriptions-item label="本次所选"
+          >{{ selectedScanLines.length }} 包 /
+          {{ scanSelectedWeight.toFixed(2) }} kg</el-descriptions-item
+        >
+      </el-descriptions>
+      <el-alert
+        v-if="pendingBatchRequest"
+        title="上一笔提交结果待确认，请重试原请求或刷新核验状态"
+        type="warning"
+        :closable="false"
+        class="mb-12px"
+      />
+      <el-table
+        ref="scanTableRef"
+        :data="scanResp.lines"
+        row-key="id"
+        max-height="480"
+        @selection-change="selectedScanLines = $event"
+      >
+        <el-table-column
+          v-if="hasPermission(['rd:putaway-task:confirm'])"
+          type="selection"
+          width="48"
+          :selectable="canSelectScanLine"
+        />
+        <el-table-column label="包号" prop="packageCode" min-width="170" />
+        <el-table-column label="客户" prop="customerName" min-width="130" />
+        <el-table-column label="型号" prop="productModel" width="110" />
+        <el-table-column label="炉号" prop="furnaceNo" width="125" />
+        <el-table-column label="炉层" prop="furnaceLayer" width="100" />
+        <el-table-column label="kg" prop="packageWeight" width="95" align="right" />
+        <el-table-column label="核验状态" width="125">
+          <template #default="scope">{{
+            scope.row.lineStatus === 'CONFIRMED'
+              ? '已入库'
+              : scope.row.scanCount > 0
+                ? '已核验'
+                : scope.row.lineStatus === 'EXCEPTION'
+                  ? '异常待处理'
+                  : '待核验'
+          }}</template>
+        </el-table-column>
+      </el-table>
+      <div class="scan-toolbar">
+        <el-button
+          v-hasPermi="['rd:putaway-task:confirm']"
+          type="primary"
+          :loading="scanSubmitting"
+          :disabled="!canConfirmScan"
+          @click="confirmSelectedScan"
+          ><Icon icon="lucide:check-check" class="mr-5px" />{{
+            pendingBatchRequest ? '重试核验请求' : '核验所选已到位包件'
+          }}</el-button
+        >
+        <el-button
+          v-hasPermi="['rd:putaway-task:confirm']"
+          type="success"
+          :disabled="scanResp.task.status !== 'PENDING_CONFIRMATION' || !!pendingBatchRequest"
+          @click="openConfirmDialog(scanResp.task)"
+          ><Icon icon="lucide:warehouse" class="mr-5px" />确认库位并入库</el-button
+        >
+        <el-button @click="openTaskDetail(scanResp.task.id)">任务详情</el-button>
+      </div>
+    </template>
+  </ContentWrap>
 
   <Dialog v-model="createVisible" title="创建上架任务" width="720px">
     <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
@@ -515,6 +612,7 @@
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { hasPermission } from '@/directives/permission/hasPermi'
+import { extractPackageCode } from '@/utils/rdDigitalLink'
 import { formatDate } from '@/utils/formatTime'
 import {
   RdPutawayTaskApi,
@@ -523,7 +621,10 @@ import {
   type RdPutawayLocationMapVO,
   type RdPutawayTaskDetailVO,
   type RdPutawayTaskStatus,
-  type RdPutawayTaskVO
+  type RdPutawayTaskVO,
+  type RdPutawayTaskLineVO,
+  type RdPutawayBatchScanRespVO,
+  type RdPutawayBatchConfirmReqVO
 } from '@/api/rd/stock/putaway'
 
 defineOptions({ name: 'RdPutawayWorkbench' })
@@ -532,7 +633,7 @@ type TagType = 'success' | 'warning' | 'info' | 'danger' | 'primary'
 const taskStatusOptions: Array<{ value: RdPutawayTaskStatus; label: string; type: TagType }> = [
   { value: 'PENDING_PUTAWAY', label: '待上架', type: 'info' },
   { value: 'ASSIGNED', label: '已派单', type: 'primary' },
-  { value: 'MOVING', label: '搬运中', type: 'warning' },
+  { value: 'MOVING', label: '仓管核验中', type: 'warning' },
   { value: 'PENDING_CONFIRMATION', label: '待仓管确认', type: 'warning' },
   { value: 'PUTAWAY_COMPLETED', label: '已上架', type: 'success' },
   { value: 'EXCEPTION_PENDING', label: '异常待处理', type: 'danger' },
@@ -546,6 +647,98 @@ const route = useRoute()
 const message = useMessage()
 const activeTab = ref('dispatch')
 const refreshing = ref(false)
+const scanForm = reactive<{ id?: number; packageCode: string }>({ packageCode: '' })
+const scanLoading = ref(false)
+const scanSubmitting = ref(false)
+const scanResp = ref<RdPutawayBatchScanRespVO>()
+const scanTableRef = ref()
+const selectedScanLines = ref<RdPutawayTaskLineVO[]>([])
+const pendingBatchRequest = ref<RdPutawayBatchConfirmReqVO>()
+const scanSelectedWeight = computed(() =>
+  selectedScanLines.value.reduce((sum, line) => sum + Number(line.packageWeight), 0)
+)
+const canSelectScanLine = (line: RdPutawayTaskLineVO) =>
+  !pendingBatchRequest.value &&
+  ['ASSIGNED', 'MOVING'].includes(scanResp.value?.task.status || '') &&
+  line.lineStatus === 'PENDING' &&
+  Number(line.scanCount) === 0
+const canConfirmScan = computed(
+  () =>
+    !!pendingBatchRequest.value ||
+    (selectedScanLines.value.length > 0 &&
+      ['ASSIGNED', 'MOVING'].includes(scanResp.value?.task.status || ''))
+)
+
+const applyScanResponse = async (response: RdPutawayBatchScanRespVO) => {
+  scanResp.value = response
+  scanForm.id = response.task.id
+  selectedScanLines.value = []
+  await nextTick()
+  for (const line of response.lines) {
+    if (canSelectScanLine(line)) scanTableRef.value?.toggleRowSelection(line, true)
+  }
+}
+const loadScanPreview = async () => {
+  if (pendingBatchRequest.value) return
+  const code = extractPackageCode(scanForm.packageCode)
+  if (!code) return message.warning('请输入或扫描代表包码')
+  scanLoading.value = true
+  try {
+    await applyScanResponse(
+      await RdPutawayTaskApi.previewBatchScan({ id: scanForm.id, packageCode: code })
+    )
+  } catch {
+    scanResp.value = undefined
+    selectedScanLines.value = []
+  } finally {
+    scanLoading.value = false
+  }
+}
+const refreshScanState = async () => {
+  scanLoading.value = true
+  try {
+    const response = await RdPutawayTaskApi.previewBatchScan({
+      id: scanForm.id,
+      packageCode: extractPackageCode(scanForm.packageCode)
+    })
+    pendingBatchRequest.value = undefined
+    await applyScanResponse(response)
+  } finally {
+    scanLoading.value = false
+  }
+}
+const confirmSelectedScan = async () => {
+  if (!scanResp.value || !canConfirmScan.value || scanSubmitting.value) return
+  if (!pendingBatchRequest.value) {
+    await message.confirm(
+      `请核对所选 ${selectedScanLines.value.length} 包已经实际摆放到计划库位 ${scanResp.value.task.plannedLocationCode}。`
+    )
+    pendingBatchRequest.value = {
+      id: scanResp.value.task.id,
+      version: scanResp.value.task.version,
+      packageCode: extractPackageCode(scanForm.packageCode),
+      idempotencyKey: crypto.randomUUID(),
+      taskLineIds: selectedScanLines.value.map((line) => line.id),
+      deviceCode: 'WAREHOUSE-WEB'
+    }
+  }
+  scanSubmitting.value = true
+  try {
+    const response = await RdPutawayTaskApi.confirmBatchScan(pendingBatchRequest.value)
+    pendingBatchRequest.value = undefined
+    await applyScanResponse(response)
+    message.success(
+      response.replayed
+        ? '原请求已经核验，未重复计数'
+        : `已登记 ${response.confirmedCount} 包到位核验`
+    )
+    await getTasks()
+  } catch {
+    message.warning('提交结果未确认，请重试原请求或刷新状态后核对')
+  } finally {
+    scanSubmitting.value = false
+  }
+}
 
 const locationLoading = ref(false)
 const allLocations = ref<RdPutawayLocationMapVO[]>([])
@@ -725,11 +918,17 @@ const getRouteString = (key: string) => {
 
 const prepareRouteScanQuery = () => {
   const taskId = Number(getRouteString('taskId'))
+  const packageCode = getRouteString('packageCode')
+  if (packageCode && getRouteString('mode') === 'scan') {
+    activeTab.value = 'scan'
+    scanForm.packageCode = packageCode
+    scanForm.id = Number.isSafeInteger(taskId) && taskId > 0 ? taskId : undefined
+    return
+  }
   if (Number.isSafeInteger(taskId) && taskId > 0) {
     activeTab.value = 'task'
     return
   }
-  const packageCode = getRouteString('packageCode')
   if (!packageCode) return
   activeTab.value = 'dispatch'
   pendingQuery.keyword = packageCode
@@ -753,7 +952,8 @@ const refreshAll = async () => {
     await Promise.all([getLocations(), getPendingPackages(), getTasks(), getDriverOptions()])
     applyRouteLocation()
     const taskId = Number(getRouteString('taskId'))
-    if (Number.isSafeInteger(taskId) && taskId > 0) await openTaskDetail(taskId)
+    if (activeTab.value === 'scan') await loadScanPreview()
+    else if (Number.isSafeInteger(taskId) && taskId > 0) await openTaskDetail(taskId)
   } finally {
     refreshing.value = false
   }
@@ -888,6 +1088,7 @@ const submitConfirm = async () => {
     message.success(`上架已确认，入库单 ${inboundOrderId} 已生成`)
     confirmVisible.value = false
     await Promise.all([getLocations(), getPendingPackages(), getTasks()])
+    if (scanResp.value?.task.id === confirmTask.value.id) await refreshScanState()
   } finally {
     confirmLoading.value = false
   }
@@ -965,12 +1166,23 @@ function dateTimeText(value?: string) {
 onMounted(refreshAll)
 
 watch(
-  () => [route.query.packageCode, route.query.locationCode, route.query.taskId],
+  () => [route.query.packageCode, route.query.locationCode, route.query.taskId, route.query.mode],
   () => refreshAll()
 )
 </script>
 
 <style scoped>
+.scan-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.scan-toolbar :deep(.el-button) {
+  margin-left: 0;
+}
+
 .workbench-title {
   display: flex;
   align-items: flex-start;

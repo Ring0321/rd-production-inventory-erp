@@ -129,9 +129,7 @@
         <el-progress :percentage="detailProgress" :stroke-width="12" />
         <div class="progress-caption">
           <span>系统已记录 {{ confirmedCount }} 包</span>
-          <span>{{
-            scanEnabled ? '扫码后立即同步' : statusMeta(taskDetail.task.status).label
-          }}</span>
+          <span>仓管核验进度</span>
         </div>
       </div>
 
@@ -153,74 +151,9 @@
         </div>
       </section>
 
-      <section class="scan-band" aria-labelledby="scan-heading">
-        <div class="scan-heading-row">
-          <div>
-            <h2 id="scan-heading">扫码校验</h2>
-            <span class="mode-chip">实时写入</span>
-          </div>
-          <Icon icon="lucide:scan-line" />
-        </div>
-        <el-input
-          ref="scanInputRef"
-          v-model="scanValue"
-          class="scan-input"
-          size="large"
-          clearable
-          autocomplete="off"
-          placeholder="扫描二维码或输入包码"
-          :disabled="!scanEnabled || scanSubmitting"
-          @keyup.enter="submitScan"
-        >
-          <template #prefix>
-            <Icon icon="lucide:scan-line" />
-          </template>
-          <template #append>
-            <el-button
-              type="primary"
-              :loading="scanSubmitting"
-              :disabled="!scanEnabled"
-              @click="submitScan"
-            >
-              确认
-            </el-button>
-          </template>
-        </el-input>
-
-        <div class="scan-actions">
-          <span>{{ scanEnabled ? '支持扫码枪连续回车' : '任务当前不可继续扫码' }}</span>
-          <el-button type="warning" plain :disabled="!scanEnabled" @click="openExceptionDialog">
-            <Icon icon="lucide:triangle-alert" />
-            异常反馈
-          </el-button>
-        </div>
-
-        <div
-          class="scan-feedback"
-          :class="lastFeedback ? `is-${lastFeedback.type}` : 'is-idle'"
-          role="status"
-          aria-live="polite"
-        >
-          <Icon :icon="feedbackIcon" />
-          <div>
-            <strong>{{ lastFeedback?.message || '等待扫码' }}</strong>
-            <span v-if="lastFeedback">{{ lastFeedback.time }}</span>
-            <span v-else>扫码枪回车后会自动继续聚焦</span>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="recentScans.length" class="recent-band" aria-labelledby="recent-heading">
-        <h2 id="recent-heading">最近校验</h2>
-        <div v-for="item in recentScans" :key="item.id" class="recent-row">
-          <Icon :icon="scanResultIcon(item.type)" />
-          <div>
-            <strong>{{ item.code || '空包码' }}</strong>
-            <span>{{ item.message }}</span>
-          </div>
-          <time>{{ item.time }}</time>
-        </div>
-      </section>
+      <el-button type="warning" plain :disabled="!exceptionEnabled" @click="openExceptionDialog">
+        <Icon icon="lucide:triangle-alert" class="mr-6px" />异常反馈
+      </el-button>
 
       <el-collapse class="package-collapse">
         <el-collapse-item :title="`任务包码 ${taskDetail.lines.length} 包`" name="packages">
@@ -262,11 +195,20 @@
           </el-select>
         </el-form-item>
         <el-form-item label="相关包码" prop="packageCode">
-          <el-input
+          <el-select
             v-model="exceptionForm.packageCode"
             clearable
-            placeholder="库位异常可不填；货物异常建议填写或扫描包码"
-          />
+            filterable
+            placeholder="整任务异常可不选包件"
+            class="!w-100%"
+          >
+            <el-option
+              v-for="line in taskDetail?.lines || []"
+              :key="line.id"
+              :value="line.packageCode"
+              :label="`${line.packageCode} · ${line.productModel} / ${line.furnaceLayer}`"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="现场说明" prop="description">
           <el-input
@@ -293,6 +235,8 @@
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { RdPackageUnitApi } from '@/api/rd/stock/package'
+import { extractPackageCode } from '@/utils/rdDigitalLink'
 import { useAppStore } from '@/store/modules/app'
 import {
   RdPutawayTaskApi,
@@ -312,19 +256,10 @@ const collapseBeforeMobile = ref(appStore.getCollapse)
 const collapsedForMobile = ref(false)
 
 type TagType = 'success' | 'warning' | 'info' | 'danger' | 'primary'
-type ScanFeedbackType = 'success' | 'duplicate' | 'mismatch' | 'empty' | 'status'
-type ScanFeedback = {
-  id: number
-  type: ScanFeedbackType
-  code: string
-  message: string
-  time: string
-}
-
 const statusMap: Record<RdPutawayTaskStatus, { label: string; type: TagType }> = {
   PENDING_PUTAWAY: { label: '待上架', type: 'info' },
   ASSIGNED: { label: '待执行', type: 'primary' },
-  MOVING: { label: '搬运中', type: 'warning' },
+  MOVING: { label: '仓管核验中', type: 'warning' },
   PENDING_CONFIRMATION: { label: '待仓管确认', type: 'warning' },
   PUTAWAY_COMPLETED: { label: '已上架', type: 'success' },
   EXCEPTION_PENDING: { label: '异常待处理', type: 'danger' },
@@ -338,12 +273,6 @@ const taskLoading = ref(false)
 const taskLoadingMore = ref(false)
 const detailLoading = ref(false)
 const taskDetail = ref<RdPutawayTaskDetailVO>()
-const scanInputRef = ref()
-const scanValue = ref('')
-const scanSubmitting = ref(false)
-const pendingScan = ref<{ rawValue: string; idempotencyKey: string }>()
-const recentScans = ref<ScanFeedback[]>([])
-const lastFeedback = ref<ScanFeedback>()
 const exceptionVisible = ref(false)
 const exceptionSubmitting = ref(false)
 const exceptionFormRef = ref<FormInstance>()
@@ -379,7 +308,7 @@ const confirmedCount = computed(() => {
 
 const validatedCount = computed(() => confirmedCount.value)
 
-const scanEnabled = computed(() =>
+const exceptionEnabled = computed(() =>
   taskDetail.value ? ['ASSIGNED', 'MOVING'].includes(taskDetail.value.task.status) : false
 )
 
@@ -390,11 +319,6 @@ const remainingCount = computed(() =>
 const detailProgress = computed(() => {
   const total = Number(taskDetail.value?.task.packageCount || 0)
   return total ? Math.round((validatedCount.value / total) * 100) : 0
-})
-
-const feedbackIcon = computed(() => {
-  if (!lastFeedback.value) return 'lucide:scan-line'
-  return scanResultIcon(lastFeedback.value.type)
 })
 
 const goodsGroups = computed(() => {
@@ -445,21 +369,6 @@ const dateTimeText = (value?: string) => {
   return date.toLocaleString('zh-CN', { hour12: false })
 }
 
-const nowText = () => new Date().toLocaleTimeString('zh-CN', { hour12: false })
-
-const focusScan = () => nextTick(() => scanInputRef.value?.focus())
-
-const beep = (success: boolean) => {
-  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-  if (!AudioContextClass) return
-  const context = new AudioContextClass()
-  const oscillator = context.createOscillator()
-  oscillator.frequency.value = success ? 880 : 220
-  oscillator.connect(context.destination)
-  oscillator.start()
-  oscillator.stop(context.currentTime + (success ? 0.08 : 0.18))
-}
-
 const loadTasks = async (reset: boolean) => {
   if (reset) {
     taskLoading.value = true
@@ -484,14 +393,11 @@ const loadMore = async () => {
 
 const openTask = async (id: number) => {
   detailLoading.value = true
-  pendingScan.value = undefined
-  recentScans.value = []
-  lastFeedback.value = undefined
+  taskDetail.value = undefined
   try {
     taskDetail.value = await RdPutawayTaskApi.getMy(id)
   } finally {
     detailLoading.value = false
-    focusScan()
   }
 }
 
@@ -502,36 +408,12 @@ const refreshTaskDetail = async () => {
     taskDetail.value = await RdPutawayTaskApi.getMy(taskDetail.value.task.id)
   } finally {
     detailLoading.value = false
-    focusScan()
   }
 }
 
 const backToList = async () => {
   taskDetail.value = undefined
-  scanValue.value = ''
-  pendingScan.value = undefined
-  recentScans.value = []
-  lastFeedback.value = undefined
   await loadTasks(true)
-}
-
-const addFeedback = (feedback: ScanFeedback) => {
-  lastFeedback.value = feedback
-  recentScans.value = [feedback, ...recentScans.value].slice(0, 5)
-}
-
-const createIdempotencyKey = () => {
-  if (window.crypto?.randomUUID) return window.crypto.randomUUID()
-  return `scan-${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-const getDeviceCode = () => {
-  const storageKey = 'rd-putaway-device-code'
-  const existing = window.localStorage.getItem(storageKey)
-  if (existing) return existing
-  const value = `WEB-${createIdempotencyKey().replaceAll('-', '').slice(0, 16).toUpperCase()}`
-  window.localStorage.setItem(storageKey, value)
-  return value
 }
 
 const getRouteString = (key: string) => {
@@ -539,86 +421,10 @@ const getRouteString = (key: string) => {
   return Array.isArray(value) ? value[0] || '' : String(value || '')
 }
 
-const submitScan = async () => {
-  if (!taskDetail.value || !scanEnabled.value || scanSubmitting.value) return
-  const rawValue = scanValue.value.trim()
-  if (!rawValue) {
-    addFeedback({
-      id: Date.now(),
-      type: 'empty',
-      code: '',
-      message: '请扫描二维码或输入包码',
-      time: nowText()
-    })
-    beep(false)
-    focusScan()
-    return
-  }
-  if (!pendingScan.value || pendingScan.value.rawValue !== rawValue) {
-    pendingScan.value = { rawValue, idempotencyKey: createIdempotencyKey() }
-  }
-  scanSubmitting.value = true
-  try {
-    const result = await RdPutawayTaskApi.scan({
-      id: taskDetail.value.task.id,
-      packageCode: rawValue,
-      idempotencyKey: pendingScan.value.idempotencyKey,
-      deviceCode: getDeviceCode()
-    })
-    taskDetail.value.task.scannedPackageCount = result.scannedPackageCount
-    taskDetail.value.task.packageCount = result.packageCount
-    taskDetail.value.task.status = result.taskStatus
-    if (result.success) {
-      const line = taskDetail.value.lines.find(
-        (item) => item.packageCode.trim().toUpperCase() === result.packageCode.trim().toUpperCase()
-      )
-      if (line) {
-        line.scanCount = Math.max(1, Number(line.scanCount || 0))
-        line.lineStatus = 'SCANNED'
-      }
-    }
-    const type: ScanFeedbackType =
-      result.scanResult === 'SUCCESS'
-        ? 'success'
-        : result.scanResult === 'DUPLICATE'
-          ? 'duplicate'
-          : result.scanResult === 'MISMATCH'
-            ? 'mismatch'
-            : 'status'
-    const completionMessage =
-      result.taskStatus === 'PENDING_CONFIRMATION' && result.success
-        ? '全部包已扫码，任务已转待仓管确认'
-        : result.message
-    const feedback: ScanFeedback = {
-      id: result.recordId || Date.now(),
-      type,
-      code: result.packageCode,
-      message: result.replayed ? `请求已处理：${completionMessage}` : completionMessage,
-      time: nowText()
-    }
-    addFeedback(feedback)
-    beep(result.success)
-    pendingScan.value = undefined
-    scanValue.value = ''
-  } catch {
-    addFeedback({
-      id: Date.now(),
-      type: 'status',
-      code: rawValue,
-      message: '提交未确认，请保留当前包码后重试',
-      time: nowText()
-    })
-    beep(false)
-  } finally {
-    scanSubmitting.value = false
-    focusScan()
-  }
-}
-
 const openExceptionDialog = () => {
-  if (!taskDetail.value || !scanEnabled.value) return
+  if (!taskDetail.value || !exceptionEnabled.value) return
   exceptionForm.exceptionType = undefined
-  exceptionForm.packageCode = lastFeedback.value?.type === 'mismatch' ? lastFeedback.value.code : ''
+  exceptionForm.packageCode = extractPackageCode(getRouteString('packageCode'))
   exceptionForm.description = ''
   exceptionVisible.value = true
   nextTick(() => exceptionFormRef.value?.clearValidate())
@@ -643,14 +449,6 @@ const submitException = async () => {
   }
 }
 
-const scanResultIcon = (type: ScanFeedbackType) => {
-  if (type === 'success') return 'lucide:circle-check'
-  if (type === 'duplicate') return 'lucide:copy'
-  if (type === 'mismatch') return 'lucide:circle-x'
-  if (type === 'status') return 'lucide:triangle-alert'
-  return 'lucide:scan-line'
-}
-
 const packageTagType = (line: RdPutawayTaskLineVO): TagType => {
   if (Number(line.scanCount || 0) > 0) return 'success'
   if (line.lineStatus === 'EXCEPTION') return 'danger'
@@ -659,9 +457,9 @@ const packageTagType = (line: RdPutawayTaskLineVO): TagType => {
 
 const packageStatusText = (line: RdPutawayTaskLineVO) => {
   if (line.lineStatus === 'CONFIRMED') return '已入库'
-  if (Number(line.scanCount || 0) > 0) return '已扫码'
+  if (Number(line.scanCount || 0) > 0) return '仓管已核验'
   if (line.lineStatus === 'EXCEPTION') return '异常待处理'
-  return '待扫码'
+  return '待仓管核验'
 }
 
 watch(
@@ -681,19 +479,37 @@ watch(
   { immediate: true }
 )
 
-onMounted(async () => {
-  const packageCode = getRouteString('packageCode')
-  if (packageCode) scanValue.value = packageCode
-  await loadTasks(true)
-})
-
-watch(
-  () => route.query.packageCode,
-  () => {
-    const packageCode = getRouteString('packageCode')
-    if (packageCode) scanValue.value = packageCode
+const applyRouteContext = async () => {
+  const code = extractPackageCode(getRouteString('packageCode'))
+  const requestedId = Number(getRouteString('taskId'))
+  if (!code && !requestedId) return
+  const context =
+    Number.isSafeInteger(requestedId) && requestedId > 0
+      ? null
+      : await RdPackageUnitApi.getWorkContext(code)
+  const id =
+    Number.isSafeInteger(requestedId) && requestedId > 0
+      ? requestedId
+      : context?.tasks.find((task) => task.type === 'PUTAWAY' && task.myTask)?.taskId
+  if (!id) {
+    taskDetail.value = undefined
+    message.info('该包没有分配给本人的上架任务')
+    return
   }
-)
+  await openTask(id)
+  if (
+    code &&
+    !taskDetail.value?.lines.some((line) => line.packageCode.toUpperCase() === code.toUpperCase())
+  ) {
+    taskDetail.value = undefined
+    message.warning('该包不属于当前上架任务')
+  }
+}
+onMounted(async () => {
+  await loadTasks(true)
+  await applyRouteContext()
+})
+watch(() => [route.query.packageCode, route.query.taskId], applyRouteContext)
 </script>
 
 <style scoped lang="scss">

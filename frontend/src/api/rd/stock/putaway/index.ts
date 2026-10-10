@@ -166,6 +166,18 @@ export interface RdPutawayScanRespVO {
   scanTime: string
 }
 
+export interface RdPutawayBatchScanRespVO extends RdPutawayTaskDetailVO {
+  representativePackageCode: string
+  recordId?: number
+  replayed: boolean
+  confirmedCount: number
+}
+
+export interface RdPutawayBatchConfirmReqVO extends RdPutawayScanReqVO {
+  version: number
+  taskLineIds: number[]
+}
+
 export type RdPutawayExceptionType =
   | 'LOCATION_CAPACITY_INSUFFICIENT'
   | 'LOCATION_OCCUPIED'
@@ -204,6 +216,10 @@ export const RdPutawayTaskApi = {
     request.put<boolean>({ url: '/rd/putaway-task/reassign', data }),
   scan: (data: RdPutawayScanReqVO) =>
     request.post<RdPutawayScanRespVO>({ url: '/rd/putaway-task/scan', data }),
+  previewBatchScan: (data: { id?: number; packageCode: string }) =>
+    request.post<RdPutawayBatchScanRespVO>({ url: '/rd/putaway-task/batch-scan/preview', data }),
+  confirmBatchScan: (data: RdPutawayBatchConfirmReqVO) =>
+    request.post<RdPutawayBatchScanRespVO>({ url: '/rd/putaway-task/batch-scan/confirm', data }),
   reportException: (data: RdPutawayExceptionCreateReqVO) =>
     request.post<number>({ url: '/rd/putaway-task/exception', data }),
   confirm: (data: RdPutawayTaskConfirmReqVO) =>

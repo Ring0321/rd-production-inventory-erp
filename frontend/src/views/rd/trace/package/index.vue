@@ -556,11 +556,11 @@ const buildTraceActions = () => {
     } else {
       addAction(['rd:putaway-task:query'], {
         key: 'putaway-workbench',
-        label: '处理上架任务',
+        label: canDo(['rd:putaway-task:confirm']) ? '入库扫码核验' : '查看上架任务',
         description: '打开该包关联的上架任务。',
         icon: 'lucide:warehouse',
         routeName: 'RdPutawayWorkbench',
-        query: taskQuery,
+        query: { ...taskQuery, mode: canDo(['rd:putaway-task:confirm']) ? 'scan' : 'view' },
         type: 'success',
         primary: true
       })
