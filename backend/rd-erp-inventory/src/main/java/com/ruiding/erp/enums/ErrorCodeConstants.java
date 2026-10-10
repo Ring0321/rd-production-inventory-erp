@@ -169,6 +169,10 @@ public interface ErrorCodeConstants {
     ErrorCode LOADING_TASK_VERSION_CONFLICT = new ErrorCode(1_080_530_014, "装车任务已被其他人员更新，请刷新后重试");
     ErrorCode LOADING_CONFIRM_PACKAGES_INCOMPLETE = new ErrorCode(1_080_530_015, "装车任务包件尚未全部复核，不能确认出库");
     ErrorCode LOADING_CONFIRM_HAS_OPEN_EXCEPTION = new ErrorCode(1_080_530_016, "装车任务仍有未处理异常，不能确认出库");
+    ErrorCode LOADING_EXCEPTION_TYPE_INVALID = new ErrorCode(1_080_530_017, "请选择有效的装车异常原因");
+    ErrorCode LOADING_EXCEPTION_HANDLE_REQUIRED = new ErrorCode(1_080_530_018, "处理装车异常必须填写处理说明");
+    ErrorCode LOADING_EXCEPTION_ACTION_INVALID = new ErrorCode(1_080_530_019, "请选择有效的装车异常处理方式");
+    ErrorCode LOADING_EXCEPTION_NOT_EXISTS = new ErrorCode(1_080_530_020, "装车任务没有待处理异常");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

@@ -4,7 +4,10 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import com.ruiding.erp.controller.admin.loading.vo.RdLoadingExceptionCreateReqVO;
+import com.ruiding.erp.controller.admin.loading.vo.RdLoadingExceptionResolveReqVO;
 import com.ruiding.erp.controller.admin.loading.vo.RdLoadingTaskCreateReqVO;
+import com.ruiding.erp.dal.dataobject.loading.RdLoadingExceptionDO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingPackageClaimDO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingTaskDO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingTaskLineDO;
@@ -13,6 +16,7 @@ import com.ruiding.erp.dal.dataobject.loading.RdPickupSlipLineDO;
 import com.ruiding.erp.dal.dataobject.masterdata.RdWarehouseLocationDO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockLotDO;
+import com.ruiding.erp.dal.mysql.loading.RdLoadingExceptionMapper;
 import com.ruiding.erp.dal.mysql.loading.RdLoadingPackageClaimMapper;
 import com.ruiding.erp.dal.mysql.loading.RdLoadingTaskLineMapper;
 import com.ruiding.erp.dal.mysql.loading.RdLoadingTaskMapper;
@@ -24,6 +28,7 @@ import com.ruiding.erp.dal.mysql.order.RdSaleOrderMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
+import com.ruiding.erp.enums.RdLoadingTaskStatusEnum;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -52,6 +57,7 @@ class RdLoadingDispatchServiceImplTest {
     @Mock private RdPickupSlipLineMapper slipLineMapper;
     @Mock private RdLoadingTaskMapper taskMapper;
     @Mock private RdLoadingTaskLineMapper taskLineMapper;
+    @Mock private RdLoadingExceptionMapper exceptionMapper;
     @Mock private RdLoadingPackageClaimMapper claimMapper;
     @Mock private RdPackageUnitMapper packageMapper;
     @Mock private RdStockLotMapper stockLotMapper;
@@ -142,6 +148,98 @@ class RdLoadingDispatchServiceImplTest {
         verify(taskLineMapper, never()).selectListByTaskId(any());
     }
 
+    @Test
+    void shouldReportLoadingExceptionAndFreezeTask() {
+        RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.LOADING, 2, 0);
+        RdLoadingTaskLineDO line = loadingLine(600L, "PK-001", "PLANNED");
+        when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
+        when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(line));
+        doAnswer(invocation -> {
+            ((RdLoadingExceptionDO) invocation.getArgument(0)).setId(80L);
+            return 1;
+        }).when(exceptionMapper).insert(any(RdLoadingExceptionDO.class));
+        RdLoadingExceptionCreateReqVO reqVO = new RdLoadingExceptionCreateReqVO();
+        reqVO.setTaskId(500L);
+        reqVO.setPackageCode("PK-001");
+        reqVO.setExceptionType("LOCATION_MISMATCH");
+        reqVO.setDescription("计划库位现场找不到该包");
+
+        Long id = service.reportException(reqVO, 30L, "司机30");
+
+        assertEquals(80L, id);
+        assertEquals(RdLoadingTaskStatusEnum.EXCEPTION_PENDING.getStatus(), task.getStatus());
+        assertEquals("EXCEPTION", line.getLineStatus());
+        verify(exceptionMapper).insert(any(RdLoadingExceptionDO.class));
+        verify(taskLineMapper).updateById(line);
+        verify(taskMapper).updateById(task);
+    }
+
+    @Test
+    void shouldResolveLoadingExceptionByReturningTaskToDriver() {
+        RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.EXCEPTION_PENDING, 2, 1);
+        task.setVersion(3);
+        RdLoadingTaskLineDO exceptionLine = loadingLine(600L, "PK-001", "EXCEPTION");
+        RdLoadingTaskLineDO scannedLine = loadingLine(601L, "PK-002", "SCANNED");
+        RdLoadingExceptionDO openException = loadingException();
+        when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
+        when(exceptionMapper.selectOpenListByTaskIdForUpdate(500L)).thenReturn(List.of(openException));
+        when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(exceptionLine, scannedLine));
+        RdLoadingExceptionResolveReqVO reqVO = new RdLoadingExceptionResolveReqVO();
+        reqVO.setTaskId(500L);
+        reqVO.setVersion(3);
+        reqVO.setResolutionAction("RETURN_TO_DRIVER");
+        reqVO.setHandlingResult("仓管已核实，退回司机继续执行");
+
+        service.resolveException(reqVO, 20L, "仓管");
+
+        assertEquals("RESOLVED", openException.getExceptionStatus());
+        assertEquals("RETURN_TO_DRIVER", openException.getResolutionAction());
+        assertEquals(RdLoadingTaskStatusEnum.ASSIGNED.getStatus(), task.getStatus());
+        assertEquals("PLANNED", exceptionLine.getLineStatus());
+        assertEquals(1, task.getScannedPackageCount());
+        verify(exceptionMapper).updateById(openException);
+        verify(taskLineMapper).updateById(exceptionLine);
+        verify(taskMapper).updateById(task);
+    }
+
+    @Test
+    void shouldCancelLoadingTaskAndReleaseClaimsAfterException() {
+        TenantContextHolder.setTenantId(1L);
+        RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.EXCEPTION_PENDING, 2, 1);
+        task.setVersion(3);
+        RdLoadingTaskLineDO plannedLine = loadingLine(600L, "PK-001", "PLANNED");
+        RdLoadingTaskLineDO scannedLine = loadingLine(601L, "PK-002", "SCANNED");
+        RdLoadingExceptionDO openException = loadingException();
+        RdLoadingPackageClaimDO claim = new RdLoadingPackageClaimDO();
+        claim.setId(90L);
+        claim.setTaskId(500L);
+        RdPickupSlipDO slip = new RdPickupSlipDO();
+        slip.setId(1L);
+        slip.setStatus("DISPATCHED");
+        slip.setVersion(1);
+        when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
+        when(exceptionMapper.selectOpenListByTaskIdForUpdate(500L)).thenReturn(List.of(openException));
+        when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(plannedLine, scannedLine));
+        when(claimMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(claim));
+        when(slipMapper.selectByIdForUpdate(1L, 1L)).thenReturn(slip);
+        RdLoadingExceptionResolveReqVO reqVO = new RdLoadingExceptionResolveReqVO();
+        reqVO.setTaskId(500L);
+        reqVO.setVersion(3);
+        reqVO.setResolutionAction("CANCEL");
+        reqVO.setHandlingResult("现场无法完成装车，取消后重新派单");
+
+        service.resolveException(reqVO, 20L, "仓管");
+
+        assertEquals("RESOLVED", openException.getExceptionStatus());
+        assertEquals("CANCEL", openException.getResolutionAction());
+        assertEquals(RdLoadingTaskStatusEnum.CANCELLED.getStatus(), task.getStatus());
+        assertEquals("CANCELLED", plannedLine.getLineStatus());
+        assertEquals("CANCELLED", scannedLine.getLineStatus());
+        assertEquals("ISSUED", slip.getStatus());
+        verify(claimMapper).deleteById(90L);
+        verify(slipMapper).updateById(slip);
+    }
+
     private void mockSlipAndDriver() {
         TenantContextHolder.setTenantId(1L);
         RdPickupSlipDO slip = new RdPickupSlipDO();
@@ -213,5 +311,43 @@ class RdLoadingDispatchServiceImplTest {
         req.setForkliftDriverId(30L);
         req.setSelections(List.of(selections));
         return req;
+    }
+
+    private static RdLoadingTaskDO loadingTask(RdLoadingTaskStatusEnum status, int plannedCount, int scannedCount) {
+        RdLoadingTaskDO task = new RdLoadingTaskDO();
+        task.setId(500L);
+        task.setTaskNo("LD-001");
+        task.setPickupSlipId(1L);
+        task.setStatus(status.getStatus());
+        task.setForkliftDriverId(30L);
+        task.setPlannedPackageCount(plannedCount);
+        task.setScannedPackageCount(scannedCount);
+        task.setPlannedWeight(new BigDecimal("2000"));
+        task.setScannedWeight(new BigDecimal(scannedCount * 1000));
+        task.setPlanVersion(1);
+        task.setVersion(0);
+        return task;
+    }
+
+    private static RdLoadingTaskLineDO loadingLine(Long id, String packageCode, String status) {
+        RdLoadingTaskLineDO line = new RdLoadingTaskLineDO();
+        line.setId(id);
+        line.setTaskId(500L);
+        line.setLineNo(id.intValue());
+        line.setPackageId(id + 1000);
+        line.setPackageCode(packageCode);
+        line.setLineStatus(status);
+        line.setPackageWeight(new BigDecimal("1000"));
+        line.setVersion(0);
+        return line;
+    }
+
+    private static RdLoadingExceptionDO loadingException() {
+        RdLoadingExceptionDO item = new RdLoadingExceptionDO();
+        item.setId(80L);
+        item.setTaskId(500L);
+        item.setExceptionStatus("OPEN");
+        item.setVersion(0);
+        return item;
     }
 }

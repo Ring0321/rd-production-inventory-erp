@@ -15,7 +15,8 @@ public interface RdLoadingTaskLineMapper extends BaseMapperX<RdLoadingTaskLineDO
     @Select("SELECT l.* FROM rd_loading_task_line l "
             + "INNER JOIN rd_loading_task t ON t.id = l.task_id AND t.tenant_id = l.tenant_id AND t.deleted = 0 "
             + "WHERE l.package_code = #{packageCode} AND l.deleted = 0 "
-            + "AND t.status IN ('ASSIGNED','LOADING','PENDING_REVIEW') ORDER BY t.id DESC LIMIT 1")
+            + "AND t.status IN ('ASSIGNED','LOADING','PENDING_REVIEW','EXCEPTION_PENDING') "
+            + "ORDER BY t.id DESC LIMIT 1")
     RdLoadingTaskLineDO selectActiveByPackageCode(String packageCode);
 
     default List<RdLoadingTaskLineDO> selectListByTaskId(Long taskId) {

@@ -351,7 +351,8 @@
             type="success"
             :loading="batchScanConfirming"
             :disabled="
-              !batchSelectedLineIds.length || batchScanResp.task.status === 'PENDING_REVIEW'
+              !batchSelectedLineIds.length ||
+              !['ASSIGNED', 'LOADING'].includes(batchScanResp.task.status)
             "
             v-hasPermi="['rd:loading-task:dispatch']"
             @click="confirmBatchScan"
@@ -422,6 +423,69 @@
         <el-table-column prop="packageWeight" label="重量 kg" width="100" />
         <el-table-column prop="lineStatus" label="状态" width="105" />
       </el-table>
+      <el-alert
+        v-if="openTaskExceptions.length"
+        class="mt-16px"
+        type="warning"
+        :closable="false"
+        show-icon
+        :title="`该装车任务有 ${openTaskExceptions.length} 条待处理异常`"
+      />
+      <el-table
+        v-if="taskDetail.exceptions?.length"
+        :data="taskDetail.exceptions"
+        class="mt-12px"
+        max-height="240"
+      >
+        <el-table-column prop="exceptionNo" label="异常号" min-width="160" />
+        <el-table-column label="原因" width="130">
+          <template #default="scope">{{ exceptionTypeLabel(scope.row.exceptionType) }}</template>
+        </el-table-column>
+        <el-table-column prop="packageCode" label="包码" min-width="160" />
+        <el-table-column prop="observedLocationCode" label="现场库位" width="110" />
+        <el-table-column prop="description" label="异常说明" min-width="220" />
+        <el-table-column label="状态" width="100">
+          <template #default="scope">{{
+            scope.row.exceptionStatus === 'OPEN' ? '待处理' : '已处理'
+          }}</template>
+        </el-table-column>
+        <el-table-column prop="handlingResult" label="处理说明" min-width="220" />
+      </el-table>
+      <div v-if="taskDetail.task.status === 'EXCEPTION_PENDING'" class="exception-actions">
+        <el-button type="primary" plain @click="openResolveExceptionDialog('RETURN_TO_DRIVER')">
+          退回司机继续执行
+        </el-button>
+        <el-button type="danger" plain @click="openResolveExceptionDialog('CANCEL')">
+          取消任务并释放占用
+        </el-button>
+      </div>
+    </template>
+  </Dialog>
+
+  <Dialog v-model="exceptionResolveVisible" title="处理装车异常" width="560px">
+    <el-form label-width="96px">
+      <el-form-item label="处理动作">
+        <el-radio-group v-model="exceptionResolveForm.resolutionAction">
+          <el-radio-button label="RETURN_TO_DRIVER">退回司机继续执行</el-radio-button>
+          <el-radio-button label="CANCEL">取消任务</el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="处理说明" required>
+        <el-input
+          v-model="exceptionResolveForm.handlingResult"
+          type="textarea"
+          :rows="4"
+          maxlength="1000"
+          show-word-limit
+          placeholder="填写核实结果，例如已通知司机继续执行、现场货位不符需取消后重新派单等"
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="exceptionResolveVisible = false">取消</el-button>
+      <el-button type="primary" :loading="exceptionResolving" @click="resolveLoadingException">
+        确认处理
+      </el-button>
     </template>
   </Dialog>
 </template>
@@ -431,8 +495,10 @@ import { useRoute } from 'vue-router'
 import {
   RdLoadingApi,
   type LoadingBatchScanResp,
+  type LoadingException,
   type LoadingPackage,
   type LoadingTask,
+  type LoadingTaskDetail,
   type LoadingTaskLine,
   type LoadingDriverOption,
   type PickupSlip,
@@ -474,7 +540,13 @@ const taskQuery = reactive({ pageNo: 1, pageSize: 20, taskNo: '', pickupSlipNo: 
 const taskTotal = ref(0)
 const taskLoading = ref(false)
 const taskVisible = ref(false)
-const taskDetail = ref<{ task: LoadingTask; lines: LoadingTaskLine[] }>()
+const taskDetail = ref<LoadingTaskDetail>()
+const exceptionResolveVisible = ref(false)
+const exceptionResolving = ref(false)
+const exceptionResolveForm = reactive({
+  resolutionAction: 'RETURN_TO_DRIVER',
+  handlingResult: ''
+})
 const batchScanForm = reactive({
   taskId: undefined as number | undefined,
   packageCode: ''
@@ -499,9 +571,20 @@ const lineStatusOptions: Record<string, string> = {
   PLANNED: '待确认',
   SCANNED: '已扫码',
   LOADED: '已装车',
-  OUTBOUNDED: '已出库'
+  OUTBOUNDED: '已出库',
+  EXCEPTION: '异常',
+  CANCELLED: '已取消'
 }
 const lineStatusLabel = (status: string) => lineStatusOptions[status] || status
+const exceptionTypeOptions: Record<string, string> = {
+  MISSING_PACKAGE: '现场缺货',
+  LOCATION_MISMATCH: '库位不符',
+  WRONG_PACKAGE: '错货',
+  LABEL_DAMAGED: '标签破损',
+  VEHICLE_CHANGED: '车辆变更',
+  OTHER: '其他'
+}
+const exceptionTypeLabel = (type: string) => exceptionTypeOptions[type] || type
 const progress = (task: LoadingTask) =>
   task.plannedPackageCount
     ? Math.round((task.scannedPackageCount / task.plannedPackageCount) * 100)
@@ -523,6 +606,9 @@ const matchingLines = (pkg: LoadingPackage) =>
   )
 const pendingScanLines = computed(
   () => batchScanResp.value?.lines.filter((line) => line.lineStatus === 'PLANNED') || []
+)
+const openTaskExceptions = computed<LoadingException[]>(
+  () => taskDetail.value?.exceptions?.filter((item) => item.exceptionStatus === 'OPEN') || []
 )
 const batchLineSelectable = (row: LoadingTaskLine) => row.lineStatus === 'PLANNED'
 const createIdempotencyKey = () =>
@@ -620,6 +706,41 @@ const loadTasks = async () => {
 const openTask = async (id: number) => {
   taskDetail.value = await RdLoadingApi.getTask(id)
   taskVisible.value = true
+}
+const openResolveExceptionDialog = (resolutionAction: 'RETURN_TO_DRIVER' | 'CANCEL') => {
+  exceptionResolveForm.resolutionAction = resolutionAction
+  exceptionResolveForm.handlingResult =
+    resolutionAction === 'RETURN_TO_DRIVER'
+      ? '仓管员已核实现场异常，退回司机按任务继续搬运。'
+      : '仓管员已核实现场异常，取消本次装车任务并释放未出库包件占用。'
+  exceptionResolveVisible.value = true
+}
+const resolveLoadingException = async () => {
+  if (!taskDetail.value) return
+  const handlingResult = exceptionResolveForm.handlingResult.trim()
+  if (!handlingResult) {
+    message.warning('请填写处理说明')
+    return
+  }
+  exceptionResolving.value = true
+  const taskId = taskDetail.value.task.id
+  try {
+    await RdLoadingApi.resolveException({
+      taskId,
+      version: taskDetail.value.task.version || 0,
+      resolutionAction: exceptionResolveForm.resolutionAction,
+      handlingResult
+    })
+    message.success('装车异常已处理')
+    exceptionResolveVisible.value = false
+    await openTask(taskId)
+    await loadTasks()
+    if (batchScanResp.value?.task.id === taskId && batchScanForm.packageCode) {
+      await previewBatchScan()
+    }
+  } finally {
+    exceptionResolving.value = false
+  }
 }
 const onBatchLineSelection = (rows: LoadingTaskLine[]) => {
   batchSelectedLineIds.value = rows.map((row) => row.id)
@@ -801,11 +922,19 @@ watch(
   font-weight: 600;
 }
 
+.exception-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 @media (width <= 720px) {
   .heading,
   .table-footer,
   .scan-banner,
-  .scan-actions {
+  .scan-actions,
+  .exception-actions {
     flex-wrap: wrap;
   }
 }

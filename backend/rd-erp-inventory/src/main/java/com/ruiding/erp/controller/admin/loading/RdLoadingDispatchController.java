@@ -85,6 +85,19 @@ public class RdLoadingDispatchController {
         return success(service.confirmOutbound(req, getLoginUserId(), getLoginUserNickname()));
     }
 
+    @PostMapping("/exception")
+    @PreAuthorize("@ss.hasPermission('rd:loading-task:execute')")
+    public CommonResult<Long> reportException(@Valid @RequestBody RdLoadingExceptionCreateReqVO req) {
+        return success(service.reportException(req, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PutMapping("/exception/resolve")
+    @PreAuthorize("@ss.hasPermission('rd:loading-task:dispatch')")
+    public CommonResult<Boolean> resolveException(@Valid @RequestBody RdLoadingExceptionResolveReqVO req) {
+        service.resolveException(req, getLoginUserId(), getLoginUserNickname());
+        return success(true);
+    }
+
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('rd:loading-task:query')")
     public CommonResult<PageResult<RdLoadingTaskDO>> getTaskPage(@Valid RdLoadingTaskPageReqVO req) {

@@ -105,6 +105,35 @@ export interface LoadingTaskLine {
   remark?: string
 }
 
+export interface LoadingException {
+  id: number
+  exceptionNo: string
+  taskId: number
+  taskLineId?: number
+  packageId?: number
+  packageCode?: string
+  planVersion?: number
+  exceptionType: string
+  exceptionStatus: string
+  description?: string
+  attachmentRefs?: string
+  observedLocationCode?: string
+  reporterName?: string
+  reportedTime?: string
+  handlerName?: string
+  handleTime?: string
+  handlingResult?: string
+  resolutionAction?: string
+  resolvedLocationCode?: string
+  version?: number
+}
+
+export interface LoadingTaskDetail {
+  task: LoadingTask
+  lines: LoadingTaskLine[]
+  exceptions: LoadingException[]
+}
+
 export interface LoadingDriverOption {
   id: number
   nickname: string
@@ -181,17 +210,34 @@ export const RdLoadingApi = {
   }) => request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/confirm', data }),
   confirmOutbound: (data: { taskId: number; version?: number; remark?: string }) =>
     request.post<LoadingConfirmOutboundResp>({ url: '/rd/loading-task/confirm-outbound', data }),
+  reportException: (data: {
+    taskId: number
+    taskLineId?: number
+    packageCode?: string
+    exceptionType: string
+    description: string
+    observedLocationCode?: string
+    attachmentRefs?: string
+  }) => request.post<number>({ url: '/rd/loading-task/exception', data }),
+  resolveException: (data: {
+    taskId: number
+    version: number
+    resolutionAction: string
+    handlingResult: string
+    resolvedLocationId?: number
+    resolvedLocationCode?: string
+  }) => request.put<boolean>({ url: '/rd/loading-task/exception/resolve', data }),
   getTaskPage: (params: PageParam & { taskNo?: string; pickupSlipNo?: string; status?: string }) =>
     request.get<PageResult<LoadingTask[]>>({ url: '/rd/loading-task/page', params }),
   getTask: (id: number) =>
-    request.get<{ task: LoadingTask; lines: LoadingTaskLine[] }>({
+    request.get<LoadingTaskDetail>({
       url: '/rd/loading-task/get',
       params: { id }
     }),
   getMyTaskPage: (params: PageParam) =>
     request.get<PageResult<LoadingTask[]>>({ url: '/rd/loading-task/my-page', params }),
   getMyTask: (id: number) =>
-    request.get<{ task: LoadingTask; lines: LoadingTaskLine[] }>({
+    request.get<LoadingTaskDetail>({
       url: '/rd/loading-task/my-get',
       params: { id }
     })

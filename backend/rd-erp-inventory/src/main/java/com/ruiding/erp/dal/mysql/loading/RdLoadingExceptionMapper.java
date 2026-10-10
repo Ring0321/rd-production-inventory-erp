@@ -12,4 +12,8 @@ public interface RdLoadingExceptionMapper extends BaseMapperX<RdLoadingException
     @Select("SELECT * FROM rd_loading_exception WHERE task_id = #{taskId} "
             + "AND exception_status = 'OPEN' AND deleted = 0 FOR UPDATE")
     List<RdLoadingExceptionDO> selectOpenListByTaskIdForUpdate(Long taskId);
+
+    default List<RdLoadingExceptionDO> selectListByTaskId(Long taskId) {
+        return selectList(RdLoadingExceptionDO::getTaskId, taskId);
+    }
 }

@@ -126,6 +126,16 @@
         title="按下方库位和货物资料搬运；发现货物不符、库位找不到、现场无法装车时，反馈给仓管员调整任务。"
       />
 
+      <el-alert
+        v-if="openExceptions.length"
+        class="role-alert"
+        type="warning"
+        :closable="false"
+        show-icon
+        :title="`已上报 ${openExceptions.length} 条异常，等待仓管员处理`"
+        :description="openExceptions[0]?.description || '请等待仓管端退回任务或重新派发。'"
+      />
+
       <section class="info-band" aria-label="装车任务信息">
         <div>
           <span>客户</span>
@@ -222,20 +232,73 @@
           <Icon icon="lucide:refresh-cw" />
           刷新任务
         </el-button>
-        <el-button type="warning" plain @click="notifyKeeper">
+        <el-button type="warning" plain @click="openExceptionDialog">
           <Icon icon="lucide:triangle-alert" />
-          异常联系仓管员
+          异常上报
         </el-button>
       </section>
     </section>
+
+    <Dialog v-model="exceptionDialogVisible" title="装车异常上报" width="520px">
+      <el-form label-width="96px">
+        <el-form-item label="异常原因" required>
+          <el-select v-model="exceptionForm.exceptionType" class="!w-full">
+            <el-option
+              v-for="item in exceptionTypeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="关联包件">
+          <el-select v-model="exceptionForm.taskLineId" clearable filterable class="!w-full">
+            <el-option
+              v-for="line in taskDetail?.lines || []"
+              :key="line.id"
+              :label="`${line.packageCode} / ${line.plannedLocationCode || '-'}`"
+              :value="line.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="现场库位">
+          <el-input
+            v-model="exceptionForm.observedLocationCode"
+            clearable
+            placeholder="现场看到的库位，可不填"
+          />
+        </el-form-item>
+        <el-form-item label="异常说明" required>
+          <el-input
+            v-model="exceptionForm.description"
+            type="textarea"
+            :rows="4"
+            maxlength="1000"
+            show-word-limit
+            placeholder="说明现场情况，例如库位放不下、找不到该包、包码破损、货物与任务不一致等"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="exceptionDialogVisible = false">取消</el-button>
+        <el-button type="warning" :loading="exceptionSubmitting" @click="submitException">
+          提交异常
+        </el-button>
+      </template>
+    </Dialog>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
-import { RdLoadingApi, type LoadingTask, type LoadingTaskLine } from '@/api/rd/loading'
+import {
+  RdLoadingApi,
+  type LoadingTask,
+  type LoadingTaskDetail,
+  type LoadingTaskLine
+} from '@/api/rd/loading'
 
 defineOptions({ name: 'RdDriverLoading' })
 
@@ -272,9 +335,30 @@ const taskPageNo = ref(1)
 const taskLoading = ref(false)
 const taskLoadingMore = ref(false)
 const detailLoading = ref(false)
-const taskDetail = ref<{ task: LoadingTask; lines: LoadingTaskLine[] }>()
+const taskDetail = ref<LoadingTaskDetail>()
 const highlightedPackageCode = ref('')
 const routePackageHandled = ref(false)
+const exceptionDialogVisible = ref(false)
+const exceptionSubmitting = ref(false)
+const exceptionForm = reactive({
+  taskLineId: undefined as number | undefined,
+  exceptionType: 'LOCATION_MISMATCH',
+  observedLocationCode: '',
+  description: ''
+})
+
+const exceptionTypeOptions = [
+  { value: 'MISSING_PACKAGE', label: '现场缺货' },
+  { value: 'LOCATION_MISMATCH', label: '库位不符或找不到' },
+  { value: 'WRONG_PACKAGE', label: '货物与任务不一致' },
+  { value: 'LABEL_DAMAGED', label: '标签/二维码破损' },
+  { value: 'VEHICLE_CHANGED', label: '车辆或装车要求变化' },
+  { value: 'OTHER', label: '其他异常' }
+]
+
+const openExceptions = computed(
+  () => taskDetail.value?.exceptions?.filter((item) => item.exceptionStatus === 'OPEN') || []
+)
 
 const remainingCount = computed(() =>
   Math.max(
@@ -408,8 +492,41 @@ const backToList = async () => {
   await loadTasks(true)
 }
 
-const notifyKeeper = () => {
-  message.warning('司机端不变更库位和出库状态；请联系仓管员在库管端调整任务或处理异常。')
+const openExceptionDialog = () => {
+  const matchedLine = taskDetail.value?.lines.find(
+    (line) => highlightedPackageCode.value && isHighlighted(line.packageCode)
+  )
+  exceptionForm.taskLineId = matchedLine?.id
+  exceptionForm.exceptionType = 'LOCATION_MISMATCH'
+  exceptionForm.observedLocationCode = matchedLine?.plannedLocationCode || ''
+  exceptionForm.description = ''
+  exceptionDialogVisible.value = true
+}
+
+const submitException = async () => {
+  if (!taskDetail.value) return
+  const description = exceptionForm.description.trim()
+  if (!description) {
+    message.warning('请填写异常说明')
+    return
+  }
+  const line = taskDetail.value.lines.find((item) => item.id === exceptionForm.taskLineId)
+  exceptionSubmitting.value = true
+  try {
+    await RdLoadingApi.reportException({
+      taskId: taskDetail.value.task.id,
+      taskLineId: line?.id,
+      packageCode: line?.packageCode,
+      exceptionType: exceptionForm.exceptionType,
+      observedLocationCode: exceptionForm.observedLocationCode || undefined,
+      description
+    })
+    message.success('异常已提交给仓管员处理')
+    exceptionDialogVisible.value = false
+    await refreshTaskDetail()
+  } finally {
+    exceptionSubmitting.value = false
+  }
 }
 
 const openTaskByPackageQuery = async () => {
