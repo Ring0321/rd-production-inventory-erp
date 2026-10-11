@@ -210,6 +210,25 @@ AND ((table_name='rd_production_output' AND column_name IN ('production_task_id'
     Assert-Equal "readonly production mutation grants" "0" $productionReadOnly
     Assert-Equal "PDA entry menu without business permission" "1" $pdaEntryMenus
     Assert-Equal "PDA entry default role grants" "8" $pdaEntryGrants
+    $qualityMemberColumns = Invoke-Scalar $Database "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='rd_quality_inspection_member';"
+    $qualityMemberIndices = Invoke-Scalar $Database "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='rd_quality_inspection_member' AND index_name != 'PRIMARY';"
+    $qualityRows = Invoke-Scalar $Database "SELECT COUNT(*) FROM rd_quality_inspection_member;"
+    $qualityLinks = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND is_nullable='YES'
+AND ((table_name='rd_quality_inspection' AND column_name IN ('production_output_id','client_request_id','request_digest','registrar_id','registrar_name'))
+  OR (table_name='rd_quality_inspection_item' AND column_name='sample_package_id')
+  OR (table_name='rd_quality_inspection_member' AND column_name='active_key'));
+"@
+    $qualityRequestIndex = Invoke-Scalar $Database "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='rd_quality_inspection' AND index_name='uk_rd_quality_request';"
+    Assert-Equal "quality member columns" "13" $qualityMemberColumns
+    Assert-Equal "quality member indices" "3" $qualityMemberIndices
+    Assert-Equal "quality history not backfilled" "0" $qualityRows
+    Assert-Equal "nullable quality links and claim" "7" $qualityLinks
+    Assert-Equal "quality request index" "1" $qualityRequestIndex
+    $qualityAuditColumns = Invoke-Scalar $Database "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='rd_quality_inspection_event';"
+    $qualityAuditRows = Invoke-Scalar $Database "SELECT COUNT(*) FROM rd_quality_inspection_event;"
+    Assert-Equal "transactional quality audit columns" "18" $qualityAuditColumns
+    Assert-Equal "quality audit history not reconstructed" "0" $qualityAuditRows
     Assert-Equal "putaway table count" "5" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
     Assert-Equal "putaway column count" "127" $putawayColumnCount
@@ -220,7 +239,7 @@ AND ((table_name='rd_production_output' AND column_name IN ('production_task_id'
     Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
     Assert-Equal "audit and readonly putaway query grant count" "2" $readOnlyQueryGrantCount
     Assert-Equal "audit and readonly putaway mutation grant count" "0" $readOnlyMutationGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly|$pdaEntryMenus|$pdaEntryGrants"
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly|$pdaEntryMenus|$pdaEntryGrants|$qualityMemberColumns|$qualityMemberIndices|$qualityRows|$qualityLinks|$qualityRequestIndex"
 }
 
 Import-LocalEnvironment
@@ -255,6 +274,11 @@ try {
     [void](Invoke-MySql -Database $upgradeDatabase -Sql @"
 DROP TABLE IF EXISTS rd_putaway_exception, rd_putaway_batch_scan_record, rd_putaway_scan_record, rd_putaway_task_line, rd_putaway_task;
 DROP TABLE IF EXISTS rd_production_task;
+DROP TABLE IF EXISTS rd_quality_inspection_member, rd_quality_inspection_event;
+ALTER TABLE rd_quality_inspection DROP INDEX uk_rd_quality_request,
+ DROP COLUMN production_output_id, DROP COLUMN client_request_id, DROP COLUMN request_digest,
+ DROP COLUMN registrar_id, DROP COLUMN registrar_name;
+ALTER TABLE rd_quality_inspection_item DROP COLUMN sample_package_id;
 ALTER TABLE rd_production_output DROP INDEX idx_rd_output_task, DROP INDEX uk_rd_output_request,
  DROP COLUMN production_task_id, DROP COLUMN production_task_no, DROP COLUMN shift_code, DROP COLUMN furnace_out_date,
  DROP COLUMN operator_id, DROP COLUMN operator_name, DROP COLUMN client_request_id, DROP COLUMN request_digest;

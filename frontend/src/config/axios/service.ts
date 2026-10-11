@@ -3,12 +3,7 @@ import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestCo
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import qs from 'qs'
 import { config } from '@/config/axios/config'
-import {
-  getAccessToken,
-  getRefreshToken,
-  removeToken,
-  setToken
-} from '@/utils/auth'
+import { getAccessToken, getRefreshToken, removeToken, setToken } from '@/utils/auth'
 import errorCode from './errorCode'
 
 import { resetRouter } from '@/router'
@@ -197,6 +192,9 @@ service.interceptors.response.use(
         return handleAuthorized()
       } else {
         ElNotification.error({ title: msg })
+      }
+      if (config.url === '/rd/quality-inspection/create-batch') {
+        return Promise.reject(Object.assign(new Error(msg), { businessCode: code }))
       }
       return Promise.reject('error')
     } else {

@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 public class RdQualityInspectionItemDO extends TenantBaseDO {
     @TableId private Long id;
     private Long inspectionId;
+    private Long samplePackageId;
     private String itemCode;
     private String itemName;
     private BigDecimal standardMin;

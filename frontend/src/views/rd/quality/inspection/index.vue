@@ -168,7 +168,8 @@
   </Dialog>
 
   <Dialog v-model="detailVisible" title="质检详情" width="920px">
-    <el-descriptions v-if="detail" :column="2" border>
+    <InspectionDetail v-if="detail?.members?.length" :inspection="detail" />
+    <el-descriptions v-if="detail && !detail.members?.length" :column="2" border>
       <el-descriptions-item label="检验单号">{{ detail.inspectionNo }}</el-descriptions-item>
       <el-descriptions-item label="包ID">{{ detail.packageId }}</el-descriptions-item>
       <el-descriptions-item label="状态"
@@ -184,7 +185,12 @@
       }}</el-descriptions-item>
       <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
     </el-descriptions>
-    <el-table v-if="detail?.items?.length" :data="detail.items" border class="mt-16px">
+    <el-table
+      v-if="detail?.items?.length && !detail.members?.length"
+      :data="detail.items"
+      border
+      class="mt-16px"
+    >
       <el-table-column label="检测项目" prop="itemName" min-width="140" />
       <el-table-column label="项目编码" prop="itemCode" width="110" />
       <el-table-column label="下限" prop="standardMin" width="90" align="right" />
@@ -203,6 +209,7 @@
 </template>
 
 <script setup lang="ts">
+import InspectionDetail from '@/views/rd/pda/quality/InspectionDetail.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { hasPermission } from '@/directives/permission/hasPermi'
@@ -239,14 +246,7 @@ const total = ref(0)
 const pageParams = reactive({ pageNo: 1, pageSize: 10 })
 const queryParams = reactive<{ inspectionNo?: string; status?: RdQualityInspectionStatus }>({})
 const queryFormRef = ref<FormInstance>()
-const displayList = computed(() =>
-  list.value.filter((item) => {
-    const noMatched =
-      !queryParams.inspectionNo ||
-      item.inspectionNo.toLowerCase().includes(queryParams.inspectionNo.toLowerCase())
-    return noMatched && (!queryParams.status || item.status === queryParams.status)
-  })
-)
+const displayList = computed(() => list.value)
 
 const newItem = (): RdQualityInspectionItemVO => ({
   itemCode: '',
@@ -277,7 +277,7 @@ const inspectablePackageStatuses = ['LABELED', 'QC_REJECTED']
 const getList = async () => {
   loading.value = true
   try {
-    const data = await RdQualityInspectionApi.getPage(pageParams)
+    const data = await RdQualityInspectionApi.getPage({ ...pageParams, ...queryParams })
     list.value = data.list
     total.value = data.total
   } finally {

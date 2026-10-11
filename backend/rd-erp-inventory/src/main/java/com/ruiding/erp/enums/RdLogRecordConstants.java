@@ -10,6 +10,15 @@ public interface RdLogRecordConstants {
 
     String PRODUCTION_TYPE = "RD 生产";
     String PRODUCTION_TASK_TYPE = "RD 生产任务";
+    String QUALITY_TYPE = "RD 质量检验";
+    String QUALITY_CREATE_SUB_TYPE = "登记检验单";
+    String QUALITY_CREATE_SUCCESS = "登记检验单【{{#rdBizId}}】";
+    String QUALITY_SUBMIT_SUB_TYPE = "提交检验单";
+    String QUALITY_SUBMIT_SUCCESS = "提交检验单【{{#id}}】";
+    String QUALITY_APPROVE_SUB_TYPE = "复核通过";
+    String QUALITY_APPROVE_SUCCESS = "复核通过检验单【{{#id}}】";
+    String QUALITY_REJECT_SUB_TYPE = "复核不通过";
+    String QUALITY_REJECT_SUCCESS = "检验单【{{#id}}】复核不通过，原因【{{#reason}}】";
     String PRODUCTION_CREATE_SUB_TYPE = "新增生产产出";
     String PRODUCTION_CREATE_SUCCESS = "新增生产产出，炉号【{{#createReqVO.furnaceNo}}】，炉层【{{#createReqVO.furnaceLayer}}】，数量【{{#createReqVO.outputQty}}】";
     String PRODUCTION_UPDATE_SUB_TYPE = "修改生产产出";

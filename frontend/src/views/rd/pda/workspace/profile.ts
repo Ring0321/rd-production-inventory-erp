@@ -104,10 +104,7 @@ const entries: Record<WorkspaceProfileId, WorkspaceEntry[]> = {
     entry('putaway', '本人上架任务', 'PdaDriverPutaway', ['rd:putaway-task:execute'], 'pda'),
     entry('loading', '本人装车任务', 'PdaDriverLoading', ['rd:loading-task:execute'], 'pda')
   ],
-  quality: [
-    entry('quality', '质量检验', 'RdQualityInspection', ['rd:quality-inspection:query'], 'web'),
-    entry('goods', '包码库存', 'RdPackageUnit', ['rd:package-unit:query'])
-  ],
+  quality: [entry('quality', '质量检验', 'PdaQuality', ['rd:quality-inspection:query'], 'pda')],
   warehouse: [
     entry('putaway', '入库上架', 'RdPutawayWorkbench', ['rd:putaway-task:query'], 'web'),
     entry('loading', '出库装车', 'RdLoadingDispatch', ['rd:loading-task:query'], 'web'),

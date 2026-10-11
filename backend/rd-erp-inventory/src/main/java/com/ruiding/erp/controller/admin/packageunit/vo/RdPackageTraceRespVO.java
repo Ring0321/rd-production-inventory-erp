@@ -45,5 +45,12 @@ public class RdPackageTraceRespVO {
     @Schema(description = "Internal field; omitted from public response")
     private Long qualityInspectionId;
 
+    @Schema(description = "Internal field; omitted from public response")
+    private Integer qualityCoverageCount;
+    @Schema(description = "Internal field; omitted from public response")
+    private Integer qualitySampleCount;
+    @Schema(description = "Internal field; omitted from public response")
+    private Boolean qualitySampled;
+
     private List<RdPackageTraceEventRespVO> events;
 }

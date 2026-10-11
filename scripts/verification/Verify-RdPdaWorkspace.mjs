@@ -147,6 +147,23 @@ try {
         .first()
         .waitFor();
     }
+    if (role === "quality") {
+      assert.equal(
+        await page
+          .getByRole("navigation", { name: "业务入口" })
+          .getByRole("link")
+          .count(),
+        1,
+      );
+      await page.getByRole("link", { name: /质量检验/ }).click();
+      await page.waitForURL((url) => url.pathname === "/pda/quality");
+      await page
+        .getByRole("heading", { name: "质量检验", exact: true })
+        .waitFor();
+      assert.equal(await page.locator(".v-layout").count(), 0);
+      await page.getByRole("button", { name: "岗位首页", exact: true }).click();
+      await page.getByRole("heading", { name: heading, exact: true }).waitFor();
+    }
     if (role === "driver") {
       const loading = calls.filter((call) =>
         call.path.endsWith("/loading-task/my-page"),

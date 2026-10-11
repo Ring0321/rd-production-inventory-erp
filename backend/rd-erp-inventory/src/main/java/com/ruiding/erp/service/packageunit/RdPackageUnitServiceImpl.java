@@ -18,6 +18,7 @@ import com.ruiding.erp.dal.dataobject.production.RdProductionTaskDO;
 import com.ruiding.erp.dal.mysql.production.RdProductionTaskMapper;
 import org.springframework.transaction.annotation.Isolation;
 import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionDO;
+import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionMemberDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdLabelPrintLogMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
@@ -28,6 +29,7 @@ import com.ruiding.erp.dal.mysql.loading.RdLoadingExceptionMapper;
 import com.ruiding.erp.dal.mysql.putaway.RdPutawayExceptionMapper;
 import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
 import com.ruiding.erp.dal.mysql.quality.RdQualityInspectionMapper;
+import com.ruiding.erp.dal.mysql.quality.RdQualityInspectionMemberMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockTransactionMapper;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
@@ -59,6 +61,7 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
     private RdDigitalLinkService digitalLinkService;
     @Resource
     private RdQualityInspectionMapper qualityInspectionMapper;
+    @Resource private RdQualityInspectionMemberMapper qualityMemberMapper;
     @Resource
     private RdStockTransactionMapper stockTransactionMapper;
     @Resource private RdPackageTaskEventMapper taskEventMapper;
@@ -226,10 +229,7 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
         if (unit == null) {
             return null;
         }
-        List<RdQualityInspectionDO> inspections = qualityInspectionMapper.selectList(
-                new LambdaQueryWrapperX<RdQualityInspectionDO>()
-                        .eq(RdQualityInspectionDO::getPackageId, unit.getId())
-                        .orderByAsc(RdQualityInspectionDO::getId));
+        List<RdQualityInspectionDO> inspections = qualityInspectionMapper.selectListByCoveredPackageId(unit.getId());
         List<RdStockTransactionDO> transactions = stockTransactionMapper.selectList(
                 new LambdaQueryWrapperX<RdStockTransactionDO>()
                         .eq(RdStockTransactionDO::getPackageId, unit.getId())
@@ -356,6 +356,13 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
                     .setLocationCode(unit.getLocationCode())
                     .setProductionOutputId(unit.getProductionOutputId())
                     .setQualityInspectionId(latestInspection == null ? null : latestInspection.getId());
+            if (latestInspection != null) {
+                List<RdQualityInspectionMemberDO> members = qualityMemberMapper.selectListByInspectionId(latestInspection.getId());
+                members.stream().filter(member -> unit.getId().equals(member.getPackageId())).findFirst()
+                        .ifPresent(member -> response.setQualityCoverageCount(members.size())
+                                .setQualitySampleCount((int) members.stream().filter(value -> Boolean.TRUE.equals(value.getSampled())).count())
+                                .setQualitySampled(member.getSampled()));
+            }
         }
         return response;
     }

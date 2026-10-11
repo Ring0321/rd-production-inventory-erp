@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
 
@@ -17,6 +18,11 @@ public class RdQualityInspectionDO extends TenantBaseDO {
     @TableId private Long id;
     private String inspectionNo;
     private Long packageId;
+    private Long productionOutputId;
+    private String clientRequestId;
+    @JsonIgnore private String requestDigest;
+    private Long registrarId;
+    private String registrarName;
     private String status;
     private String conclusion;
     private String rejectReason;

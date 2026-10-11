@@ -86,6 +86,9 @@ export interface RdPackageTraceVO {
   locationCode?: string
   productionOutputId?: number
   qualityInspectionId?: number
+  qualityCoverageCount?: number
+  qualitySampleCount?: number
+  qualitySampled?: boolean
   productionTaskId?: number
   productionTaskNo?: string
   events: RdPackageTraceEventVO[]

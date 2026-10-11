@@ -96,6 +96,19 @@ test('missing routes and grants hide entries without granting new capabilities',
   assert.ok(!warehouse.some((item) => item.routeName === 'RdPutawayWorkstation'))
 })
 
+test('quality role uses only the independent PDA quality entry with existing query permission', () => {
+  const grants = permissions('rd:quality-inspection:query', 'rd:package-unit:query')
+  const entries = profile.getProfileEntries('quality', grants, allRoutes)
+  assert.deepEqual(
+    Array.from(entries, (item) => [item.routeName, item.kind]),
+    [['PdaQuality', 'pda']]
+  )
+  assert.equal(
+    profile.getProfileEntries('quality', permissions('rd:package-unit:query'), allRoutes).length,
+    0
+  )
+})
+
 test('query and sales never expose operational PDA or dispatch entries', () => {
   for (const id of ['query', 'sales']) {
     const entries = profile.getProfileEntries(id, permissions('*:*:*'), allRoutes)

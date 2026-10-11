@@ -67,6 +67,14 @@ public interface ErrorCodeConstants {
     ErrorCode QUALITY_INSPECTION_STATUS_INVALID = new ErrorCode(1_080_230_001, "质检单当前状态不允许该操作");
     ErrorCode QUALITY_INSPECTION_SELF_REVIEW = new ErrorCode(1_080_230_002, "制单人不得审核本人质检单");
     ErrorCode QUALITY_INSPECTION_ITEMS_NOT_QUALIFIED = new ErrorCode(1_080_230_003, "存在未填写或不合格的检测项目，不能审核通过");
+    ErrorCode QUALITY_INSPECTION_SELECTION_INVALID = new ErrorCode(1_080_230_004, "请选择 1-200 个不同覆盖包，代表包和抽样包必须在清单内");
+    ErrorCode QUALITY_INSPECTION_SOURCE_MISMATCH = new ErrorCode(1_080_230_005, "所选包必须来自同一生产产出，客户、型号、炉号和炉层须一致");
+    ErrorCode QUALITY_INSPECTION_PACKAGE_CLAIMED = new ErrorCode(1_080_230_006, "包件已有活动质检单，请先处理原单");
+    ErrorCode QUALITY_INSPECTION_ITEMS_INVALID = new ErrorCode(1_080_230_007, "每个抽样包须有有效实测项目，样包绑定和上下限必须正确");
+    ErrorCode QUALITY_INSPECTION_REQUEST_CONFLICT = new ErrorCode(1_080_230_008, "请求编号或重试已绑定其他内容、操作人或结果");
+    ErrorCode QUALITY_INSPECTION_OPERATOR_INVALID = new ErrorCode(1_080_230_009, "质检操作人必须来自当前登录身份");
+    ErrorCode QUALITY_INSPECTION_REJECT_REASON_REQUIRED = new ErrorCode(1_080_230_010, "质检不通过须填写原因，且不超过 512 字");
+    ErrorCode QUALITY_INSPECTION_WRITE_CONFLICT = new ErrorCode(1_080_230_011, "质检数据更新失败，请刷新核对后重试");
 
     // ========== RD inbound 1-080-240-000 ==========
     ErrorCode INBOUND_ORDER_NOT_EXISTS = new ErrorCode(1_080_240_000, "入库单不存在");

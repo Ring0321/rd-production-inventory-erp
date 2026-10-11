@@ -204,6 +204,19 @@ CREATE TABLE IF NOT EXISTS `rd_quality_inspection_item` (
   PRIMARY KEY (`id`), KEY `idx_rd_quality_item` (`tenant_id`,`inspection_id`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- No member backfill: old inspection rows do not prove historical sampling facts.
+CREATE TABLE IF NOT EXISTS `rd_quality_inspection_member` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `inspection_id` bigint NOT NULL,
+  `package_id` bigint NOT NULL, `package_code` varchar(32) NOT NULL, `package_weight` decimal(24,6) NOT NULL,
+  `sampled` bit(1) NOT NULL, `active_key` bigint DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updater` varchar(64) DEFAULT '', `update_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_quality_member` (`tenant_id`,`inspection_id`,`package_id`),
+  UNIQUE KEY `uk_rd_quality_active` (`tenant_id`,`active_key`),
+  KEY `idx_rd_quality_member_package` (`tenant_id`,`package_id`,`deleted`,`inspection_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Actual QC coverage and sampling snapshots';
+
 CREATE TABLE IF NOT EXISTS `rd_inbound_order` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1', `order_no` varchar(64) NOT NULL,
   `biz_date` date NOT NULL, `source_type` varchar(32) DEFAULT NULL, `production_output_id` bigint DEFAULT NULL,
@@ -1037,6 +1050,13 @@ CALL rd_production_task_add_column('rd_package_unit','operator_name','varchar(64
 CALL rd_production_task_add_index('rd_production_output','idx_rd_output_task','KEY `idx_rd_output_task` (`tenant_id`,`production_task_id`,`id`)');
 CALL rd_production_task_add_index('rd_production_output','uk_rd_output_request','UNIQUE KEY `uk_rd_output_request` (`tenant_id`,`client_request_id`)');
 CALL rd_production_task_add_index('rd_package_unit','idx_rd_package_task','KEY `idx_rd_package_task` (`tenant_id`,`production_task_id`,`id`)');
+CALL rd_production_task_add_column('rd_quality_inspection','production_output_id','bigint DEFAULT NULL');
+CALL rd_production_task_add_column('rd_quality_inspection','client_request_id','varchar(128) COLLATE utf8mb4_bin DEFAULT NULL');
+CALL rd_production_task_add_column('rd_quality_inspection','request_digest','char(64) DEFAULT NULL');
+CALL rd_production_task_add_column('rd_quality_inspection','registrar_id','bigint DEFAULT NULL');
+CALL rd_production_task_add_column('rd_quality_inspection','registrar_name','varchar(64) DEFAULT NULL');
+CALL rd_production_task_add_column('rd_quality_inspection_item','sample_package_id','bigint DEFAULT NULL');
+CALL rd_production_task_add_index('rd_quality_inspection','uk_rd_quality_request','UNIQUE KEY `uk_rd_quality_request` (`tenant_id`,`client_request_id`)');
 DROP PROCEDURE `rd_production_task_add_column`;
 DROP PROCEDURE `rd_production_task_add_index`;
 
@@ -1061,5 +1081,17 @@ INSERT INTO `system_menu`
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`deleted`=b'0';
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
 SELECT id,600118,'system',NOW(),'system',NOW(),b'0',1 FROM system_role WHERE id BETWEEN 600001 AND 600008;
+CREATE TABLE IF NOT EXISTS `rd_quality_inspection_event` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL,
+  `inspection_id` bigint NOT NULL, `action` varchar(16) NOT NULL, `actor_id` bigint NOT NULL,
+  `actor_name` varchar(64) DEFAULT NULL, `before_status` varchar(32) DEFAULT NULL, `after_status` varchar(32) NOT NULL,
+  `coverage_count` int NOT NULL, `sample_count` int DEFAULT NULL, `event_time` datetime(6) NOT NULL,
+  `client_request_id` varchar(128) DEFAULT NULL, `detail` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updater` varchar(64) DEFAULT '', `update_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  KEY `idx_rd_quality_event_inspection` (`tenant_id`,`inspection_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Transactional QC operation audit';
+
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;
 SET SQL_SAFE_UPDATES = 1;

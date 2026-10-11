@@ -159,6 +159,19 @@
                 </span>
               </dd>
             </div>
+            <template v-if="trace.internalView && trace.qualityCoverageCount != null">
+              <div
+                ><dt>检验范围 / 抽样</dt
+                ><dd
+                  >{{ trace.qualityCoverageCount }} /
+                  {{ trace.qualitySampleCount ?? '未记录' }} 包</dd
+                ></div
+              >
+              <div v-if="trace.qualitySampled != null"
+                ><dt>本包检验角色</dt
+                ><dd>{{ trace.qualitySampled ? '实际抽样包' : '检验覆盖包' }}</dd></div
+              >
+            </template>
           </dl>
         </section>
 
@@ -718,7 +731,7 @@ const buildTraceActions = () => {
       label: '质检记录',
       description: '打开该包关联的质检记录。',
       icon: 'lucide:clipboard-check',
-      routeName: 'RdQualityInspection',
+      routeName: pdaMode.value ? 'PdaQuality' : 'RdQualityInspection',
       query: cleanQuery({ ...query, inspectionId: trace.value.qualityInspectionId }),
       type: 'warning'
     })
@@ -734,7 +747,7 @@ const buildTraceActions = () => {
         label: '质检登记',
         description: '进入质检模块，按抽检规则登记检测结果、提交或复核放行。',
         icon: 'lucide:clipboard-check',
-        routeName: 'RdQualityInspection',
+        routeName: pdaMode.value ? 'PdaQuality' : 'RdQualityInspection',
         query,
         type: 'warning',
         primary: status === 'QC_PENDING'

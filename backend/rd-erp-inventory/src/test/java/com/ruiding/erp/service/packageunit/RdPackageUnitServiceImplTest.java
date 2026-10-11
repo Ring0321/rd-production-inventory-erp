@@ -8,12 +8,14 @@ import com.ruiding.erp.dal.dataobject.putaway.RdPutawayScanRecordDO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingExceptionDO;
 import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionDO;
+import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionMemberDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdLabelPrintLogMapper;
 import com.ruiding.erp.dal.mysql.packageunit.RdPackageUnitMapper;
 import com.ruiding.erp.dal.mysql.production.RdProductionOutputMapper;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
 import com.ruiding.erp.dal.mysql.quality.RdQualityInspectionMapper;
+import com.ruiding.erp.dal.mysql.quality.RdQualityInspectionMemberMapper;
 import com.ruiding.erp.dal.mysql.stock.RdStockTransactionMapper;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
@@ -57,6 +59,7 @@ class RdPackageUnitServiceImplTest {
     @Mock private RdLabelPrintLogMapper printLogMapper;
     @Mock private RdDigitalLinkService digitalLinkService;
     @Mock private RdQualityInspectionMapper qualityInspectionMapper;
+    @Mock private RdQualityInspectionMemberMapper qualityMemberMapper;
     @Mock private RdStockTransactionMapper stockTransactionMapper;
     @Mock private com.ruiding.erp.dal.mysql.packageunit.RdPackageTaskEventMapper taskEventMapper;
     @Mock private com.ruiding.erp.dal.mysql.putaway.RdPutawayScanRecordMapper putawayScanRecordMapper;
@@ -176,7 +179,7 @@ class RdPackageUnitServiceImplTest {
         RdQualityInspectionDO inspection = buildInspection();
         RdStockTransactionDO transaction = buildInboundTransaction();
         when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
-        when(qualityInspectionMapper.selectList(any())).thenReturn(List.of(inspection));
+        when(qualityInspectionMapper.selectListByCoveredPackageId(unit.getId())).thenReturn(List.of(inspection));
         when(stockTransactionMapper.selectList(any())).thenReturn(List.of(transaction));
         when(digitalLinkService.build(unit.getPackageCode()))
                 .thenReturn("https://id.tjldsic.com/pkg/" + unit.getPackageCode());
@@ -190,6 +193,14 @@ class RdPackageUnitServiceImplTest {
         assertNull(result.getProductionTaskId());
         assertNull(result.getProductionTaskNo());
         assertNull(result.getQualityInspectionId());
+        assertNull(result.getQualityCoverageCount());
+        assertNull(result.getQualitySampleCount());
+        assertNull(result.getQualitySampled());
+        String json = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(result);
+        assertFalse(json.contains("qualityCoverageCount"));
+        assertFalse(json.contains("qualitySampleCount"));
+        assertFalse(json.contains("qualitySampled"));
+        verifyNoInteractions(qualityMemberMapper);
         assertEquals("在库", result.getStatusName());
         assertEquals(4, result.getEvents().size());
         assertTrue(result.getEvents().stream().noneMatch(event ->
@@ -200,7 +211,7 @@ class RdPackageUnitServiceImplTest {
     void shouldIncludeOperationalFieldsInInternalTrace() {
         RdPackageUnitDO unit = buildTracePackage();
         when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
-        when(qualityInspectionMapper.selectList(any())).thenReturn(List.of(buildInspection()));
+        when(qualityInspectionMapper.selectListByCoveredPackageId(unit.getId())).thenReturn(List.of(buildInspection()));
         when(stockTransactionMapper.selectList(any())).thenReturn(List.of(buildInboundTransaction()));
         when(digitalLinkService.build(unit.getPackageCode()))
                 .thenReturn("https://id.tjldsic.com/pkg/" + unit.getPackageCode());
@@ -212,6 +223,8 @@ class RdPackageUnitServiceImplTest {
         assertEquals("A-01", result.getLocationCode());
         assertEquals(99L, result.getProductionOutputId());
         assertEquals(20L, result.getQualityInspectionId());
+        assertNull(result.getQualitySampled());
+        assertNull(result.getQualityCoverageCount());
         assertTrue(result.getEvents().stream().anyMatch(event ->
                 event.getDetail().contains("仓管员张三") && event.getDetail().contains("A-01")));
     }
@@ -243,7 +256,7 @@ class RdPackageUnitServiceImplTest {
                 .setReprintReason("private reason").setPrintTime(unit.getCreateTime().plusMinutes(1))));
         RdQualityInspectionDO inspection = buildInspection();
         inspection.setConclusion("PASSED");
-        when(qualityInspectionMapper.selectList(any())).thenReturn(List.of(inspection));
+        when(qualityInspectionMapper.selectListByCoveredPackageId(unit.getId())).thenReturn(List.of(inspection));
 
         var result = service.getTraceDetail(unit.getPackageCode(), false);
 
@@ -358,6 +371,60 @@ class RdPackageUnitServiceImplTest {
         inspection.setReviewerName("复核员王五");
         inspection.setReviewTime(LocalDateTime.of(2026, 7, 12, 9, 30));
         return inspection;
+    }
+
+    @Test
+    void shouldTraceCoveredNonRepresentativeWithoutInventingSampling() {
+        RdPackageUnitDO unit = buildTracePackage();
+        RdQualityInspectionDO inspection = buildInspection().setPackageId(11L);
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        when(qualityInspectionMapper.selectListByCoveredPackageId(unit.getId())).thenReturn(List.of(inspection));
+        when(qualityMemberMapper.selectListByInspectionId(20L)).thenReturn(List.of(
+                new RdQualityInspectionMemberDO().setPackageId(10L).setSampled(false),
+                new RdQualityInspectionMemberDO().setPackageId(11L).setSampled(true)));
+
+        var result = service.getTraceDetail(unit.getPackageCode(), true);
+
+        assertEquals(20L, result.getQualityInspectionId());
+        assertEquals(2, result.getQualityCoverageCount());
+        assertEquals(1, result.getQualitySampleCount());
+        assertFalse(result.getQualitySampled());
+        assertEquals(2, result.getEvents().stream().filter(event -> "QUALITY".equals(event.getStage())).count());
+        verify(qualityInspectionMapper, never()).selectList(any());
+    }
+
+    @Test
+    void shouldNotInheritTaskOrOutputQualityForUnselectedPackage() {
+        RdPackageUnitDO unit = buildTracePackage();
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+
+        var result = service.getTraceDetail(unit.getPackageCode(), true);
+
+        assertNull(result.getQualityInspectionId());
+        assertNull(result.getQualityStatus());
+        assertNull(result.getQualitySampled());
+        assertTrue(result.getEvents().stream().noneMatch(event -> "QUALITY".equals(event.getStage())));
+        verify(qualityInspectionMapper).selectListByCoveredPackageId(unit.getId());
+        verifyNoInteractions(qualityMemberMapper, productionMapper, productionTaskMapper);
+    }
+
+    @Test
+    void shouldOmitRealBatchStatisticsAndPrivateReviewDataFromPublicTrace() {
+        RdPackageUnitDO unit = buildTracePackage();
+        RdQualityInspectionDO inspection = buildInspection().setPackageId(11L)
+                .setRejectReason("private reason").setRegistrarName("private registrar");
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        when(qualityInspectionMapper.selectListByCoveredPackageId(unit.getId())).thenReturn(List.of(inspection));
+
+        var result = service.getTraceDetail(unit.getPackageCode(), false);
+        String json = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(result);
+
+        assertFalse(json.contains("qualitySample") || json.contains("qualityCoverage")
+                || json.contains("qualityInspectionId") || json.contains("private"));
+        assertNull(result.getCustomerName());
+        assertNull(result.getLocationCode());
+        assertEquals("PASS", result.getQualityConclusion());
+        verifyNoInteractions(qualityMemberMapper);
     }
 
     private static RdStockTransactionDO buildInboundTransaction() {
