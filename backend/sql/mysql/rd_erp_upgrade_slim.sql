@@ -585,6 +585,7 @@ CREATE TABLE IF NOT EXISTS `rd_loading_scan_record` (
   `task_id` bigint NOT NULL, `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
   `package_code` varchar(32) NOT NULL, `plan_version` int NOT NULL,
   `idempotency_key` varchar(128) NOT NULL, `scan_result` varchar(32) NOT NULL,
+  `request_digest` char(64) DEFAULT NULL,
   `success` bit(1) NOT NULL, `error_code` varchar(64) DEFAULT NULL,
   `error_message` varchar(512) DEFAULT NULL, `task_status_before` varchar(32) DEFAULT NULL,
   `task_status_after` varchar(32) DEFAULT NULL, `observed_location_code` varchar(64) DEFAULT NULL,
@@ -598,6 +599,13 @@ CREATE TABLE IF NOT EXISTS `rd_loading_scan_record` (
   KEY `idx_rd_loading_scan_task` (`tenant_id`,`task_id`,`scan_time`,`deleted`,`id`),
   KEY `idx_rd_loading_scan_package` (`tenant_id`,`package_code`,`scan_time`,`deleted`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD loading scan attempts';
+
+-- Do not backfill legacy digests: their original selected line IDs are not recoverable.
+SET @loading_digest_column = (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE()
+  AND table_name = 'rd_loading_scan_record' AND column_name = 'request_digest');
+SET @loading_digest_sql = IF(@loading_digest_column = 0,
+  'ALTER TABLE rd_loading_scan_record ADD COLUMN request_digest char(64) DEFAULT NULL', 'SELECT 1');
+PREPARE loading_digest_stmt FROM @loading_digest_sql; EXECUTE loading_digest_stmt; DEALLOCATE PREPARE loading_digest_stmt;
 
 CREATE TABLE IF NOT EXISTS `rd_loading_exception` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',

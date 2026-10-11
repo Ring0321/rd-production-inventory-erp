@@ -21,6 +21,7 @@ public class RdLoadingScanRecordDO extends TenantBaseDO {
     private String packageCode;
     private Integer planVersion;
     private String idempotencyKey;
+    private String requestDigest;
     private String scanResult;
     private Boolean success;
     private String errorCode;

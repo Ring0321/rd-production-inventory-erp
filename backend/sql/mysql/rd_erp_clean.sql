@@ -1378,6 +1378,7 @@ CREATE TABLE `rd_loading_scan_record` (
   `task_id` bigint NOT NULL, `task_line_id` bigint DEFAULT NULL, `package_id` bigint DEFAULT NULL,
   `package_code` varchar(32) NOT NULL, `plan_version` int NOT NULL,
   `idempotency_key` varchar(128) NOT NULL, `scan_result` varchar(32) NOT NULL,
+  `request_digest` char(64) DEFAULT NULL,
   `success` bit(1) NOT NULL, `error_code` varchar(64) DEFAULT NULL,
   `error_message` varchar(512) DEFAULT NULL, `task_status_before` varchar(32) DEFAULT NULL,
   `task_status_after` varchar(32) DEFAULT NULL, `observed_location_code` varchar(64) DEFAULT NULL,

@@ -13,7 +13,8 @@ public class RdLoadingConfirmOutboundReqVO {
     @NotNull(message = "装车任务不能为空")
     private Long taskId;
 
-    @Schema(description = "任务版本号，用于防止多人同时确认", example = "2")
+    @Schema(description = "任务版本号，用于防止多人同时确认", requiredMode = Schema.RequiredMode.REQUIRED, example = "2")
+    @NotNull(message = "任务版本号不能为空")
     private Integer version;
 
     @Schema(description = "确认说明")

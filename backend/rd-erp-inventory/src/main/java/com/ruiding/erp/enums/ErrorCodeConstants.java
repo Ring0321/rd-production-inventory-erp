@@ -198,6 +198,7 @@ public interface ErrorCodeConstants {
     ErrorCode LOADING_EXCEPTION_NOT_EXISTS = new ErrorCode(1_080_530_020, "装车任务没有待处理异常");
     ErrorCode LOADING_REPLACEMENT_REQUIRED = new ErrorCode(1_080_530_021, "换货处理必须选择原任务包和替换包码");
     ErrorCode LOADING_REPLACEMENT_LINE_INVALID = new ErrorCode(1_080_530_022, "只能替换未出库且未完成扫码的任务包件");
+    ErrorCode LOADING_SCAN_KEY_CONFLICT = new ErrorCode(1_080_530_023, "装车扫码幂等键已被其他请求使用或原请求无法核验，请刷新后重试");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

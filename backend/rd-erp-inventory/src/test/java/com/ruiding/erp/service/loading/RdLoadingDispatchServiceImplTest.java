@@ -303,6 +303,7 @@ class RdLoadingDispatchServiceImplTest {
         }).when(scanRecordMapper).insert(any(com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO.class));
         var req = new com.ruiding.erp.controller.admin.loading.vo.RdLoadingBatchScanConfirmReqVO();
         req.setTaskId(500L);
+        req.setVersion(0);
         req.setRepresentativePackageCode("PK-002");
         req.setTaskLineIds(List.of(600L));
         req.setIdempotencyKey("test-partial");
@@ -316,11 +317,10 @@ class RdLoadingDispatchServiceImplTest {
         assertEquals("SCAN_CONFIRMED", history.getValue().getEventCode());
         assertEquals(88L, history.getValue().getSourceId());
         assertEquals("PLANNED", remaining.getLineStatus());
-        var replay = new com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO();
-        replay.setId(88L);
-        replay.setSuccess(true);
-        replay.setTaskId(500L);
-        replay.setScanResult("BATCH_CONFIRMED");
+        ArgumentCaptor<com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO> records =
+                ArgumentCaptor.forClass(com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO.class);
+        verify(scanRecordMapper).insert(records.capture());
+        var replay = records.getValue();
         when(scanRecordMapper.selectByTaskAndIdempotencyKey(500L, "test-partial")).thenReturn(replay);
         when(taskLineMapper.selectListByTaskId(500L)).thenReturn(List.of(selected, remaining));
 

@@ -78,6 +78,30 @@ class RdPutawayBatchScanTest {
     }
 
     @Test
+    void shouldReplayOriginalKeeperBatchAfterReassignmentWithoutNewScans() {
+        Fixture fixture = setupTwoPackages();
+        AtomicReference<RdPutawayBatchScanRecordDO> saved = new AtomicReference<>();
+        when(batchScanRecordMapper.selectByTaskAndKey(50L, "batch-one")).thenAnswer(inv -> saved.get());
+        doAnswer(inv -> { saved.set(inv.getArgument(0)); saved.get().setId(90L); return 1; })
+                .when(batchScanRecordMapper).insert(any(RdPutawayBatchScanRecordDO.class));
+        service.confirmBatchScan(request(List.of(1L)), 20L, "warehouse20");
+        fixture.task.setVersion(fixture.task.getVersion() + 1).setForkliftDriverId(31L).setStatus("ASSIGNED");
+        clearInvocations(taskMapper, taskLineMapper, scanRecordMapper, batchScanRecordMapper);
+
+        var replay = service.confirmBatchScan(request(List.of(1L)), 20L, "warehouse20");
+
+        assertTrue(replay.getReplayed());
+        assertEquals(90L, replay.getRecordId());
+        assertEquals(0, replay.getConfirmedCount());
+        assertEquals(31L, replay.getTask().getForkliftDriverId());
+        verify(scanRecordMapper, never()).insert(any(RdPutawayScanRecordDO.class));
+        verify(batchScanRecordMapper, never()).insert(any(RdPutawayBatchScanRecordDO.class));
+        verify(taskMapper, never()).updateById(any(RdPutawayTaskDO.class));
+        verify(taskLineMapper, never()).updateById(any(RdPutawayTaskLineDO.class));
+        verifyNoInteractions(stockLotMapper, stockTransactionMapper);
+    }
+
+    @Test
     void shouldRejectInvalidSiblingBeforeWritingAnyScan() {
         Fixture fixture = setupTwoPackages();
         fixture.second.setStatus("QC_REJECTED");

@@ -1,6 +1,8 @@
 package com.ruiding.erp.service.loading;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
@@ -51,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -429,7 +432,15 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     public RdLoadingBatchScanRespVO confirmBatchScan(RdLoadingBatchScanConfirmReqVO req,
                                                      Long keeperId,
                                                      String keeperName) {
+        validateBatchScanRequest(req);
         String packageCode = normalizePackageCode(req.getRepresentativePackageCode());
+        Map<String, Object> payload = new TreeMap<>();
+        payload.put("taskId", req.getTaskId());
+        payload.put("version", req.getVersion());
+        payload.put("packageCode", normalizeCode(packageCode));
+        payload.put("lineIds", req.getTaskLineIds().stream().sorted().toList());
+        payload.put("operatorId", keeperId);
+        String requestDigest = DigestUtil.sha256Hex(JsonUtils.toJsonString(payload));
         RdLoadingTaskDO task = taskMapper.selectByIdForUpdate(req.getTaskId());
         if (task == null) {
             throw exception(LOADING_TASK_NOT_EXISTS);
@@ -437,6 +448,11 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         RdLoadingScanRecordDO replay = scanRecordMapper.selectByTaskAndIdempotencyKey(
                 task.getId(), req.getIdempotencyKey());
         if (replay != null) {
+            // Legacy records have no selection evidence and cannot authorize a replay.
+            if (replay.getRequestDigest() == null || !Objects.equals(replay.getOperatorId(), keeperId)
+                    || !Objects.equals(replay.getRequestDigest(), requestDigest)) {
+                throw exception(LOADING_SCAN_KEY_CONFLICT);
+            }
             List<RdLoadingTaskLineDO> replayLines = sortedTaskLines(task.getId());
             RdLoadingTaskLineDO replayLine = replayLines.stream()
                     .filter(item -> Objects.equals(item.getId(), replay.getTaskLineId()))
@@ -444,6 +460,10 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
             return buildBatchScanResponse(replay, task, replayLines, replayLine,
                     replay.getPackageCode(), replay.getScanResult(), replay.getSuccess(), true,
                     0, BigDecimal.ZERO, "重复提交已识别，已返回上一次装车扫码结果");
+        }
+
+        if (!Objects.equals(task.getVersion(), req.getVersion())) {
+            throw exception(LOADING_TASK_VERSION_CONFLICT);
         }
 
         String statusBefore = task.getStatus();
@@ -462,9 +482,6 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         }
 
         Set<Long> selectedIds = new HashSet<>(req.getTaskLineIds());
-        if (selectedIds.size() != req.getTaskLineIds().size()) {
-            throw exception(LOADING_PACKAGE_INVALID);
-        }
         List<RdLoadingTaskLineDO> selectedLines = lines.stream()
                 .filter(item -> selectedIds.contains(item.getId()))
                 .collect(Collectors.toList());
@@ -514,7 +531,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         task.setVersion(nextVersion(task.getVersion()));
         taskMapper.updateById(task);
 
-        RdLoadingScanRecordDO record = insertScanRecord(req, task, representative, packageCode,
+        RdLoadingScanRecordDO record = insertScanRecord(req, task, representative, packageCode, requestDigest,
                 "BATCH_CONFIRMED", true, statusBefore, task.getStatus(), keeperId, keeperName, now);
         for (RdLoadingTaskLineDO line : toConfirm) {
             taskHistoryService.append(taskEvent(task, line, "SCAN_CONFIRMED", now, keeperId, keeperName)
@@ -536,10 +553,13 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         if (task == null) {
             throw exception(LOADING_TASK_NOT_EXISTS);
         }
-        if (req.getVersion() != null && !Objects.equals(zero(task.getVersion()), req.getVersion())) {
+        RdLoadingTaskStatusEnum current = parseLoadingTaskStatus(task.getStatus());
+        if (current == RdLoadingTaskStatusEnum.OUTBOUNDED) {
+            return recoverCompletedOutbound(task);
+        }
+        if (req.getVersion() == null || !Objects.equals(zero(task.getVersion()), req.getVersion())) {
             throw exception(LOADING_TASK_VERSION_CONFLICT);
         }
-        RdLoadingTaskStatusEnum current = parseLoadingTaskStatus(task.getStatus());
         if (current != RdLoadingTaskStatusEnum.PENDING_REVIEW) {
             throw exception(LOADING_TASK_STATUS_INVALID);
         }
@@ -644,15 +664,72 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         slip.setVersion(nextVersion(slip.getVersion()));
         slipMapper.updateById(slip);
 
+        return buildConfirmOutboundResponse(task, outboundOrderIds, totalPackages, totalWeight);
+    }
+
+    private RdLoadingConfirmOutboundRespVO recoverCompletedOutbound(RdLoadingTaskDO task) {
+        List<RdLoadingTaskLineDO> lines = sortedTaskLines(task.getId());
+        if (lines.isEmpty() || lines.stream().anyMatch(line -> !LINE_OUTBOUNDED.equals(line.getLineStatus())
+                || line.getOutboundOrderId() == null || line.getOutboundOrderLineId() == null
+                || line.getStockTransactionId() == null || line.getPackageId() == null
+                || !positive(line.getPackageWeight()))) {
+            throw exception(LOADING_CONFIRM_PACKAGES_INCOMPLETE);
+        }
+        Map<Long, List<RdLoadingTaskLineDO>> linesByOrder = lines.stream()
+                .collect(Collectors.groupingBy(RdLoadingTaskLineDO::getOutboundOrderId, TreeMap::new, Collectors.toList()));
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        for (Map.Entry<Long, List<RdLoadingTaskLineDO>> entry : linesByOrder.entrySet()) {
+            RdOutboundOrderDO order = outboundOrderMapper.selectById(entry.getKey());
+            if (order == null || !Objects.equals(order.getId(), entry.getKey())
+                    || !RdOutboundOrderStatusEnum.POSTED.getStatus().equals(order.getStatus())) {
+                throw exception(OUTBOUND_ORDER_STATUS_INVALID);
+            }
+            Map<Long, RdOutboundOrderLineDO> postedLines = outboundOrderLineMapper.selectListByOrderId(order.getId())
+                    .stream().collect(Collectors.toMap(RdOutboundOrderLineDO::getId, item -> item));
+            for (RdLoadingTaskLineDO line : entry.getValue()) {
+                RdOutboundOrderLineDO posted = postedLines.get(line.getOutboundOrderLineId());
+                if (posted == null || !Objects.equals(posted.getOrderId(), order.getId())
+                        || !Objects.equals(posted.getPackageId(), line.getPackageId())
+                        || !Objects.equals(posted.getStockTransactionId(), line.getStockTransactionId())
+                        || !positive(posted.getPackageWeight())
+                        || posted.getPackageWeight().compareTo(line.getPackageWeight()) != 0) {
+                    throw exception(OUTBOUND_ORDER_STATUS_INVALID);
+                }
+                totalWeight = totalWeight.add(posted.getPackageWeight());
+            }
+        }
+        return buildConfirmOutboundResponse(task, new ArrayList<>(linesByOrder.keySet()), lines.size(), totalWeight);
+    }
+
+    private RdLoadingConfirmOutboundRespVO buildConfirmOutboundResponse(RdLoadingTaskDO task,
+                                                                       List<Long> outboundOrderIds,
+                                                                       int totalPackages,
+                                                                       BigDecimal totalWeight) {
         RdLoadingConfirmOutboundRespVO resp = new RdLoadingConfirmOutboundRespVO();
         resp.setTaskId(task.getId());
         resp.setTaskNo(task.getTaskNo());
-        resp.setOutboundOrderIds(outboundOrderIds);
+        resp.setOutboundOrderIds(outboundOrderIds.stream().sorted().toList());
         resp.setOutboundPackageCount(totalPackages);
         resp.setOutboundWeight(totalWeight);
         resp.setMessage("已确认出库 " + totalPackages + " 包，生成并过账 "
                 + outboundOrderIds.size() + " 张出库单");
         return resp;
+    }
+
+    private void validateBatchScanRequest(RdLoadingBatchScanConfirmReqVO req) {
+        if (req.getVersion() == null) {
+            throw exception(LOADING_TASK_VERSION_CONFLICT);
+        }
+        List<Long> selectedIds = req.getTaskLineIds();
+        if (req.getTaskId() == null || blankToNull(req.getRepresentativePackageCode()) == null
+                || req.getRepresentativePackageCode().length() > 128
+                || blankToNull(req.getIdempotencyKey()) == null || req.getIdempotencyKey().length() > 128
+                || req.getDeviceCode() != null && req.getDeviceCode().length() > 64
+                || selectedIds == null || selectedIds.isEmpty() || selectedIds.size() > 500
+                || selectedIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new HashSet<>(selectedIds).size() != selectedIds.size()) {
+            throw exception(LOADING_PACKAGE_INVALID);
+        }
     }
 
     @Override
@@ -1101,6 +1178,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
                                                    RdLoadingTaskDO task,
                                                    RdLoadingTaskLineDO line,
                                                    String packageCode,
+                                                   String requestDigest,
                                                    String scanResult,
                                                    boolean success,
                                                    String statusBefore,
@@ -1115,6 +1193,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         record.setPackageCode(packageCode);
         record.setPlanVersion(task.getPlanVersion());
         record.setIdempotencyKey(req.getIdempotencyKey());
+        record.setRequestDigest(requestDigest);
         record.setScanResult(scanResult);
         record.setSuccess(success);
         record.setTaskStatusBefore(statusBefore);
