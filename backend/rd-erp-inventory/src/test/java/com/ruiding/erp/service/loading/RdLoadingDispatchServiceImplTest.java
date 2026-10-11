@@ -2,6 +2,7 @@ package com.ruiding.erp.service.loading;
 
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.ruiding.erp.controller.admin.loading.vo.RdLoadingExceptionCreateReqVO;
@@ -32,6 +33,8 @@ import com.ruiding.erp.dal.mysql.stock.RdStockLotMapper;
 import com.ruiding.erp.enums.RdPackageStatusEnum;
 import com.ruiding.erp.enums.RdLoadingTaskStatusEnum;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -159,6 +162,27 @@ class RdLoadingDispatchServiceImplTest {
         verify(taskLineMapper, never()).selectListByTaskId(any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"CANCELLED", "OUTBOUNDED"})
+    void shouldRejectExceptionForInactivePackageLine(String status) {
+        var task = loadingTask(RdLoadingTaskStatusEnum.LOADING, 2, 0);
+        var line = loadingLine(600L, "PK-001", status);
+        when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
+        when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(line));
+        var req = new RdLoadingExceptionCreateReqVO().setTaskId(500L)
+                .setTaskLineId(600L).setPackageCode("PK-001")
+                .setExceptionType("WRONG_PACKAGE").setDescription("本地测试非活动关联包");
+        var version = task.getVersion();
+        var error = assertThrows(ServiceException.class, () -> service.reportException(req, 30L, "司机30"));
+        assertEquals(1080530012, error.getCode());
+        assertEquals(RdLoadingTaskStatusEnum.LOADING.getStatus(), task.getStatus());
+        assertEquals(version, task.getVersion());
+        assertEquals(status, line.getLineStatus());
+        verify(exceptionMapper, never()).insert(any(RdLoadingExceptionDO.class));
+        verify(taskMapper, never()).updateById(any(RdLoadingTaskDO.class));
+        verify(taskLineMapper, never()).updateById(any(RdLoadingTaskLineDO.class));
+    }
+
     @Test
     void shouldReportLoadingExceptionAndFreezeTask() {
         RdLoadingTaskDO task = loadingTask(RdLoadingTaskStatusEnum.LOADING, 2, 0);
@@ -221,6 +245,7 @@ class RdLoadingDispatchServiceImplTest {
         task.setCustomerName("客户甲");
         task.setVersion(3);
         RdLoadingTaskLineDO exceptionLine = loadingLine(600L, "PK-OLD", "EXCEPTION");
+        exceptionLine.setPickupSlipLineId(11L);
         exceptionLine.setSaleOrderId(3000L);
         exceptionLine.setFulfillmentId(7000L);
         RdLoadingExceptionDO openException = loadingException();
@@ -243,6 +268,17 @@ class RdLoadingDispatchServiceImplTest {
         fulfillment.setAllocatedQty(new BigDecimal("10"));
         fulfillment.setOutboundQty(BigDecimal.ZERO);
         when(fulfillmentMapper.selectActive(3000L, 303L)).thenReturn(fulfillment);
+        when(fulfillmentMapper.selectByIdForUpdate(8000L)).thenReturn(fulfillment);
+        RdPickupSlipDO slip = new RdPickupSlipDO();
+        slip.setId(1L); slip.setTenantId(1L); slip.setCustomerName("客户甲"); slip.setStatus("DISPATCHED");
+        slip.setRequestedPackageCount(1); slip.setRequestedWeight(new BigDecimal("1000"));
+        when(slipMapper.selectByIdForUpdate(1L, 1L)).thenReturn(slip);
+        RdPickupSlipLineDO pickupLine = line(11L, "A", "上层", 1);
+        pickupLine.setSaleOrderId(3000L); pickupLine.setRequestedWeight(new BigDecimal("1000"));
+        when(slipLineMapper.selectListBySlipId(1L)).thenReturn(List.of(pickupLine));
+        RdStockLotDO replacementLot = stockLotMapper.selectById(303L);
+        replacementLot.setWarehouseQty(new BigDecimal("10")); replacementLot.setLockedQty(new BigDecimal("10"));
+        when(stockLotMapper.selectByIdForUpdate(303L)).thenReturn(replacementLot);
         when(taskMapper.selectByIdForUpdate(500L)).thenReturn(task);
         when(exceptionMapper.selectOpenListByTaskIdForUpdate(500L)).thenReturn(List.of(openException));
         when(taskLineMapper.selectListByTaskIdForUpdate(500L)).thenReturn(List.of(exceptionLine));

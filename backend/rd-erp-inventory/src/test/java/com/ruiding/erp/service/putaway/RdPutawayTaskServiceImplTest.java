@@ -1,6 +1,7 @@
 package com.ruiding.erp.service.putaway;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -246,6 +247,25 @@ class RdPutawayTaskServiceImplTest {
         assertEquals(task, result.getTask());
         assertEquals(List.of(line), result.getLines());
         assertEquals(List.of(putawayException), result.getExceptions());
+    }
+
+    @Test
+    void shouldNotTurnMalformedPackageSelectorIntoWholeTaskException() {
+        var task = putawayTask(RdPutawayTaskStatusEnum.ASSIGNED, 2, 0, 0);
+        when(taskMapper.selectByIdForUpdate(50L)).thenReturn(task);
+        org.mockito.Mockito.lenient().when(taskLineMapper.selectListByTaskIdForUpdate(50L))
+                .thenReturn(List.of(putawayLine("PK-001", "PENDING", 0)));
+        var req = new RdPutawayExceptionCreateReqVO().setId(50L)
+                .setExceptionType("PACKAGE_MISMATCH").setPackageCode("/pkg/")
+                .setDescription("本地测试无效关联包");
+        var version = task.getVersion();
+        var error = assertThrows(ServiceException.class, () -> service.reportException(req, 30L, "司机30"));
+        assertEquals(1080520019, error.getCode());
+        assertEquals(RdPutawayTaskStatusEnum.ASSIGNED.getStatus(), task.getStatus());
+        assertEquals(version, task.getVersion());
+        verify(exceptionMapper, never()).insert(any(RdPutawayExceptionDO.class));
+        verify(taskMapper, never()).updateById(any(RdPutawayTaskDO.class));
+        verify(taskLineMapper, never()).updateById(any(RdPutawayTaskLineDO.class));
     }
 
     @Test

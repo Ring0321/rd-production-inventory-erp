@@ -6,11 +6,19 @@ import {
   RdLoadingApi as api,
   type LoadingTask,
   type LoadingTaskDetail,
+  type LoadingReplacement,
   type LoadingBatchScanResp
 } from '@/api/rd/loading'
 import type { WarehouseSession } from './useWarehouseSession'
 import { useBatchPending } from './useBatchPending'
 import { verifyReconcileStatus } from './reconcileStatus'
+import { useLoadingReplacements } from '../../stock/loading/useLoadingReplacements'
+import {
+  buildLoadingReplacements,
+  inspectLoadingReplacements,
+  replacementRequest,
+  verifyLoadingReplacements
+} from '../../stock/loading/replacements'
 
 export const useLoadingWork = (session: WarehouseSession, changed: () => Promise<unknown>) => {
   const canQuery = computed(() => session.allowed('rd:loading-task:query'))
@@ -21,8 +29,14 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
   const detail = shallowRef<LoadingTaskDetail>()
   const targetId = ref<number>()
   const selected = ref<number[]>([])
-  const replacementLineId = ref<number>()
-  const replacementCode = ref('')
+  const replacementDraft = useLoadingReplacements(session, detail)
+  const {
+    rows: replacementRows,
+    preview: replacementPreview,
+    checking: replacementChecking,
+    error: replacementError,
+    check: inspectReplacements
+  } = replacementDraft
   const resolutionAction = ref('RETURN_TO_DRIVER')
   const handlingResult = ref('')
   const rows = shallowRef<LoadingTask[]>([])
@@ -42,6 +56,7 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
       !!pending.value ||
       !!storageError.value ||
       needsCheck.value ||
+      replacementChecking.value ||
       !session.current()
   )
   const eligible = computed(
@@ -84,8 +99,12 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
     }
     targetId.value = value.task.id
     selected.value = []
-    replacementLineId.value = undefined
-    replacementCode.value = ''
+    const eligibleReplacement = value.lines.find((line) =>
+      ['PLANNED', 'EXCEPTION'].includes(line.lineStatus)
+    )
+    replacementDraft.reset(
+      value.task.status === 'EXCEPTION_PENDING' ? eligibleReplacement?.id : undefined
+    )
     needsCheck.value = false
   }
   const loadList = async (pageNo = query.pageNo) => {
@@ -236,12 +255,16 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
   }
   const act = async (action: 'outbound' | 'resolve') => {
     if (!session.allowed('rd:loading-task:dispatch') || locked.value || !detail.value) return
+    const lifetime = session.generation()
+    const assertCurrent = () => {
+      session.assertCurrent()
+      if (session.generation() !== lifetime) throw new Error('原任务页面已离开，请重新核定')
+    }
     const id = detail.value.task.id
     const expectedVersion = detail.value.task.version
     const reason = handlingResult.value.trim()
     const resolution = resolutionAction.value
-    const lineId = replacementLineId.value
-    const code = extractPackageCode(replacementCode.value)
+    let replacements: LoadingReplacement[] | undefined
     if (
       action === 'resolve' &&
       (!reason || !['RETURN_TO_DRIVER', 'REPLACE_PACKAGE', 'CANCEL'].includes(resolution))
@@ -249,13 +272,13 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
       error.value = '请选择处理方式并填写说明'
       return
     }
-    if (
-      action === 'resolve' &&
-      resolution === 'REPLACE_PACKAGE' &&
-      (!lineId || !code || code.length > 128 || /[\s\\/?#:\u0000-\u001f\u007f]/u.test(code))
-    ) {
-      error.value = '请选择原包并填写有效替换包码'
-      return
+    if (action === 'resolve' && resolution === 'REPLACE_PACKAGE') {
+      try {
+        replacements = buildLoadingReplacements(replacementRows.value, detail.value.lines)
+      } catch (cause) {
+        error.value = cause instanceof Error ? cause.message : '请核对全部换货清单'
+        return
+      }
     }
     writing.value = true
     error.value = ''
@@ -263,7 +286,8 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
     let sent = false
     try {
       const current = await api.getTask(id)
-      session.assertCurrent()
+      assertCurrent()
+      if (current.task.id !== id) throw new Error('读取结果不属于原装车任务')
       if (typeof current.task.version !== 'number' || !Number.isSafeInteger(current.task.version))
         throw new Error('任务版本缺失，请重新读取')
       if (current.task.version !== expectedVersion) {
@@ -282,18 +306,37 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
       if (
         action === 'resolve' &&
         resolution === 'REPLACE_PACKAGE' &&
-        !current.lines.some(
-          (line) => line.id === lineId && ['PLANNED', 'EXCEPTION'].includes(line.lineStatus)
+        replacements?.some(
+          (entry) =>
+            !current.lines.some(
+              (line) =>
+                line.id === entry.taskLineId && ['PLANNED', 'EXCEPTION'].includes(line.lineStatus)
+            )
         )
       )
         throw new Error('原包已核验或已变更，不能替换')
+      let replacementSummary = ''
+      if (replacements) {
+        const preview = await inspectLoadingReplacements(
+          replacements,
+          current.lines,
+          api.getAvailablePackagePage,
+          () => {
+            assertCurrent()
+            if (!session.allowed('rd:loading-task:dispatch')) throw new Error('当前无装车办理权限')
+          }
+        )
+        replacementPreview.value = preview
+        replacements = replacementRequest(preview)
+        replacementSummary = `本次替换 ${preview.length} 包 / ${preview.reduce((sum, item) => sum + item.replacement.packageWeight, 0)} kg：${preview.map((item) => `${item.original.packageCode} → ${item.replacement.packageCode}（${item.replacement.locationCode}）`).join('；')}。`
+      }
       await ElMessageBox.confirm(
         action === 'outbound'
           ? `确认任务 ${current.task.taskNo} 的 ${current.task.scannedPackageCount} 包 / ${current.task.scannedWeight} kg 正式出库？`
-          : `${resolution === 'CANCEL' ? '取消任务并释放货物占用' : resolution === 'REPLACE_PACKAGE' ? '替换所选包并退回司机继续执行' : '退回司机继续执行'}，确认处理任务 ${current.task.taskNo} 的全部待处理异常？`,
+          : `${replacementSummary}${resolution === 'CANCEL' ? '取消任务并释放货物占用' : resolution === 'REPLACE_PACKAGE' ? '替换所选包并退回司机继续执行' : '退回司机继续执行'}，确认处理任务 ${current.task.taskNo} 的全部待处理异常？`,
         action === 'outbound' ? '最终出库' : '处理装车异常'
       )
-      session.assertCurrent()
+      assertCurrent()
       if (!session.allowed('rd:loading-task:dispatch')) throw new Error('当前无装车办理权限')
       sent = true
       if (action === 'outbound') {
@@ -311,16 +354,13 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
           version: current.task.version,
           resolutionAction: resolution,
           handlingResult: reason,
-          replacements:
-            resolution === 'REPLACE_PACKAGE'
-              ? [{ taskLineId: lineId!, newPackageCode: code }]
-              : undefined
+          replacements
         })
         if (acknowledged !== true) throw new Error('异常处理未确认，请核对原任务')
       }
-      session.assertCurrent()
+      assertCurrent()
       const verified = await api.getTask(id)
-      session.assertCurrent()
+      assertCurrent()
       const openIds = current.exceptions
         .filter((item) => item.exceptionStatus === 'OPEN')
         .map((item) => item.id)
@@ -335,10 +375,15 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
               ? verified.task.status !== 'CANCELLED'
               : verified.task.status === 'EXCEPTION_PENDING') ||
             (resolution === 'REPLACE_PACKAGE' &&
-              !verified.lines.some((line) => line.id === lineId && line.packageCode === code)))
+              !verifyLoadingReplacements(verified.lines, replacements!)))
       )
         throw new Error('任务返回的实际办理结果未确认，请重新核对')
       apply(verified)
+      if (action === 'resolve' && resolution === 'REPLACE_PACKAGE')
+        input.value =
+          verified.lines.find((line) => line.lineStatus === 'PLANNED')?.packageCode ||
+          verified.lines[0]?.packageCode ||
+          ''
       feedback.value = action === 'outbound' ? '出库已确认' : '装车异常已处理'
       await loadList()
       if (session.current()) await changed()
@@ -419,8 +464,11 @@ export const useLoadingWork = (session: WarehouseSession, changed: () => Promise
     detail,
     selected,
     selectedWeight,
-    replacementLineId,
-    replacementCode,
+    replacementRows,
+    replacementPreview,
+    replacementChecking,
+    replacementError,
+    inspectReplacements,
     replacementOptions,
     resolutionAction,
     handlingResult,

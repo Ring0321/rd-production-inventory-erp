@@ -26,6 +26,22 @@
       </el-button>
     </header>
 
+    <el-alert
+      v-if="!driver.allowed()"
+      title="无本人装车任务权限"
+      type="warning"
+      :closable="false"
+      role="alert"
+    />
+    <el-alert v-if="readError" :title="readError" type="warning" :closable="false" role="alert" />
+    <el-button
+      v-if="readError && driver.targetId.value"
+      :loading="detailLoading"
+      @click="driver.retryDetail()"
+    >
+      <Icon icon="lucide:refresh-cw" />重试任务详情
+    </el-button>
+
     <section v-if="!taskDetail" v-loading="taskLoading" class="task-list-section">
       <div class="list-summary">
         <span>已派装车任务</span>
@@ -42,7 +58,7 @@
       />
 
       <el-empty
-        v-if="!taskLoading && !taskList.length"
+        v-if="driver.allowed() && !readError && !taskLoading && !taskList.length"
         :image-size="92"
         description="当前没有分配给你的装车任务"
       />
@@ -137,6 +153,10 @@
       />
 
       <section class="info-band" aria-label="装车任务信息">
+        <div>
+          <span>任务号</span>
+          <strong>{{ taskDetail.task.taskNo }}</strong>
+        </div>
         <div>
           <span>客户</span>
           <strong>{{ taskDetail.task.customerName || '-' }}</strong>
@@ -293,13 +313,9 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { RdPackageUnitApi } from '@/api/rd/stock/package'
+import { useDriverTasks } from '../driver/useDriverTasks'
 import { useAppStore } from '@/store/modules/app'
-import {
-  RdLoadingApi,
-  type LoadingTask,
-  type LoadingTaskDetail,
-  type LoadingTaskLine
-} from '@/api/rd/loading'
+import { RdLoadingApi, type LoadingTask, type LoadingTaskLine } from '@/api/rd/loading'
 
 defineOptions({ name: 'RdDriverLoading' })
 
@@ -330,13 +346,24 @@ const lineStatusMap: Record<string, { label: string; type: TagType }> = {
   CANCELLED: { label: '已取消', type: 'info' }
 }
 
-const taskList = ref<LoadingTask[]>([])
-const taskTotal = ref(0)
-const taskPageNo = ref(1)
-const taskLoading = ref(false)
-const taskLoadingMore = ref(false)
-const detailLoading = ref(false)
-const taskDetail = ref<LoadingTaskDetail>()
+const driver = useDriverTasks(
+  'rd:loading-task:execute',
+  (params) => RdLoadingApi.getMyTaskPage({ ...params, activeOnly: true }),
+  RdLoadingApi.getMyTask
+)
+const {
+  taskList,
+  taskTotal,
+  taskLoading,
+  taskLoadingMore,
+  detailLoading,
+  taskDetail,
+  readError,
+  loadTasks,
+  loadMore,
+  openTask,
+  refreshTaskDetail
+} = driver
 const highlightedPackageCode = ref('')
 const routePackageHandled = ref(false)
 const exceptionDialogVisible = ref(false)
@@ -450,48 +477,11 @@ const isHighlighted = (packageCode: string) =>
   Boolean(highlightedPackageCode.value) &&
   normalizePackageCode(packageCode) === highlightedPackageCode.value
 
-const loadTasks = async (reset: boolean) => {
-  if (reset) {
-    taskLoading.value = true
-    taskPageNo.value = 1
-  } else {
-    taskLoadingMore.value = true
-  }
-  try {
-    const result = await RdLoadingApi.getMyTaskPage({ pageNo: taskPageNo.value, pageSize: 20 })
-    taskList.value = reset ? result.list : [...taskList.value, ...result.list]
-    taskTotal.value = result.total
-  } finally {
-    taskLoading.value = false
-    taskLoadingMore.value = false
-  }
-}
-
-const loadMore = async () => {
-  taskPageNo.value += 1
-  await loadTasks(false)
-}
-
-const openTask = async (id: number) => {
-  detailLoading.value = true
-  taskDetail.value = undefined
-  try {
-    taskDetail.value = await RdLoadingApi.getMyTask(id)
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-const refreshTaskDetail = async () => {
-  if (!taskDetail.value) return
-  await openTask(taskDetail.value.task.id)
-}
-
 const backToList = async () => {
-  taskDetail.value = undefined
+  if (!driver.allowed()) return
   highlightedPackageCode.value = ''
   routePackageHandled.value = false
-  await loadTasks(true)
+  await driver.backToList()
 }
 
 const openExceptionDialog = () => {
@@ -532,6 +522,8 @@ const submitException = async () => {
 }
 
 const openTaskByPackageQuery = async () => {
+  if (!driver.allowed()) return
+  const routeContext = route.fullPath
   const code = normalizePackageCode(getRouteString('packageCode'))
   const requestedId = Number(getRouteString('taskId'))
   if ((!code && !requestedId) || routePackageHandled.value) return
@@ -541,6 +533,7 @@ const openTaskByPackageQuery = async () => {
     !Number.isSafeInteger(requestedId) || requestedId <= 0
       ? await RdPackageUnitApi.getWorkContext(code)
       : null
+  if (!driver.allowed() || route.fullPath !== routeContext) return
   const taskId =
     Number.isSafeInteger(requestedId) && requestedId > 0
       ? requestedId
@@ -551,6 +544,7 @@ const openTaskByPackageQuery = async () => {
     return
   }
   await openTask(taskId)
+  if (!driver.allowed() || route.fullPath !== routeContext) return
   if (
     code &&
     !taskDetail.value?.lines.some((line) => normalizePackageCode(line.packageCode) === code)
@@ -563,6 +557,7 @@ const openTaskByPackageQuery = async () => {
 watch(
   () => appStore.getMobile,
   (mobile) => {
+    if (route.path.startsWith('/pda/')) return
     if (mobile) {
       if (!collapsedForMobile.value) collapseBeforeMobile.value = appStore.getCollapse
       appStore.setCollapse(true)
@@ -587,6 +582,7 @@ watch(
 
 onMounted(async () => {
   await loadTasks(true)
+  if (!driver.allowed()) return
   await openTaskByPackageQuery()
 })
 </script>

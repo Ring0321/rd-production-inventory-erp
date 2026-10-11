@@ -30,6 +30,7 @@ public class RdLoadingExceptionResolveReqVO {
     private String resolvedLocationCode;
 
     @Valid
+    @Size(max = 100, message = "一次最多替换 100 包")
     private List<Replacement> replacements;
 
     @Data

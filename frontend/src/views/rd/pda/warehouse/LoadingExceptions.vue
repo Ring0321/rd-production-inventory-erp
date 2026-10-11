@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { Check } from '@element-plus/icons-vue'
 import type { LoadingException, LoadingTaskLine } from '@/api/rd/loading'
+import LoadingReplacementEditor from '../../stock/loading/LoadingReplacementEditor.vue'
+import type {
+  LoadingReplacementRow,
+  LoadingReplacementPreview
+} from '../../stock/loading/replacements'
 defineProps<{
   exceptions: LoadingException[]
   lines: LoadingTaskLine[]
@@ -8,14 +13,16 @@ defineProps<{
   disabled: boolean
   action: string
   reason: string
-  replacementId?: number
-  replacementCode: string
+  replacementRows: LoadingReplacementRow[]
+  replacementPreview: LoadingReplacementPreview[]
+  replacementChecking: boolean
+  replacementError: string
 }>()
 const emit = defineEmits<{
   action: [value: string]
   reason: [value: string]
-  replacementId: [value?: number]
-  replacementCode: [value: string]
+  replacementRows: [value: LoadingReplacementRow[]]
+  inspectReplacements: []
   resolve: []
 }>()
 </script>
@@ -49,28 +56,17 @@ const emit = defineEmits<{
             label="替换包后继续"
             value="REPLACE_PACKAGE" /><el-option label="取消任务" value="CANCEL" /></el-select
       ></el-form-item>
-      <template v-if="action === 'REPLACE_PACKAGE'">
-        <el-form-item label="原任务包"
-          ><el-select
-            :model-value="replacementId"
-            :disabled="disabled"
-            placeholder="选择待替换包"
-            aria-label="原任务包"
-            @update:model-value="emit('replacementId', Number($event) || undefined)"
-            ><el-option
-              v-for="line in lines"
-              :key="line.id"
-              :value="line.id"
-              :label="`${line.packageCode} · ${line.plannedLocationCode}`" /></el-select
-        ></el-form-item>
-        <el-form-item label="替换包号 / 二维码"
-          ><el-input
-            :model-value="replacementCode"
-            :disabled="disabled"
-            aria-label="替换包号或二维码"
-            @update:model-value="emit('replacementCode', String($event))"
-        /></el-form-item>
-      </template>
+      <LoadingReplacementEditor
+        v-if="action === 'REPLACE_PACKAGE'"
+        :lines="lines"
+        :rows="replacementRows"
+        :preview="replacementPreview"
+        :disabled="disabled"
+        :checking="replacementChecking"
+        :error="replacementError"
+        @update:rows="emit('replacementRows', $event)"
+        @inspect="emit('inspectReplacements')"
+      />
       <el-form-item label="异常处理说明"
         ><el-input
           :model-value="reason"

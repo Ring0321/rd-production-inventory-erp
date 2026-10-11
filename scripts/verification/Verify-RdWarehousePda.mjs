@@ -477,7 +477,7 @@ try {
   );
   await openSelect(page, "装车异常处理方式");
   await page.getByRole("option", { name: "替换包后继续", exact: true }).click();
-  await openSelect(page, "原任务包");
+  await openSelect(page, "第 1 行原任务包");
   await page
     .getByRole("option", {
       name: `${swap.lines[0].packageCode} · ${swap.lines[0].plannedLocationCode}`,
@@ -485,7 +485,7 @@ try {
     })
     .click();
   await page
-    .getByLabel("替换包号或二维码", { exact: true })
+    .getByLabel("第 1 行替换包号或二维码", { exact: true })
     .fill(extra.bags[2].qrCode);
   await page
     .getByLabel("装车异常处理说明", { exact: true })

@@ -450,7 +450,11 @@
         </el-table-column>
         <el-table-column prop="handlingResult" label="处理说明" min-width="220" />
       </el-table>
-      <div v-if="taskDetail.task.status === 'EXCEPTION_PENDING'" class="exception-actions">
+      <div
+        v-if="taskDetail.task.status === 'EXCEPTION_PENDING'"
+        v-hasPermi="['rd:loading-task:dispatch']"
+        class="exception-actions"
+      >
         <el-button type="warning" plain @click="openResolveExceptionDialog('REPLACE_PACKAGE')">
           替换包后继续
         </el-button>
@@ -464,7 +468,21 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="exceptionResolveVisible" title="处理装车异常" width="560px">
+  <Dialog
+    v-model="exceptionResolveVisible"
+    :title="resolutionNeedsCheck ? '处理装车异常 · 结果待核' : '处理装车异常'"
+    width="560px"
+    scroll
+    max-height="min(540px, 60vh)"
+  >
+    <el-alert
+      v-if="resolutionNeedsCheck"
+      class="mb-12px"
+      title="装车异常处理结果待核"
+      type="warning"
+      :closable="false"
+      show-icon
+    />
     <el-form label-width="96px">
       <el-form-item label="处理动作">
         <el-radio-group v-model="exceptionResolveForm.resolutionAction">
@@ -473,33 +491,20 @@
           <el-radio-button label="CANCEL">取消任务</el-radio-button>
         </el-radio-group>
       </el-form-item>
-      <template v-if="exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE'">
-        <el-form-item label="原任务包" required>
-          <el-select
-            v-model="exceptionResolveForm.taskLineId"
-            filterable
-            class="!w-full"
-            placeholder="选择需要替换的原计划包"
-          >
-            <el-option
-              v-for="line in replaceableTaskLines"
-              :key="line.id"
-              :value="line.id"
-              :label="`${line.packageCode} · ${line.plannedLocationCode} · ${line.productModel} ${line.furnaceLayer || ''}`"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="替换包码" required>
-          <el-input
-            v-model="exceptionResolveForm.newPackageCode"
-            clearable
-            placeholder="扫描或填写新包二维码链接/包码"
-          />
-        </el-form-item>
-      </template>
+      <LoadingReplacementEditor
+        v-if="exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE'"
+        v-model:rows="replacementRows"
+        :lines="replaceableTaskLines"
+        :preview="replacementPreview"
+        :disabled="exceptionResolving || resolutionNeedsCheck"
+        :checking="replacementChecking"
+        :error="replacementError"
+        @inspect="inspectReplacements"
+      />
       <el-form-item label="处理说明" required>
         <el-input
           v-model="exceptionResolveForm.handlingResult"
+          aria-label="装车异常处理说明"
           type="textarea"
           :rows="4"
           maxlength="1000"
@@ -510,7 +515,12 @@
     </el-form>
     <template #footer>
       <el-button @click="exceptionResolveVisible = false">取消</el-button>
-      <el-button type="primary" :loading="exceptionResolving" @click="resolveLoadingException">
+      <el-button
+        type="primary"
+        :loading="exceptionResolving"
+        :disabled="resolutionNeedsCheck || replacementChecking"
+        @click="resolveLoadingException"
+      >
         确认处理
       </el-button>
     </template>
@@ -518,7 +528,16 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessageBox } from 'element-plus'
 import { useWarehouseSession } from '../../pda/warehouse/useWarehouseSession'
+import LoadingReplacementEditor from './LoadingReplacementEditor.vue'
+import { useLoadingReplacements } from './useLoadingReplacements'
+import {
+  buildLoadingReplacements,
+  inspectLoadingReplacements,
+  replacementRequest,
+  verifyLoadingReplacements
+} from './replacements'
 import { useRoute } from 'vue-router'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import {
@@ -529,6 +548,7 @@ import {
   type LoadingTask,
   type LoadingTaskDetail,
   type LoadingTaskLine,
+  type LoadingReplacement,
   type LoadingDriverOption,
   type PickupSlip,
   type PickupSlipLine
@@ -574,11 +594,19 @@ const taskVisible = ref(false)
 const taskDetail = ref<LoadingTaskDetail>()
 const exceptionResolveVisible = ref(false)
 const exceptionResolving = ref(false)
+const resolutionNeedsCheck = ref(false)
+const resolutionTarget = ref<{ taskId: number; version: number }>()
+const replacementDraft = useLoadingReplacements(warehouseSession, taskDetail)
+const {
+  rows: replacementRows,
+  preview: replacementPreview,
+  checking: replacementChecking,
+  error: replacementError,
+  check: inspectReplacements
+} = replacementDraft
 const exceptionResolveForm = reactive({
   resolutionAction: 'RETURN_TO_DRIVER',
-  handlingResult: '',
-  taskLineId: undefined as number | undefined,
-  newPackageCode: ''
+  handlingResult: ''
 })
 const batchScanForm = reactive({
   taskId: undefined as number | undefined,
@@ -748,13 +776,23 @@ const openTask = async (id: number) => {
 const openResolveExceptionDialog = (
   resolutionAction: 'REPLACE_PACKAGE' | 'RETURN_TO_DRIVER' | 'CANCEL'
 ) => {
+  if (
+    !taskDetail.value ||
+    exceptionResolving.value ||
+    !warehouseSession.allowed('rd:loading-task:dispatch')
+  )
+    return
+  const version = taskDetail.value.task.version
+  if (typeof version !== 'number' || !Number.isSafeInteger(version)) return
+  resolutionTarget.value = { taskId: taskDetail.value.task.id, version }
+  resolutionNeedsCheck.value = false
   exceptionResolveForm.resolutionAction = resolutionAction
   const firstOpenException = openTaskExceptions.value.find((item) => item.taskLineId)
-  exceptionResolveForm.taskLineId =
+  replacementDraft.reset(
     resolutionAction === 'REPLACE_PACKAGE'
       ? firstOpenException?.taskLineId || replaceableTaskLines.value[0]?.id
       : undefined
-  exceptionResolveForm.newPackageCode = ''
+  )
   exceptionResolveForm.handlingResult =
     resolutionAction === 'REPLACE_PACKAGE'
       ? '仓管员已核实异常，使用同客户同型号替换包，退回司机继续执行。'
@@ -764,42 +802,125 @@ const openResolveExceptionDialog = (
   exceptionResolveVisible.value = true
 }
 const resolveLoadingException = async () => {
-  if (!taskDetail.value) return
+  if (
+    !taskDetail.value ||
+    !resolutionTarget.value ||
+    exceptionResolving.value ||
+    replacementChecking.value ||
+    resolutionNeedsCheck.value
+  )
+    return
+  if (
+    !warehouseSession.allowed('rd:loading-task:dispatch') ||
+    !warehouseSession.allowed('rd:loading-task:query')
+  )
+    return
+  const target = { ...resolutionTarget.value }
+  const lifetime = warehouseSession.generation()
+  const resolutionAction = exceptionResolveForm.resolutionAction
   const handlingResult = exceptionResolveForm.handlingResult.trim()
   if (!handlingResult) {
     message.warning('请填写处理说明')
     return
   }
-  if (exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE') {
-    if (!exceptionResolveForm.taskLineId || !exceptionResolveForm.newPackageCode.trim()) {
-      message.warning('请选择原任务包并扫描替换包码')
+  let replacements: LoadingReplacement[] | undefined
+  if (resolutionAction === 'REPLACE_PACKAGE') {
+    try {
+      replacements = buildLoadingReplacements(replacementRows.value, taskDetail.value.lines)
+    } catch (cause) {
+      message.warning(cause instanceof Error ? cause.message : '请核对全部换货清单')
       return
     }
   }
   exceptionResolving.value = true
-  const taskId = taskDetail.value.task.id
+  let sent = false
   try {
-    await RdLoadingApi.resolveException({
-      taskId,
-      version: taskDetail.value.task.version || 0,
-      resolutionAction: exceptionResolveForm.resolutionAction,
+    const current = await RdLoadingApi.getTask(target.taskId)
+    const assertCurrent = () => {
+      warehouseSession.assertCurrent()
+      if (warehouseSession.generation() !== lifetime)
+        throw new Error('原任务页面已离开，请重新核定')
+      if (
+        !exceptionResolveVisible.value ||
+        !taskVisible.value ||
+        taskDetail.value?.task.id !== target.taskId ||
+        !warehouseSession.allowed('rd:loading-task:dispatch')
+      )
+        throw new Error('原任务页面已变化，请重新核定')
+    }
+    assertCurrent()
+    if (
+      current.task.id !== target.taskId ||
+      current.task.version !== target.version ||
+      current.task.status !== 'EXCEPTION_PENDING' ||
+      !current.exceptions.some((item) => item.exceptionStatus === 'OPEN')
+    )
+      throw new Error('任务版本或异常状态已变化，请重新读取原任务')
+    let summary = ''
+    if (replacements) {
+      buildLoadingReplacements(
+        replacements.map((entry, index) => ({ ...entry, key: index + 1 })),
+        current.lines
+      )
+      const preview = await inspectLoadingReplacements(
+        replacements,
+        current.lines,
+        RdLoadingApi.getAvailablePackagePage,
+        assertCurrent
+      )
+      replacementPreview.value = preview
+      replacements = replacementRequest(preview)
+      summary = `替换 ${preview.length} 包 / ${preview.reduce((sum, item) => sum + item.replacement.packageWeight, 0)} kg：${preview.map((item) => `${item.original.packageCode} → ${item.replacement.packageCode}（${item.replacement.locationCode}）`).join('；')}。`
+    }
+    await ElMessageBox.confirm(
+      `${summary}确认处理任务 ${current.task.taskNo} 的全部待处理异常？`,
+      '核定装车异常'
+    )
+    assertCurrent()
+    sent = true
+    const acknowledged = await RdLoadingApi.resolveException({
+      taskId: target.taskId,
+      version: target.version,
+      resolutionAction,
       handlingResult,
-      replacements:
-        exceptionResolveForm.resolutionAction === 'REPLACE_PACKAGE'
-          ? [
-              {
-                taskLineId: exceptionResolveForm.taskLineId!,
-                newPackageCode: exceptionResolveForm.newPackageCode.trim()
-              }
-            ]
-          : undefined
+      replacements
     })
+    assertCurrent()
+    if (acknowledged !== true) throw new Error('异常处理返回未确认，请核对原任务')
+    const verified = await RdLoadingApi.getTask(target.taskId)
+    assertCurrent()
+    const openIds = current.exceptions
+      .filter((item) => item.exceptionStatus === 'OPEN')
+      .map((item) => item.id)
+    if (
+      verified.task.id !== target.taskId ||
+      typeof verified.task.version !== 'number' ||
+      verified.task.version <= target.version ||
+      verified.exceptions.some(
+        (item) => openIds.includes(item.id) && item.exceptionStatus === 'OPEN'
+      ) ||
+      (resolutionAction === 'CANCEL'
+        ? verified.task.status !== 'CANCELLED'
+        : verified.task.status === 'EXCEPTION_PENDING') ||
+      (replacements && !verifyLoadingReplacements(verified.lines, replacements))
+    )
+      throw new Error('实际处理结果待核，请重新读取原任务')
+    taskDetail.value = verified
     message.success('装车异常已处理')
     exceptionResolveVisible.value = false
-    await openTask(taskId)
     await loadTasks()
-    if (batchScanResp.value?.task.id === taskId && batchScanForm.packageCode) {
+    if (batchScanResp.value?.task.id === target.taskId && batchScanForm.packageCode) {
+      if (resolutionAction === 'REPLACE_PACKAGE')
+        batchScanForm.packageCode =
+          verified.lines.find((line) => line.lineStatus === 'PLANNED')?.packageCode ||
+          verified.lines[0]?.packageCode ||
+          ''
       await previewBatchScan()
+    }
+  } catch (cause) {
+    if (cause !== 'cancel' && cause !== 'close') {
+      if (sent) resolutionNeedsCheck.value = true
+      message.warning(cause instanceof Error ? cause.message : '结果待核，请重新读取原任务')
     }
   } finally {
     exceptionResolving.value = false

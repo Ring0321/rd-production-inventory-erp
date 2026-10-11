@@ -204,6 +204,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
     public PageResult<RdPackageUnitDO> getAvailablePackagePage(RdLoadingPackagePageReqVO req) {
         LambdaQueryWrapperX<RdPackageUnitDO> query = new LambdaQueryWrapperX<RdPackageUnitDO>()
                 .eq(RdPackageUnitDO::getStatus, RdPackageStatusEnum.IN_STOCK.getStatus())
+                .eqIfPresent(RdPackageUnitDO::getPackageCode, blankToNull(req.getPackageCode()))
                 .eqIfPresent(RdPackageUnitDO::getCustomerName, req.getCustomerName())
                 .eqIfPresent(RdPackageUnitDO::getProductModel, req.getProductModel())
                 .eqIfPresent(RdPackageUnitDO::getFurnaceNo, req.getFurnaceNo())
@@ -841,12 +842,14 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         List<RdLoadingTaskLineDO> lines = new ArrayList<>(taskLineMapper.selectListByTaskIdForUpdate(task.getId()));
         lines.sort(Comparator.comparing(RdLoadingTaskLineDO::getLineNo));
         LocalDateTime now = LocalDateTime.now();
-        closeLoadingExceptions(task, lines, openExceptions, req, keeperId, keeperName, now);
         if (RESOLUTION_REPLACE_PACKAGE.equals(req.getResolutionAction())) {
-            replaceLoadingTaskPackages(task, lines, req.getReplacements(), now, keeperId, keeperName);
+            List<PreparedLoadingReplacement> replacements = prepareLoadingTaskReplacements(task, lines, req.getReplacements());
+            closeLoadingExceptions(task, lines, openExceptions, req, keeperId, keeperName, now);
+            replaceLoadingTaskPackages(task, lines, replacements, now, keeperId, keeperName);
             recordLoadingTaskReturn(task, lines, now, keeperId, keeperName, req.getHandlingResult());
             return;
         }
+        closeLoadingExceptions(task, lines, openExceptions, req, keeperId, keeperName, now);
         if (RESOLUTION_RETURN_TO_DRIVER.equals(req.getResolutionAction())) {
             returnLoadingTaskToDriver(task, lines, now);
             recordLoadingTaskReturn(task, lines, now, keeperId, keeperName, req.getHandlingResult());
@@ -924,6 +927,10 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
             }
             matched = codeMatched;
         }
+        if (matched != null && (LINE_CANCELLED.equals(matched.getLineStatus())
+                || LINE_OUTBOUNDED.equals(matched.getLineStatus()))) {
+            throw exception(LOADING_PACKAGE_NOT_IN_TASK);
+        }
         return matched;
     }
 
@@ -957,21 +964,39 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         }
     }
 
-    private void replaceLoadingTaskPackages(RdLoadingTaskDO task,
+    private static final class PreparedLoadingReplacement {
+        private final RdLoadingTaskLineDO line;
+        private final RdPackageUnitDO unit;
+        private final RdOrderFulfillmentDO fulfillment;
+        private final RdLoadingPackageClaimDO oldClaim;
+
+        private PreparedLoadingReplacement(RdLoadingTaskLineDO line, RdPackageUnitDO unit,
+                                           RdOrderFulfillmentDO fulfillment, RdLoadingPackageClaimDO oldClaim) {
+            this.line = line; this.unit = unit; this.fulfillment = fulfillment; this.oldClaim = oldClaim;
+        }
+    }
+
+    private List<PreparedLoadingReplacement> prepareLoadingTaskReplacements(RdLoadingTaskDO task,
                                             List<RdLoadingTaskLineDO> lines,
-                                            List<RdLoadingExceptionResolveReqVO.Replacement> replacements,
-                                            LocalDateTime now, Long keeperId, String keeperName) {
-        if (replacements == null || replacements.isEmpty()) {
+                                            List<RdLoadingExceptionResolveReqVO.Replacement> replacements) {
+        if (replacements == null || replacements.isEmpty() || replacements.size() > 100) {
             throw exception(LOADING_REPLACEMENT_REQUIRED);
         }
+        List<RdLoadingTaskLineDO> finalPlan = lines.stream().map(line -> {
+            RdLoadingTaskLineDO copy = new RdLoadingTaskLineDO();
+            org.springframework.beans.BeanUtils.copyProperties(line, copy);
+            return copy;
+        }).collect(Collectors.toList());
         Map<Long, RdLoadingTaskLineDO> lineMap = lines.stream()
                 .collect(Collectors.toMap(RdLoadingTaskLineDO::getId, item -> item));
+        List<PreparedLoadingReplacement> prepared = new ArrayList<>();
         Set<Long> replacedLineIds = new HashSet<>();
         Set<String> replacementCodes = new HashSet<>();
         for (RdLoadingExceptionResolveReqVO.Replacement replacement : replacements) {
             String packageCode = normalizePackageCode(replacement == null ? null : replacement.getNewPackageCode());
             if (replacement == null || replacement.getTaskLineId() == null
-                    || packageCode == null || !replacementCodes.add(normalizeCode(packageCode))) {
+                    || blankToNull(packageCode) == null || packageCode.length() > 128
+                    || !replacementCodes.add(normalizeCode(packageCode))) {
                 throw exception(LOADING_REPLACEMENT_REQUIRED);
             }
             RdLoadingTaskLineDO line = lineMap.get(replacement.getTaskLineId());
@@ -996,11 +1021,94 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
                     || !Objects.equals(oldClaim.getTaskLineId(), line.getId())) {
                 throw exception(LOADING_PACKAGE_INVALID);
             }
-            claimMapper.deleteById(oldClaim.getId());
+            prepared.add(new PreparedLoadingReplacement(line, unit, fulfillment, oldClaim));
+            RdLoadingTaskLineDO candidate = finalPlan.stream()
+                    .filter(item -> Objects.equals(item.getId(), line.getId())).findFirst().orElseThrow();
+            applyReplacementPackage(candidate, unit, fulfillment);
+        }
+        validateLoadingReplacementPlan(task, finalPlan);
+        return prepared;
+    }
+
+    private void validateLoadingReplacementPlan(RdLoadingTaskDO task, List<RdLoadingTaskLineDO> lines) {
+        Long tenantId = task.getTenantId() == null ? TenantContextHolder.getTenantId() : task.getTenantId();
+        RdPickupSlipDO slip = slipMapper.selectByIdForUpdate(task.getPickupSlipId(), tenantId);
+        if (slip == null || !"DISPATCHED".equals(slip.getStatus())
+                || !Objects.equals(slip.getCustomerName(), task.getCustomerName())) {
+            throw exception(PICKUP_SLIP_NOT_EXISTS);
+        }
+        Map<Long, RdPickupSlipLineDO> pickupLines = slipLineMapper.selectListBySlipId(slip.getId()).stream()
+                .collect(Collectors.toMap(RdPickupSlipLineDO::getId, item -> item));
+        Map<Long, Integer> counts = new HashMap<>();
+        Map<Long, BigDecimal> weights = new HashMap<>();
+        Map<Long, List<RdLoadingTaskLineDO>> byFulfillment = new HashMap<>();
+        Map<Long, List<RdLoadingTaskLineDO>> byLot = new HashMap<>();
+        for (RdLoadingTaskLineDO line : lines) {
+            RdPickupSlipLineDO pickup = pickupLines.get(line.getPickupSlipLineId());
+            if (pickup == null || LINE_CANCELLED.equals(line.getLineStatus()) || LINE_OUTBOUNDED.equals(line.getLineStatus())
+                    || !Objects.equals(line.getCustomerName(), slip.getCustomerName())
+                    || !Objects.equals(line.getSaleOrderId(), pickup.getSaleOrderId())
+                    || !Objects.equals(line.getProductModel(), pickup.getProductModel())
+                    || pickup.getFurnaceNo() != null && !Objects.equals(line.getFurnaceNo(), pickup.getFurnaceNo())
+                    || pickup.getFurnaceLayer() != null && !Objects.equals(line.getFurnaceLayer(), pickup.getFurnaceLayer())
+                    || line.getStockLotId() == null || !positive(line.getPackageWeight())) {
+                throw exception(LOADING_PACKAGE_INVALID);
+            }
+            counts.merge(pickup.getId(), 1, Integer::sum);
+            weights.merge(pickup.getId(), line.getPackageWeight(), BigDecimal::add);
+            byLot.computeIfAbsent(line.getStockLotId(), id -> new ArrayList<>()).add(line);
+            if (line.getSaleOrderId() != null) {
+                if (line.getFulfillmentId() == null) throw exception(LOADING_FULFILLMENT_INSUFFICIENT);
+                byFulfillment.computeIfAbsent(line.getFulfillmentId(), id -> new ArrayList<>()).add(line);
+            }
+        }
+        for (RdPickupSlipLineDO pickup : pickupLines.values()) {
+            int count = counts.getOrDefault(pickup.getId(), 0);
+            if (count == 0 || pickup.getRequestedPackageCount() != null && pickup.getRequestedPackageCount() != count
+                    || pickup.getRequestedWeight() != null && pickup.getRequestedWeight()
+                    .compareTo(weights.getOrDefault(pickup.getId(), BigDecimal.ZERO)) != 0) {
+                throw exception(LOADING_QUANTITY_MISMATCH);
+            }
+        }
+        BigDecimal totalWeight = weights.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (slip.getRequestedPackageCount() != null && slip.getRequestedPackageCount() != lines.size()
+                || slip.getRequestedWeight() != null && slip.getRequestedWeight().compareTo(totalWeight) != 0) {
+            throw exception(LOADING_QUANTITY_MISMATCH);
+        }
+        // Validate the complete plan, not each replacement's demand in isolation.
+        for (Long id : byFulfillment.keySet().stream().sorted().collect(Collectors.toList())) {
+            RdOrderFulfillmentDO fulfillment = fulfillmentMapper.selectByIdForUpdate(id);
+            List<RdLoadingTaskLineDO> demand = byFulfillment.get(id);
+            if (fulfillment == null || !RdOrderFulfillmentStatusEnum.ALLOCATED.getStatus().equals(fulfillment.getStatus())
+                    || zero(fulfillment.getAllocatedQty()).subtract(zero(fulfillment.getOutboundQty()))
+                    .compareTo(BigDecimal.valueOf(demand.size())) < 0
+                    || demand.stream().anyMatch(line -> !Objects.equals(line.getSaleOrderId(), fulfillment.getOrderId())
+                    || !Objects.equals(line.getStockLotId(), fulfillment.getStockLotId()))) {
+                throw exception(LOADING_FULFILLMENT_INSUFFICIENT);
+            }
+        }
+        for (Long id : byLot.keySet().stream().sorted().collect(Collectors.toList())) {
+            RdStockLotDO lot = stockLotMapper.selectByIdForUpdate(id);
+            List<RdLoadingTaskLineDO> demand = byLot.get(id);
+            long reservedDemand = demand.stream().filter(line -> line.getSaleOrderId() != null).count();
+            if (lot == null || zero(lot.getWarehouseQty()).compareTo(BigDecimal.valueOf(demand.size())) < 0
+                    || zero(lot.getLockedQty()).compareTo(BigDecimal.valueOf(reservedDemand)) < 0) {
+                throw exception(LOADING_FULFILLMENT_INSUFFICIENT);
+            }
+        }
+    }
+
+    private void replaceLoadingTaskPackages(RdLoadingTaskDO task, List<RdLoadingTaskLineDO> lines,
+                                            List<PreparedLoadingReplacement> replacements,
+                                            LocalDateTime now, Long keeperId, String keeperName) {
+        for (PreparedLoadingReplacement replacement : replacements) {
+            RdLoadingTaskLineDO line = replacement.line;
+            RdPackageUnitDO unit = replacement.unit;
+            claimMapper.deleteById(replacement.oldClaim.getId());
             String previousCode = line.getPackageCode();
             taskHistoryService.append(taskEvent(task, line, "REPLACED_OUT", now, keeperId, keeperName)
                     .setSourceVersion(nextVersion(task.getVersion())).setRelatedPackageCode(unit.getPackageCode()));
-            applyReplacementPackage(line, unit, fulfillment);
+            applyReplacementPackage(line, unit, replacement.fulfillment);
             taskLineMapper.updateById(line);
             taskHistoryService.append(taskEvent(task, line, "REPLACED_IN", now, keeperId, keeperName)
                     .setSourceVersion(nextVersion(task.getVersion())).setRelatedPackageCode(previousCode));

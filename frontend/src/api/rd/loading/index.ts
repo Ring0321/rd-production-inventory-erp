@@ -135,6 +135,11 @@ export interface LoadingTaskDetail {
   exceptions: LoadingException[]
 }
 
+export interface LoadingReplacement {
+  taskLineId: number
+  newPackageCode: string
+}
+
 export interface LoadingDriverOption {
   id: number
   nickname: string
@@ -197,6 +202,7 @@ export const RdLoadingApi = {
       furnaceLayer?: string
       locationId?: number
       keyword?: string
+      packageCode?: string
     }
   ) =>
     request.get<PageResult<LoadingPackage[]>>({
@@ -233,7 +239,7 @@ export const RdLoadingApi = {
     handlingResult: string
     resolvedLocationId?: number
     resolvedLocationCode?: string
-    replacements?: Array<{ taskLineId: number; newPackageCode: string }>
+    replacements?: LoadingReplacement[]
   }) => request.put<boolean>({ url: '/rd/loading-task/exception/resolve', data }),
   getTaskPage: (params: PageParam & { taskNo?: string; pickupSlipNo?: string; status?: string }) =>
     request.get<PageResult<LoadingTask[]>>({ url: '/rd/loading-task/page', params }),

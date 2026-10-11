@@ -19,6 +19,10 @@ const initial = (status = 'ASSIGNED', version = 1) => ({
   lines: [21, 22].map((id) => ({
     id,
     packageCode: `PKG-${id}`,
+    customerName: '验证客户',
+    productModel: 'MODEL-1',
+    furnaceNo: 'FURNACE-1',
+    furnaceLayer: '下层',
     packageWeight: 1000,
     plannedLocationCode: `A-${id}`,
     lineStatus: 'PLANNED'
@@ -32,10 +36,12 @@ const setup = (overrides = {}, grants = ['*:*:*'], saved, confirm = async () => 
   const calls = []
   const data = new Map(saved || [])
   const identity = vue.reactive({ current: true })
+  let lifetime = 0
   let current = initial()
   const session = {
     ownerId: 7,
     tenant: '1',
+    generation: () => lifetime,
     current: () => identity.current,
     allowed: (grant) => identity.current && (grants.includes('*:*:*') || grants.includes(grant)),
     assertCurrent: () => {
@@ -64,6 +70,27 @@ const setup = (overrides = {}, grants = ['*:*:*'], saved, confirm = async () => 
     previewBatchScan: async (params) => {
       calls.push(['preview', plain(params)])
       return { ...plain(current), representativePackageCode: params.packageCode, success: true }
+    },
+    getAvailablePackagePage: async (params) => {
+      calls.push(['replacement-read', plain(params)])
+      return {
+        list: [
+          {
+            id: 100,
+            packageCode: params.keyword,
+            customerName: params.customerName,
+            productModel: params.productModel,
+            furnaceNo: params.furnaceNo,
+            furnaceLayer: params.furnaceLayer,
+            packageWeight: 1000,
+            locationId: 1,
+            locationCode: 'A-01',
+            stockLotId: 1,
+            status: 'IN_STOCK'
+          }
+        ],
+        total: 1
+      }
     },
     confirmBatchScan: async (params) => {
       calls.push(['batch', plain(params)])
@@ -97,23 +124,48 @@ const setup = (overrides = {}, grants = ['*:*:*'], saved, confirm = async () => 
       calls.push(['resolve', plain(params)])
       current.task.status = params.resolutionAction === 'CANCEL' ? 'CANCELLED' : 'ASSIGNED'
       if (params.resolutionAction === 'REPLACE_PACKAGE')
-        current.lines.find((line) => line.id === params.replacements[0].taskLineId).packageCode =
-          params.replacements[0].newPackageCode
+        for (const replacement of params.replacements)
+          current.lines.find((line) => line.id === replacement.taskLineId).packageCode =
+            replacement.newPackageCode
       current.task.version++
       current.exceptions = []
       return true
     },
     ...overrides
   }
-  const module = evaluate('./useLoadingWork.ts', {
-    vue,
-    'element-plus': { ElMessageBox: { confirm } },
-    '@/utils': { generateUUID: () => 'REQ-2' },
-    '@/utils/rdDigitalLink': { extractPackageCode: (value) => value.trim().split('/pkg/').at(-1) },
-    '@/api/rd/loading': { RdLoadingApi: api },
-    './useBatchPending': pendingModule,
-    './reconcileStatus': evaluate('./reconcileStatus.ts')
-  })
+  const replacements = evaluate(
+    '../../stock/loading/replacements.ts',
+    {
+      '@/utils/rdDigitalLink': { extractPackageCode: (value) => value.trim().split('/pkg/').at(-1) }
+    },
+    { Error }
+  )
+  const replacementDraft = evaluate(
+    '../../stock/loading/useLoadingReplacements.ts',
+    {
+      vue,
+      '@/api/rd/loading': { RdLoadingApi: api },
+      './replacements': replacements
+    },
+    { Error }
+  )
+  const module = evaluate(
+    './useLoadingWork.ts',
+    {
+      vue,
+      'element-plus': { ElMessageBox: { confirm } },
+      '@/utils': { generateUUID: () => 'REQ-2' },
+      '@/utils/rdDigitalLink': {
+        extractPackageCode: (value) => value.trim().split('/pkg/').at(-1)
+      },
+      '@/api/rd/loading': { RdLoadingApi: api },
+      './useBatchPending': pendingModule,
+      './reconcileStatus': evaluate('./reconcileStatus.ts'),
+      '../../stock/loading/replacements': replacements,
+      '../../stock/loading/useLoadingReplacements': replacementDraft
+    },
+    { Error }
+  )
   return {
     work: module.useLoadingWork(session, async () => {
       calls.push(['map-refresh'])
@@ -122,6 +174,9 @@ const setup = (overrides = {}, grants = ['*:*:*'], saved, confirm = async () => 
     session,
     calls,
     identity,
+    advanceLifecycle: () => {
+      lifetime++
+    },
     data,
     setCurrent: (value) => {
       current = value
@@ -268,8 +323,9 @@ test('return, replace and cancel preserve distinct commands and require an actua
     h.work.resolutionAction.value = action
     h.work.handlingResult.value = '现场已核定'
     if (action === 'REPLACE_PACKAGE') {
-      h.work.replacementLineId.value = 21
-      h.work.replacementCode.value = 'https://id.tjldsic.com/pkg/PKG-23'
+      h.work.replacementRows.value = [
+        { key: 1, taskLineId: 21, newPackageCode: 'https://id.tjldsic.com/pkg/PKG-23' }
+      ]
     }
     await h.work.act('resolve')
     const sent = h.calls.find(([name]) => name === 'resolve')[1]
@@ -293,8 +349,7 @@ test('an already confirmed package cannot be selected for exception replacement'
   await h.work.open(4)
   h.work.resolutionAction.value = 'REPLACE_PACKAGE'
   h.work.handlingResult.value = '验证'
-  h.work.replacementLineId.value = 21
-  h.work.replacementCode.value = 'PKG-23'
+  h.work.replacementRows.value = [{ key: 1, taskLineId: 21, newPackageCode: 'PKG-23' }]
   await h.work.act('resolve')
   assert.equal(
     h.calls.some(([name]) => name === 'resolve'),
@@ -347,6 +402,120 @@ test('a resolution true reply with original exceptions still open remains pendin
   await h.work.act('resolve')
   assert.equal(h.work.feedback.value, '')
   assert.equal(h.work.needsCheck.value, true)
+})
+
+test('multiple replacements are normalized and submitted once for the same whole loading task', async () => {
+  const h = setup()
+  h.setCurrent(initial('EXCEPTION_PENDING', 4))
+  await h.work.open(4)
+  h.work.resolutionAction.value = 'REPLACE_PACKAGE'
+  h.work.handlingResult.value = '仓管已逐包核定两包'
+  h.work.replacementRows.value = [
+    { key: 1, taskLineId: 21, newPackageCode: 'https://id.tjldsic.com/pkg/PKG-23' },
+    { key: 2, taskLineId: 22, newPackageCode: 'PKG-24' }
+  ]
+  await h.work.act('resolve')
+  const mutations = h.calls.filter(([name]) => name === 'resolve')
+  assert.equal(mutations.length, 1)
+  assert.deepEqual(mutations[0][1].replacements, [
+    { taskLineId: 21, newPackageCode: 'PKG-23' },
+    { taskLineId: 22, newPackageCode: 'PKG-24' }
+  ])
+  assert.equal(mutations[0][1].taskId, 4)
+  assert.equal(mutations[0][1].version, 4)
+  assert.equal(h.work.feedback.value, '装车异常已处理')
+  assert.equal(h.work.input.value, 'PKG-23')
+})
+
+test('duplicate old rows, duplicate normalized new codes and malformed codes never submit', async () => {
+  for (const pairs of [
+    [
+      [21, 'PKG-23'],
+      [21, 'PKG-24']
+    ],
+    [
+      [21, 'PKG-23'],
+      [22, 'https://id.tjldsic.com/pkg/pkg-23']
+    ],
+    [
+      [21, '/pkg/'],
+      [22, 'PKG-24']
+    ],
+    [
+      [21, 'PKG-23'],
+      [22, '']
+    ]
+  ]) {
+    const h = setup()
+    h.setCurrent(initial('EXCEPTION_PENDING', 4))
+    await h.work.open(4)
+    h.work.resolutionAction.value = 'REPLACE_PACKAGE'
+    h.work.handlingResult.value = '验证'
+    h.work.replacementRows.value = pairs.map(([taskLineId, newPackageCode], index) => ({
+      key: index + 1,
+      taskLineId,
+      newPackageCode
+    }))
+    await h.work.act('resolve')
+    assert.equal(
+      h.calls.some(([name]) => name === 'resolve'),
+      false
+    )
+    assert.ok(h.work.error.value)
+  }
+})
+
+test('confirmation freezes all replacement members and the handling reason', async () => {
+  const h = setup({}, ['*:*:*'], undefined, async () => {
+    h.work.replacementRows.value[1].newPackageCode = 'PKG-99'
+    h.work.handlingResult.value = '迟到编辑'
+    return true
+  })
+  h.setCurrent(initial('EXCEPTION_PENDING', 4))
+  await h.work.open(4)
+  h.work.resolutionAction.value = 'REPLACE_PACKAGE'
+  h.work.handlingResult.value = '原说明'
+  h.work.replacementRows.value = [
+    { key: 1, taskLineId: 21, newPackageCode: 'PKG-23' },
+    { key: 2, taskLineId: 22, newPackageCode: 'PKG-24' }
+  ]
+  await h.work.act('resolve')
+  const sent = h.calls.find(([name]) => name === 'resolve')[1]
+  assert.equal(sent.handlingResult, '原说明')
+  assert.equal(sent.replacements[1].newPackageCode, 'PKG-24')
+})
+
+test('one mismatched replacement acknowledgement leaves the whole command awaiting verification', async () => {
+  const h = setup({ resolveException: async () => true })
+  h.setCurrent(initial('EXCEPTION_PENDING', 4))
+  await h.work.open(4)
+  h.work.resolutionAction.value = 'REPLACE_PACKAGE'
+  h.work.handlingResult.value = '核定两包'
+  h.work.replacementRows.value = [
+    { key: 1, taskLineId: 21, newPackageCode: 'PKG-23' },
+    { key: 2, taskLineId: 22, newPackageCode: 'PKG-24' }
+  ]
+  await h.work.act('resolve')
+  assert.equal(h.work.feedback.value, '')
+  assert.equal(h.work.needsCheck.value, true)
+})
+
+test('leaving and returning to the PDA cannot revive an old replacement confirmation', async () => {
+  const h = setup({}, ['*:*:*'], undefined, async () => {
+    h.advanceLifecycle()
+    return true
+  })
+  h.setCurrent(initial('EXCEPTION_PENDING', 4))
+  await h.work.open(4)
+  h.work.resolutionAction.value = 'REPLACE_PACKAGE'
+  h.work.handlingResult.value = '生命周期核定'
+  h.work.replacementRows.value = [{ key: 1, taskLineId: 21, newPackageCode: 'PKG-23' }]
+  await h.work.act('resolve')
+  assert.equal(
+    h.calls.some(([name]) => name === 'resolve'),
+    false
+  )
+  assert.equal(h.work.feedback.value, '')
 })
 
 registerReconcileTests({

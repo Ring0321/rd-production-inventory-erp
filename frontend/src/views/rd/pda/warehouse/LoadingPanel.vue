@@ -29,8 +29,11 @@ const {
   detail,
   selected,
   selectedWeight,
-  replacementLineId,
-  replacementCode,
+  replacementRows,
+  replacementPreview,
+  replacementChecking,
+  replacementError,
+  inspectReplacements,
   replacementOptions,
   resolutionAction,
   handlingResult,
@@ -200,12 +203,14 @@ onMounted(async () => {
           :disabled="locked"
           :action="resolutionAction"
           :reason="handlingResult"
-          :replacement-id="replacementLineId"
-          :replacement-code="replacementCode"
+          :replacement-rows="replacementRows"
+          :replacement-preview="replacementPreview"
+          :replacement-checking="replacementChecking"
+          :replacement-error="replacementError"
           @action="resolutionAction = $event"
           @reason="handlingResult = $event"
-          @replacement-id="replacementLineId = $event"
-          @replacement-code="replacementCode = $event"
+          @replacement-rows="replacementRows = $event"
+          @inspect-replacements="inspectReplacements"
           @resolve="act('resolve')"
         />
         <el-button :disabled="writing || !!pending" @click="reset"

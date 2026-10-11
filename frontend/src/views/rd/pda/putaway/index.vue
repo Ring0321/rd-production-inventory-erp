@@ -26,6 +26,22 @@
       </el-button>
     </header>
 
+    <el-alert
+      v-if="!driver.allowed()"
+      title="无本人上架任务权限"
+      type="warning"
+      :closable="false"
+      role="alert"
+    />
+    <el-alert v-if="readError" :title="readError" type="warning" :closable="false" role="alert" />
+    <el-button
+      v-if="readError && driver.targetId.value"
+      :loading="detailLoading"
+      @click="driver.retryDetail()"
+    >
+      <Icon icon="lucide:refresh-cw" />重试任务详情
+    </el-button>
+
     <section v-if="!taskDetail" v-loading="taskLoading" class="task-list-section">
       <div class="list-summary">
         <span>待执行</span>
@@ -34,7 +50,7 @@
       </div>
 
       <el-empty
-        v-if="!taskLoading && !taskList.length"
+        v-if="driver.allowed() && !readError && !taskLoading && !taskList.length"
         :image-size="92"
         description="当前没有分配给你的上架任务"
       />
@@ -237,11 +253,11 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { RdPackageUnitApi } from '@/api/rd/stock/package'
 import { extractPackageCode } from '@/utils/rdDigitalLink'
+import { useDriverTasks } from '../driver/useDriverTasks'
 import { useAppStore } from '@/store/modules/app'
 import {
   RdPutawayTaskApi,
   type RdPutawayExceptionType,
-  type RdPutawayTaskDetailVO,
   type RdPutawayTaskLineVO,
   type RdPutawayTaskStatus,
   type RdPutawayTaskVO
@@ -266,13 +282,25 @@ const statusMap: Record<RdPutawayTaskStatus, { label: string; type: TagType }> =
   CANCELLED: { label: '已取消', type: 'info' }
 }
 
-const taskList = ref<RdPutawayTaskVO[]>([])
-const taskTotal = ref(0)
-const taskPageNo = ref(1)
-const taskLoading = ref(false)
-const taskLoadingMore = ref(false)
-const detailLoading = ref(false)
-const taskDetail = ref<RdPutawayTaskDetailVO>()
+const driver = useDriverTasks(
+  'rd:putaway-task:execute',
+  RdPutawayTaskApi.getMyPage,
+  RdPutawayTaskApi.getMy
+)
+const {
+  taskList,
+  taskTotal,
+  taskLoading,
+  taskLoadingMore,
+  detailLoading,
+  taskDetail,
+  readError,
+  loadTasks,
+  loadMore,
+  openTask,
+  refreshTaskDetail,
+  backToList
+} = driver
 const exceptionVisible = ref(false)
 const exceptionSubmitting = ref(false)
 const exceptionFormRef = ref<FormInstance>()
@@ -369,53 +397,6 @@ const dateTimeText = (value?: string) => {
   return date.toLocaleString('zh-CN', { hour12: false })
 }
 
-const loadTasks = async (reset: boolean) => {
-  if (reset) {
-    taskLoading.value = true
-    taskPageNo.value = 1
-  } else {
-    taskLoadingMore.value = true
-  }
-  try {
-    const result = await RdPutawayTaskApi.getMyPage({ pageNo: taskPageNo.value, pageSize: 20 })
-    taskList.value = reset ? result.list : [...taskList.value, ...result.list]
-    taskTotal.value = result.total
-  } finally {
-    taskLoading.value = false
-    taskLoadingMore.value = false
-  }
-}
-
-const loadMore = async () => {
-  taskPageNo.value += 1
-  await loadTasks(false)
-}
-
-const openTask = async (id: number) => {
-  detailLoading.value = true
-  taskDetail.value = undefined
-  try {
-    taskDetail.value = await RdPutawayTaskApi.getMy(id)
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-const refreshTaskDetail = async () => {
-  if (!taskDetail.value) return
-  detailLoading.value = true
-  try {
-    taskDetail.value = await RdPutawayTaskApi.getMy(taskDetail.value.task.id)
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-const backToList = async () => {
-  taskDetail.value = undefined
-  await loadTasks(true)
-}
-
 const getRouteString = (key: string) => {
   const value = route.query[key]
   return Array.isArray(value) ? value[0] || '' : String(value || '')
@@ -465,6 +446,7 @@ const packageStatusText = (line: RdPutawayTaskLineVO) => {
 watch(
   () => appStore.getMobile,
   (mobile) => {
+    if (route.path.startsWith('/pda/')) return
     if (mobile) {
       if (!collapsedForMobile.value) collapseBeforeMobile.value = appStore.getCollapse
       appStore.setCollapse(true)
@@ -480,6 +462,8 @@ watch(
 )
 
 const applyRouteContext = async () => {
+  if (!driver.allowed()) return
+  const routeContext = route.fullPath
   const code = extractPackageCode(getRouteString('packageCode'))
   const requestedId = Number(getRouteString('taskId'))
   if (!code && !requestedId) return
@@ -487,6 +471,7 @@ const applyRouteContext = async () => {
     Number.isSafeInteger(requestedId) && requestedId > 0
       ? null
       : await RdPackageUnitApi.getWorkContext(code)
+  if (!driver.allowed() || route.fullPath !== routeContext) return
   const id =
     Number.isSafeInteger(requestedId) && requestedId > 0
       ? requestedId
@@ -497,6 +482,7 @@ const applyRouteContext = async () => {
     return
   }
   await openTask(id)
+  if (!driver.allowed() || route.fullPath !== routeContext) return
   if (
     code &&
     !taskDetail.value?.lines.some((line) => line.packageCode.toUpperCase() === code.toUpperCase())
@@ -507,6 +493,7 @@ const applyRouteContext = async () => {
 }
 onMounted(async () => {
   await loadTasks(true)
+  if (!driver.allowed()) return
   await applyRouteContext()
 })
 watch(() => [route.query.packageCode, route.query.taskId], applyRouteContext)

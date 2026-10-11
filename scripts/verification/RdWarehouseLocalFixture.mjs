@@ -12,12 +12,27 @@ import {
 export { root, api, request, baseUrl } from "./RdQrLocalFixture.mjs";
 export const output = path.join(root, "temp/qr-warehouse-pda-verification");
 
-export const prepareWarehouse = async () => {
+export const prepareWarehouse = async ({
+  extraCount = 3,
+  lowerCount = 3,
+} = {}) => {
   const source = await prepareQuality();
   const { tokens, accounts, taskId, marker, createOutput, sql } = source;
   const upper = await createOutput(3, "warehouse-upper", "D4-A", "上层", 1000);
-  const extra = await createOutput(3, "warehouse-upper", "D4-A", "上层", 1000);
-  const lower = await createOutput(3, "warehouse-lower", "D4-B", "下层", 800);
+  const extra = await createOutput(
+    extraCount,
+    "warehouse-upper",
+    "D4-A",
+    "上层",
+    1000,
+  );
+  const lower = await createOutput(
+    lowerCount,
+    "warehouse-lower",
+    "D4-B",
+    "下层",
+    800,
+  );
   for (const record of [upper, extra, lower]) {
     const indices = record.bags.map((_, index) => index);
     const inspectionId = await api(

@@ -612,6 +612,9 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
 
         String packageCode = hasText(reqVO.getPackageCode())
                 ? normalizePackageCode(reqVO.getPackageCode()) : null;
+        if (hasText(reqVO.getPackageCode()) && !hasText(packageCode)) {
+            throw exception(PUTAWAY_SCAN_PACKAGE_MISMATCH);
+        }
         List<RdPutawayTaskLineDO> lines = taskLineMapper.selectListByTaskIdForUpdate(task.getId());
         RdPutawayTaskLineDO line = hasText(packageCode) ? lines.stream()
                 .filter(item -> Objects.equals(normalizeCode(item.getPackageCode()),
