@@ -2,7 +2,7 @@
 
 ## 1. 范围与边界
 
-验收日期：2026-10-11。源基线：`936ef7203e127162f4e034896f7871ab1b766931`。对应总计划 D3，补齐 E4 的质检岗位入口及 E5 的逐包实际检验归属，不关闭完整 E 阶段。
+验收日期：2026-10-11。源基线：`936ef7203e127162f4e034896f7871ab1b766931`。D3 主实现提交：`8cd2c4d`；其后增加账号/租户/页面生命周期边界修复及补测。对应总计划 D3，补齐 E4 的质检岗位入口及 E5 的逐包实际检验归属，不关闭完整 E 阶段。
 
 本轮环境为隔离的本地 MySQL 3310、Redis 6380、后端 48080、前端生产构建 9000。所有新建任务、客户、包件和检测项目均带“非现场数据/非现场测量”标记，使用本地验证账号；不修改原始文件或真实库存台账，不填造人员签字。
 
@@ -42,6 +42,10 @@ PDA 在首次请求前，将原请求编号、成员、样包和实测项目按�
 
 真实浏览器验证拦截的是服务端已经成功处理的 create-batch 响应，再断开连接；不是仅模拟前端成功。重试前数据库确实存在 DRAFT，重载重试后为 SUBMITTED，两次请求内容完全相同。
 
+身份边界补测先用实际前端源码复现两项失败：建单响应迟到时，切换账号后仍可能继续提交；复核确认框未结束时，切换账号后仍可能继续复核。修复后，页面捕获原登录人和有效租户，待核存储键不随新身份变化。每个后续提交、读取、复核及清除待核记录的节点，均重新校验身份和页面生命周期；切换账号/租户或离开页面时，不启动下一项业务请求，也不删除原账号待核记录。
+
+四组新增逻辑测试覆盖建单响应后的账号/租户/卸载变化、复核确认后的账号变化、提交响应后的租户变化、读取响应迟到时原记录不被删除。实际浏览器另验证：服务端已建 DRAFT 但响应被暂留时退出登录，释放响应后不自动提交；换管理员登录不能消费原账号待核记录；再用原质检账号登录，可恢复同一单并提交为 SUBMITTED。证据分别为 `temp/d3-quality-identity-before.log`、`temp/d3-quality-identity-after.log` 及本轮 PDA 结果；前者仅为已修复问题的复现记录。
+
 事务领域记录与检验单、成员和包状态同提交。原系统异步操作日志仅作辅助，不能替代必要领域审计。MySQL 故障注入实际覆盖：
 
 - 第二个成员转 QC_PENDING 失败：第一个成员、检验单、时间及版本全部回滚。
@@ -59,13 +63,14 @@ PDA 在首次请求前，将原请求编号、成员、样包和实测项目按�
 | --- | --- | --- |
 | 库存模块 Rd 测试及服务打包 | 234 项，231 通过、3 项原条件跳过，0 失败/错误 | `backend/rd-erp-inventory/target/surefire-reports/`、`temp/d3-quality-backend-package.log` |
 | 质检专项后端测试 | 五个 Quality 测试套件共 71 项通过，含事务代理和审计回滚 | QualityBatch/Controller/Mapper/ServiceImpl/Transaction XML |
-| 新质检前端逻辑 | 29 项通过，含范围/样包/待核重试及完整分页 | `draft.test.mjs`、`workflow.test.mjs` |
+| 新质检前端逻辑 | 33 项通过，含范围/样包/待核重试、完整分页及账号/租户/页面生命周期边界 | `draft.test.mjs`、`workflow.test.mjs`、`temp/d3-quality-identity-after.log` |
 | 岗位工作台前端回归 | 30 项通过，质检入口仅指向 PdaQuality | `workspace` 三个 test.mjs |
 | 原生产前端回归 | 29 项通过，产出/任务/炉层候选/标签/原请求保留 | `production/task` 三个 test.mjs |
+| 当前前端合并测试 | 以上质检 33、岗位 30、生产 29，共 92 项通过，0 失败/跳过 | `temp/d3-quality-frontend-final-tests.log` |
 | 类型、ESLint、Stylelint、Prettier、生产构建 | 通过；实际服务使用 dist-prod | 前端检查及 `pnpm build:prod` |
 | 新库/旧库升级/重复升级 | 三种情形均通过，未回填不存在的历史抽样或审计 | `temp/d3-quality-schema.log` |
 | 真实 API 批次与故障 | PASS；任务 18，主检验单 46，源四包/覆盖三包/抽样一包 | `temp/qr-quality-batch-verification/batch-result.json` |
-| 真实 PDA 浏览器 | PASS；任务 19，检验单 58，11 张截图、0 页面错误 | 同目录 `pda-result.json`、`temp/d3-quality-pda.log` |
+| 真实 PDA 浏览器 | PASS；任务 20，主检验单 61，12 张截图、0 页面错误；含实际退出/换号/原账号恢复 | 同目录 `pda-result.json`、`temp/d3-quality-pda.log` |
 | 七岗位/21 尺寸工作台 | PASS；质检首页跳转独立页面，未产生业务变更请求 | `temp/d3-quality-workspace-regression.log` |
 | 原 E4 同码七岗位 | PASS；目标单据、本人归属、查询前后库存一致 | `temp/d3-quality-e4-regression.log` |
 | 原 E5 完整业务链 | 全量重跑 PASS；产出 70，包 A0178-A0181，上架 10/装车 7/取消 8，30 条历史；原三类回滚重测 | `temp/d3-quality-e5-full-regression.log`、`temp/qr-e5-trace-verification/result.json` |
@@ -77,7 +82,7 @@ PDA 真实验证还覆盖：已通过包定位同来源唯一余包；非抽样�
 ## 6. 可复跑入口
 
 - `scripts/verification/Verify-RdQualityBatch.mjs`：真实数据、权限、成员关联、幂等、并发和数据库故障回滚。
-- `scripts/verification/Verify-RdQualityPda.mjs`：实际浏览器的批次选择、实测录入、掉响应重试、双人复核、追溯深链和小屏。
+- `scripts/verification/Verify-RdQualityPda.mjs`：实际浏览器的批次选择、实测录入、掉响应重试、双人复核、追溯深链、小屏及退出/换号/原账号恢复。仅读取特定业务待核存储键，不提取登录令牌或 Cookie。
 - `scripts/verification/Verify-RdPdaWorkspace.mjs`：七岗位、21 尺寸、质检专用入口、刷新及登录往返。
 - `scripts/verification/Verify-RdPutawaySchema.ps1 -Port 3310`：独立临时库的新建、升级及重复升级，含新质检结构检查。
 - `scripts/verification/Verify-RdQrRoleEntry.mjs`：原七岗位二维码入口回归。

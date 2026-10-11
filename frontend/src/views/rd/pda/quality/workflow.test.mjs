@@ -44,6 +44,8 @@ const setup = (overrides = {}, grants = ['*:*:*']) => {
   const calls = []
   const data = new Map()
   const mounts = []
+  const unmounts = []
+  const identity = vue.reactive({ userId: 5, tenantId: 1, visitTenantId: undefined })
   const storage = {
     getItem: (key) => data.get(key) ?? null,
     setItem: (key, value) => data.set(key, value),
@@ -87,7 +89,11 @@ const setup = (overrides = {}, grants = ['*:*:*']) => {
   const module = evaluate(
     readFileSync(new URL('./useQualityWork.ts', import.meta.url), 'utf8'),
     {
-      vue: { ...vue, onMounted: (fn) => mounts.push(fn), onBeforeUnmount: () => {} },
+      vue: {
+        ...vue,
+        onMounted: (fn) => mounts.push(fn),
+        onBeforeUnmount: (fn) => unmounts.push(fn)
+      },
       'vue-router': { useRoute: () => ({ query: {} }) },
       'element-plus': {
         ElMessageBox: { confirm: async () => true, prompt: async () => ({ value: '  不合格  ' }) }
@@ -96,8 +102,19 @@ const setup = (overrides = {}, grants = ['*:*:*']) => {
         hasPermission: (permissions) =>
           grants.includes('*:*:*') || permissions.some((permission) => grants.includes(permission))
       },
-      '@/store/modules/user': { useUserStore: () => ({ getUser: { id: 5 } }) },
-      '@/utils/auth': { getTenantId: () => 1, getVisitTenantId: () => undefined },
+      '@/store/modules/user': {
+        useUserStore: () => ({
+          getUser: {
+            get id() {
+              return identity.userId
+            }
+          }
+        })
+      },
+      '@/utils/auth': {
+        getTenantId: () => identity.tenantId,
+        getVisitTenantId: () => identity.visitTenantId
+      },
       '@/utils': { generateUUID: () => 'REQ-1' },
       '@/utils/rdDigitalLink': {
         extractPackageCode: (value) => value.trim().split('/pkg/').at(-1)
@@ -115,7 +132,17 @@ const setup = (overrides = {}, grants = ['*:*:*']) => {
     work.items.value[0].itemName = '碳化硅'
     work.items.value[0].measuredValue = 98
   }
-  return { work, calls, data, api, storage, mount: () => mounts.forEach((fn) => fn()), fill }
+  return {
+    work,
+    calls,
+    data,
+    api,
+    storage,
+    identity,
+    mount: () => mounts.forEach((fn) => fn()),
+    unmount: () => unmounts.forEach((fn) => fn()),
+    fill
+  }
 }
 test('scan only locates source and selects the actual representative, never all source packages', async () => {
   const { work, calls, fill } = setup()
@@ -370,4 +397,104 @@ test('failed or inconsistent batch pagination cannot replace the selected covera
     assert.ok(work.actionError.value)
     assert.equal(work.locked.value, false)
   }
+})
+
+test('acknowledged creation cannot submit under a changed user, tenant, or unmounted page', async () => {
+  for (const change of ['user', 'tenant', 'unmount']) {
+    let resolveCreate
+    const { work, calls, identity, data, unmount, fill } = setup({
+      createBatch: () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve
+        })
+    })
+    await fill()
+    const saving = work.save()
+    assert.equal(typeof resolveCreate, 'function')
+    if (change === 'user') identity.userId = 9
+    if (change === 'tenant') identity.visitTenantId = 2
+    if (change === 'unmount') unmount()
+    resolveCreate(9)
+    await saving
+    assert.equal(
+      calls.some(([name]) => name === 'submit'),
+      false,
+      change
+    )
+    assert.equal(work.pending.value.inspectionId, 9)
+    assert.deepEqual([...data.keys()], ['rd-quality-pending:1:5'])
+  }
+})
+
+test('review confirmation cannot authorize a request for a newly logged-in operator', async () => {
+  const { work, calls, identity } = setup({
+    get: async () => ({
+      id: 9,
+      inspectionNo: 'QC-TEST',
+      status: 'SUBMITTED',
+      submitterId: 7,
+      items: [{ qualified: true }]
+    })
+  })
+  await work.openInspection(9)
+  const reviewing = work.act('approve')
+  identity.userId = 9
+  await reviewing
+  assert.equal(
+    calls.some(([name]) => name === 'approve'),
+    false
+  )
+})
+
+test('submitted response under an old tenant cannot initiate a follow-up read in the new tenant', async () => {
+  let releaseSubmit, signalSubmit
+  const started = new Promise((resolve) => {
+    signalSubmit = resolve
+  })
+  let reads = 0
+  const { work, identity, data, fill } = setup({
+    submit: () => {
+      signalSubmit()
+      return new Promise((resolve) => {
+        releaseSubmit = resolve
+      })
+    },
+    get: async () => {
+      reads++
+      return { id: 9, clientRequestId: 'REQ-1', status: 'SUBMITTED' }
+    }
+  })
+  await fill()
+  const saving = work.save()
+  await started
+  identity.tenantId = 2
+  releaseSubmit(true)
+  await saving
+  assert.equal(reads, 0)
+  assert.equal(work.pending.value.inspectionId, 9)
+  assert.deepEqual([...data.keys()], ['rd-quality-pending:1:5'])
+})
+
+test('late verification cannot clear the original owner snapshot after an identity change', async () => {
+  let releaseGet, signalGet
+  const started = new Promise((resolve) => {
+    signalGet = resolve
+  })
+  const { work, identity, data, fill } = setup({
+    get: () => {
+      signalGet()
+      return new Promise((resolve) => {
+        releaseGet = resolve
+      })
+    }
+  })
+  await fill()
+  const saving = work.save()
+  await started
+  identity.userId = 9
+  releaseGet({ id: 9, clientRequestId: 'REQ-1', status: 'SUBMITTED' })
+  await saving
+  assert.equal(work.pending.value.userId, 5)
+  assert.equal(work.pending.value.inspectionId, 9)
+  assert.deepEqual([...data.keys()], ['rd-quality-pending:1:5'])
 })

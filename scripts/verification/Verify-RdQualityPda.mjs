@@ -15,6 +15,7 @@ const { tokens, accounts, taskId, createOutput } = await prepareQuality();
 const source = await createOutput(4, "pda");
 const pagesSource = await createOutput(21, "pagination");
 const rejectedSource = await createOutput(2, "stale-scope");
+const identitySource = await createOutput(1, "identity-boundary");
 const require = createRequire(
   path.join(process.env.RD_BROWSER_MODULES || root, "package.json"),
 );
@@ -27,6 +28,18 @@ const pageErrors = [];
 const businessCalls = [];
 const captures = [];
 const screens = [];
+const loginHere = async (page, account) => {
+  await page.getByPlaceholder("账号", { exact: true }).fill(account.username);
+  await page.getByPlaceholder("密码", { exact: true }).fill(account.password);
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await page.waitForURL((url) => url.pathname === "/pda/quality");
+  await page.getByRole("heading", { name: "质量检验", exact: true }).waitFor();
+};
+const logoutHere = async (page) => {
+  await page.getByRole("button", { name: "退出登录", exact: true }).click();
+  await page.getByRole("button", { name: "退出", exact: true }).last().click();
+  await page.waitForURL((url) => url.pathname === "/login");
+};
 const signIn = async (account, suffix = "") => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 900 },
@@ -43,11 +56,7 @@ const signIn = async (account, suffix = "") => {
   await page.goto(`${baseUrl}/pda/quality${suffix}`, {
     waitUntil: "networkidle",
   });
-  await page.getByPlaceholder("账号", { exact: true }).fill(account.username);
-  await page.getByPlaceholder("密码", { exact: true }).fill(account.password);
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.waitForURL((url) => url.pathname === "/pda/quality");
-  await page.getByRole("heading", { name: "质量检验", exact: true }).waitFor();
+  await loginHere(page, account);
   assert.equal(await page.locator(".v-layout").count(), 0);
   return { context, page };
 };
@@ -375,6 +384,91 @@ try {
     assert.equal(businessCalls.length, start);
     await denied.context.close();
   }
+  const boundary = await signIn(accounts.quality);
+  await scan(boundary.page, identitySource.bags[0].packageCode);
+  await fill(boundary.page);
+  let releaseResponse, signalCreated;
+  const creationReady = new Promise((resolve) => {
+    signalCreated = resolve;
+  });
+  await boundary.page.route(
+    "**/admin-api/rd/quality-inspection/create-batch",
+    async (route) => {
+      const response = await route.fetch();
+      const result = await response.json();
+      assert.equal(result.code, 0, result.msg);
+      const release = new Promise((resolve) => {
+        releaseResponse = resolve;
+      });
+      signalCreated(result.data);
+      await release;
+      await route.fulfill({ response });
+    },
+  );
+  const boundaryStart = businessCalls.length;
+  await boundary.page
+    .getByRole("button", { name: "保存并提交", exact: true })
+    .click();
+  const boundaryId = await creationReady;
+  const draft = await api(
+    `/rd/quality-inspection/get?id=${boundaryId}`,
+    tokens.quality,
+  );
+  assert.equal(draft.status, "DRAFT");
+  const ownerKey = `rd-quality-pending:1:${draft.registrarId}`;
+  await logoutHere(boundary.page);
+  releaseResponse();
+  await boundary.page.waitForFunction(
+    ({ key, id }) => {
+      const raw = localStorage.getItem(key);
+      return raw && JSON.parse(raw).inspectionId === id;
+    },
+    { key: ownerKey, id: boundaryId },
+  );
+  await boundary.page.waitForLoadState("networkidle");
+  assert.equal(
+    businessCalls
+      .slice(boundaryStart)
+      .some((call) => call.path.endsWith("/quality-inspection/submit")),
+    false,
+  );
+  assert.equal(
+    (await api(`/rd/quality-inspection/get?id=${boundaryId}`, tokens.quality))
+      .status,
+    "DRAFT",
+  );
+  await boundary.page.unroute(
+    "**/admin-api/rd/quality-inspection/create-batch",
+  );
+  await loginHere(boundary.page, accounts.admin);
+  assert.equal(
+    await boundary.page
+      .getByRole("button", { name: "重试原提交", exact: true })
+      .count(),
+    0,
+  );
+  await logoutHere(boundary.page);
+  await loginHere(boundary.page, accounts.quality);
+  await boundary.page
+    .getByRole("button", { name: "重试原提交", exact: true })
+    .click();
+  await boundary.page
+    .locator(".inspection-detail")
+    .getByText("待复核", { exact: true })
+    .first()
+    .waitFor();
+  assert.equal(
+    (await api(`/rd/quality-inspection/get?id=${boundaryId}`, tokens.quality))
+      .status,
+    "SUBMITTED",
+  );
+  await screen(boundary.page, "quality-original-owner-recovered-390");
+  await boundary.context.close();
+  await api(
+    `/rd/quality-inspection/approve?id=${boundaryId}`,
+    tokens.admin,
+    "POST",
+  );
   const result = {
     result: "PASS",
     taskId,
@@ -388,6 +482,9 @@ try {
     processedLocatorCanInspectOnlyRemainingEligibleBags: true,
     transactionAuditVisible: true,
     coveredNonSampleBagHasExactPdaTraceEntry: true,
+    logoutDuringAcknowledgementDoesNotSubmit: true,
+    anotherLoginCannotConsumeOwnerSnapshot: true,
+    originalOwnerCanResumeAcknowledgedDraft: true,
     actualLostResponseAndReloadRetry: true,
     sameRequestTwice: true,
     selfReviewHidden: true,

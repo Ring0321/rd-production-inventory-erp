@@ -24,7 +24,17 @@ import {
 export const useQualityWork = () => {
   const route = useRoute()
   const user = useUserStore()
+  const ownerId = user.getUser.id
   const tenant = String(getVisitTenantId() ?? getTenantId() ?? '')
+  let alive = true
+  const ownsContext = () =>
+    alive &&
+    user.getUser.id === ownerId &&
+    String(getVisitTenantId() ?? getTenantId() ?? '') === tenant
+  const requireContext = () => {
+    if (!ownsContext())
+      throw new Error('登录身份或页面已变化，原请求保留，请用原账号和租户重新核定')
+  }
   const canQuery = computed(() => hasPermission(['rd:quality-inspection:query']))
   const canCreate = computed(() => hasPermission(['rd:quality-inspection:create']))
   const canSubmit = computed(() => hasPermission(['rd:quality-inspection:submit']))
@@ -58,12 +68,16 @@ export const useQualityWork = () => {
       .filter((row): row is RdQualityScopePackageVO => !!row)
   )
   const locked = computed(
-    () => writing.value || selectingBatch.value || !!pending.value || !!storageError.value
+    () =>
+      !ownsContext() ||
+      writing.value ||
+      selectingBatch.value ||
+      !!pending.value ||
+      !!storageError.value
   )
   let revision = 0
   let detailRevision = 0
   let listRevision = 0
-  let alive = true
 
   const detail = shallowRef<RdQualityInspectionVO>()
   const detailLoading = ref(false)
@@ -78,7 +92,7 @@ export const useQualityWork = () => {
     itemCode: '',
     itemName: ''
   })
-  const key = () => pendingKey(user.getUser.id, tenant)
+  const key = () => pendingKey(ownerId, tenant)
   const persist = () => {
     if (!pending.value) return
     try {
@@ -91,7 +105,7 @@ export const useQualityWork = () => {
   }
 
   const loadScope = async (pageNo = 1, reset = true) => {
-    if (!canQuery.value || locked.value) return
+    if (!ownsContext() || !canQuery.value || locked.value) return
     const code = extractPackageCode(
       reset ? input.value : scope.value?.representative.packageCode || ''
     )
@@ -112,7 +126,7 @@ export const useQualityWork = () => {
     }
     try {
       const value = await api.scope({ packageCode: code, pageNo, pageSize: 20 })
-      if (!alive || request !== revision || pending.value) return
+      if (!ownsContext() || request !== revision || pending.value) return
       scope.value = value
       scopePage.value = pageNo
       for (const bag of value.packages.list) known.value.set(bag.id, bag)
@@ -130,7 +144,8 @@ export const useQualityWork = () => {
     }
   }
   const selectEligibleBatch = async () => {
-    if (!scope.value || locked.value || scopeLoading.value || !canCreate.value) return
+    if (!ownsContext() || !scope.value || locked.value || scopeLoading.value || !canCreate.value)
+      return
     const code = scope.value.representative.packageCode
     const outputId = scope.value.productionOutputId
     const request = ++revision
@@ -141,7 +156,7 @@ export const useQualityWork = () => {
       let total: number | undefined
       for (let pageNo = 1; ; pageNo++) {
         const value = await api.scope({ packageCode: code, pageNo, pageSize: 100 })
-        if (!alive || request !== revision) return
+        if (!ownsContext() || request !== revision) return
         if (
           value.representative.packageCode !== code ||
           value.productionOutputId !== outputId ||
@@ -205,7 +220,7 @@ export const useQualityWork = () => {
   }
 
   const loadList = async (pageNo = query.pageNo) => {
-    if (!canQuery.value) return
+    if (!ownsContext() || !canQuery.value) return
     const request = ++listRevision
     query.pageNo = pageNo
     listLoading.value = true
@@ -218,7 +233,7 @@ export const useQualityWork = () => {
         status: query.status || undefined,
         inspectionNo: query.inspectionNo.trim() || undefined
       })
-      if (alive && request === listRevision) {
+      if (ownsContext() && request === listRevision) {
         rows.value = value.list
         total.value = value.total
       }
@@ -229,7 +244,7 @@ export const useQualityWork = () => {
     }
   }
   const openInspection = async (id: number) => {
-    if (!canQuery.value || writing.value) return
+    if (!ownsContext() || !canQuery.value || writing.value) return
     const request = ++detailRevision
     active.value = 'records'
     detail.value = undefined
@@ -237,7 +252,7 @@ export const useQualityWork = () => {
     detailError.value = ''
     try {
       const value = await api.get(id)
-      if (alive && request === detailRevision) detail.value = value
+      if (ownsContext() && request === detailRevision) detail.value = value
     } catch {
       if (alive && request === detailRevision) detailError.value = '检验详情读取失败'
     } finally {
@@ -246,6 +261,7 @@ export const useQualityWork = () => {
   }
   const save = async () => {
     if (
+      !ownsContext() ||
       writing.value ||
       selectingBatch.value ||
       scopeLoading.value ||
@@ -278,7 +294,7 @@ export const useQualityWork = () => {
             remark: remark.value,
             clientRequestId: generateUUID()
           },
-          user.getUser.id,
+          ownerId,
           tenant
         )
       }
@@ -287,8 +303,11 @@ export const useQualityWork = () => {
       if (!Number.isSafeInteger(id) || id <= 0) throw new Error('服务端未返回有效检验单编号')
       pending.value.inspectionId = id
       persist()
+      requireContext()
       await api.submit(id)
+      requireContext()
       const verified = await api.get(id)
+      requireContext()
       if (
         verified.clientRequestId !== pending.value.request.clientRequestId ||
         !['SUBMITTED', 'RESUBMITTED', 'PASSED', 'REJECTED'].includes(verified.status)
@@ -319,13 +338,18 @@ export const useQualityWork = () => {
   }
   const canReview = computed(
     () =>
+      ownsContext() &&
       !!detail.value &&
       canApprove.value &&
       ['SUBMITTED', 'RESUBMITTED'].includes(detail.value.status) &&
       detail.value.submitterId !== user.getUser.id
   )
   const canSubmitDetail = computed(
-    () => !!detail.value && canSubmit.value && ['DRAFT', 'CORRECTED'].includes(detail.value.status)
+    () =>
+      ownsContext() &&
+      !!detail.value &&
+      canSubmit.value &&
+      ['DRAFT', 'CORRECTED'].includes(detail.value.status)
   )
   const qualified = computed(
     () =>
@@ -335,6 +359,7 @@ export const useQualityWork = () => {
     const current = detail.value
     if (
       !current ||
+      !ownsContext() ||
       writing.value ||
       pending.value ||
       (action === 'submit' ? !canSubmitDetail.value : !canReview.value)
@@ -347,6 +372,8 @@ export const useQualityWork = () => {
         const result = await ElMessageBox.prompt('不通过原因', '质检复核', {
           inputValidator: (value) => !!value?.trim() || '原因不能为空'
         })
+        requireContext()
+        if (!canReview.value) throw new Error('当前已不能复核，请重新读取检验单')
         await api.reject({ id: current.id, reason: result.value.trim() })
       } else {
         if (action === 'approve' && !qualified.value) throw new Error('有检测项未合格，不能通过')
@@ -354,9 +381,15 @@ export const useQualityWork = () => {
           `${action === 'approve' ? '确认通过' : '确认提交'} ${current.inspectionNo}？`,
           '质检确认'
         )
+        requireContext()
+        if (action === 'submit' ? !canSubmitDetail.value : !canReview.value)
+          throw new Error('当前操作权限或检验状态已变化，请重新读取')
         await api[action](current.id)
       }
-      detail.value = await api.get(current.id)
+      requireContext()
+      const verified = await api.get(current.id)
+      requireContext()
+      detail.value = verified
       await loadList()
     } catch (error) {
       if (error !== 'cancel' && error !== 'close')
@@ -367,10 +400,10 @@ export const useQualityWork = () => {
     }
   }
   onMounted(() => {
-    if (!canQuery.value) return
+    if (!ownsContext() || !canQuery.value) return
     try {
       const raw = localStorage.getItem(key())
-      if (raw) pending.value = parsePending(raw, user.getUser.id, tenant)
+      if (raw) pending.value = parsePending(raw, ownerId, tenant)
     } catch {
       storageError.value = '待核请求读取失败，暂不能新建检验单'
     }
