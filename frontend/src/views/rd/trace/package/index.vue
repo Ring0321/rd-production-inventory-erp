@@ -10,6 +10,15 @@
           </div>
         </div>
         <div class="header-actions">
+          <el-tooltip v-if="hasAccessToken" content="PDA 工作台" placement="bottom">
+            <el-button
+              circle
+              aria-label="PDA 工作台"
+              @click="router.push({ name: 'PdaWorkspace' })"
+            >
+              <Icon icon="lucide:smartphone" />
+            </el-button>
+          </el-tooltip>
           <el-tooltip content="刷新货物信息" placement="bottom">
             <el-button circle :loading="loading" aria-label="刷新货物信息" @click="loadTrace">
               <Icon icon="lucide:refresh-cw" />
@@ -357,6 +366,7 @@ type TraceAction = {
 
 const route = useRoute()
 const router = useRouter()
+const pdaMode = computed(() => route.query.workMode === 'pda')
 const loading = ref(false)
 const batchLoading = ref(false)
 const trace = ref<RdPackageTraceVO | null>(null)
@@ -594,7 +604,10 @@ const buildTraceActions = () => {
       description: '查看原生产任务及其产出记录',
       icon: 'lucide:clipboard-list',
       type: '',
-      routeName: 'RdProductionTask',
+      routeName:
+        pdaMode.value && canDo(['rd:production-output:create'])
+          ? 'PdaProduction'
+          : 'RdProductionTask',
       query: { productionTaskId: trace.value.productionTaskId }
     })
     addAction(['rd:label-print:print'], {
@@ -627,7 +640,7 @@ const buildTraceActions = () => {
           label: '查看本人装车任务',
           description: '查看本次派单的货位和货物资料。',
           icon: 'lucide:truck',
-          routeName: 'RdDriverLoading',
+          routeName: pdaMode.value ? 'PdaDriverLoading' : 'RdDriverLoading',
           query: taskQuery,
           type: 'primary',
           primary: true
@@ -649,7 +662,7 @@ const buildTraceActions = () => {
           label: '查看本人上架任务',
           description: '查看本次派单的目标库位和货物资料。',
           icon: 'lucide:forklift',
-          routeName: 'RdDriverPutaway',
+          routeName: pdaMode.value ? 'PdaDriverPutaway' : 'RdDriverPutaway',
           query: taskQuery
         })
     }

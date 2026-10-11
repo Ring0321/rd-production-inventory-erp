@@ -96,6 +96,38 @@ const remainingRouter: AppRouteRecordRaw[] = [
     meta: { hidden: true, title: '货物数字身份', noTagsView: true }
   },
   {
+    path: '/pda',
+    component: () => import('@/views/rd/pda/workspace/layout.vue'),
+    name: 'PdaRoot',
+    meta: { hidden: true, title: '现场工作台', noTagsView: true },
+    children: [
+      {
+        path: '',
+        name: 'PdaWorkspace',
+        component: () => import('@/views/rd/pda/workspace/index.vue'),
+        meta: { title: '现场工作台', noTagsView: true }
+      },
+      {
+        path: 'production',
+        name: 'PdaProduction',
+        component: () => import('@/views/rd/pda/production/index.vue'),
+        meta: { title: '生产录入', noTagsView: true }
+      },
+      {
+        path: 'driver-putaway',
+        name: 'PdaDriverPutaway',
+        component: () => import('@/views/rd/pda/putaway/index.vue'),
+        meta: { title: '本人上架任务', noTagsView: true }
+      },
+      {
+        path: 'driver-loading',
+        name: 'PdaDriverLoading',
+        component: () => import('@/views/rd/pda/loading/index.vue'),
+        meta: { title: '本人装车任务', noTagsView: true }
+      }
+    ]
+  },
+  {
     path: '/403',
     component: () => import('@/views/Error/403.vue'),
     name: 'NoAccess',

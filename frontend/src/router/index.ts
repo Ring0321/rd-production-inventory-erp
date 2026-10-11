@@ -36,7 +36,12 @@ export const resetRouter = (): void => {
     'Login',
     'PackageTrace',
     'NoFound',
-    'Home'
+    'Home',
+    'PdaRoot',
+    'PdaWorkspace',
+    'PdaProduction',
+    'PdaDriverPutaway',
+    'PdaDriverLoading'
   ]
   router.getRoutes().forEach((route) => {
     const { name } = route

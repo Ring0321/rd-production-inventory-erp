@@ -2136,6 +2136,12 @@ UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
 UNION ALL SELECT 600008,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600284,600285);
 
 -- Preserve sub-second event ordering for new trace records. Existing times are not reconstructed.
+INSERT INTO `system_menu`
+(`id`,`name`,`permission`,`type`,`sort`,`parent_id`,`path`,`icon`,`component`,`component_name`,`status`,`visible`,`keep_alive`,`always_show`,`creator`,`create_time`,`updater`,`update_time`,`deleted`) VALUES
+(600118,'现场 PDA','',2,2,600000,'pda','lucide:smartphone','rd/pda/entry/index','RdPdaEntry',0,b'1',b'0',b'1','system',NOW(),'system',NOW(),b'0')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`deleted`=b'0';
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT id,600118,'system',NOW(),'system',NOW(),b'0',1 FROM system_role WHERE id BETWEEN 600001 AND 600008;
 DROP TABLE IF EXISTS `rd_production_task`;
 CREATE TABLE `rd_production_task` (
   `id` bigint NOT NULL AUTO_INCREMENT,

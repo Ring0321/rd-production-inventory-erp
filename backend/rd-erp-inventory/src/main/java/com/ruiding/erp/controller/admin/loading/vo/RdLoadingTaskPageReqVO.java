@@ -11,5 +11,6 @@ public class RdLoadingTaskPageReqVO extends PageParam {
     private String pickupSlipNo;
     private String customerName;
     private String status;
+    private Boolean activeOnly;
     private Long forkliftDriverId;
 }

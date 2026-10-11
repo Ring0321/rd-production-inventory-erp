@@ -1055,5 +1055,11 @@ UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
 UNION ALL SELECT 600005,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id=600110;
 
 COMMIT;
+INSERT INTO `system_menu`
+(`id`,`name`,`permission`,`type`,`sort`,`parent_id`,`path`,`icon`,`component`,`component_name`,`status`,`visible`,`keep_alive`,`always_show`,`creator`,`create_time`,`updater`,`update_time`,`deleted`) VALUES
+(600118,'现场 PDA','',2,2,600000,'pda','lucide:smartphone','rd/pda/entry/index','RdPdaEntry',0,b'1',b'0',b'1','system',NOW(),'system',NOW(),b'0')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`deleted`=b'0';
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT id,600118,'system',NOW(),'system',NOW(),b'0',1 FROM system_role WHERE id BETWEEN 600001 AND 600008;
 DROP TEMPORARY TABLE IF EXISTS `rd_keep_menu_id`;
 SET SQL_SAFE_UPDATES = 1;

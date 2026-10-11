@@ -768,6 +768,9 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
                 .likeIfPresent(RdLoadingTaskDO::getPickupSlipNo, req.getPickupSlipNo())
                 .likeIfPresent(RdLoadingTaskDO::getCustomerName, req.getCustomerName())
                 .eqIfPresent(RdLoadingTaskDO::getStatus, req.getStatus());
+        if (Boolean.TRUE.equals(req.getActiveOnly())) {
+            query.in(RdLoadingTaskDO::getStatus, "ASSIGNED", "LOADING", "PENDING_REVIEW", "EXCEPTION_PENDING");
+        }
         query.orderByDesc(RdLoadingTaskDO::getId);
         if (driverId != null) {
             query.eq(RdLoadingTaskDO::getForkliftDriverId, driverId);

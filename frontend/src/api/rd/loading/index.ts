@@ -235,7 +235,7 @@ export const RdLoadingApi = {
       url: '/rd/loading-task/get',
       params: { id }
     }),
-  getMyTaskPage: (params: PageParam) =>
+  getMyTaskPage: (params: PageParam & { activeOnly?: boolean }) =>
     request.get<PageResult<LoadingTask[]>>({ url: '/rd/loading-task/my-page', params }),
   getMyTask: (id: number) =>
     request.get<LoadingTaskDetail>({
