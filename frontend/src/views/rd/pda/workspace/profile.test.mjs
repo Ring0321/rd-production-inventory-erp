@@ -92,7 +92,9 @@ test('missing routes and grants hide entries without granting new capabilities',
   )
   assert.ok(!entries.some((item) => item.routeName === 'PdaProduction'))
   const warehouse = profile.getProfileEntries('warehouse', permissions('*:*:*'), allRoutes)
-  assert.ok(warehouse.some((item) => item.routeName === 'RdPutawayWorkbench'))
+  assert.ok(
+    warehouse.some((item) => item.routeName === 'PdaWarehouse' && item.query?.section === 'putaway')
+  )
   assert.ok(!warehouse.some((item) => item.routeName === 'RdPutawayWorkstation'))
 })
 
@@ -105,6 +107,30 @@ test('quality role uses only the independent PDA quality entry with existing que
   )
   assert.equal(
     profile.getProfileEntries('quality', permissions('rd:package-unit:query'), allRoutes).length,
+    0
+  )
+})
+
+test('warehouse physical workflows use the dedicated route and exact section without extra grants', () => {
+  const entries = profile.getProfileEntries(
+    'warehouse',
+    permissions('rd:putaway-task:query', 'rd:loading-task:query'),
+    allRoutes
+  )
+  assert.deepEqual(
+    Array.from(entries, (item) => [item.id, item.routeName, item.kind, item.query?.section]),
+    [
+      ['putaway', 'PdaWarehouse', 'pda', 'putaway'],
+      ['loading', 'PdaWarehouse', 'pda', 'loading'],
+      ['location', 'PdaWarehouse', 'pda', 'locations']
+    ]
+  )
+  assert.equal(
+    profile.getProfileEntries(
+      'warehouse',
+      permissions('rd:putaway-task:query'),
+      (name) => name !== 'PdaWarehouse'
+    ).length,
     0
   )
 })

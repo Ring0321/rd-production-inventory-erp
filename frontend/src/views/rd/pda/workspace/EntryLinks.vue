@@ -29,6 +29,7 @@ const icons: Record<string, Component> = {
   loading: Van,
   quality: CircleCheck,
   location: Location,
+  'location-master': Location,
   inbound: Download,
   outbound: Upload,
   slip: Document,
@@ -49,7 +50,7 @@ const kinds = { pda: 'PDA', web: 'Web', query: '查询' }
     <h2>业务入口</h2>
     <ul>
       <li v-for="entry in entries" :key="entry.id">
-        <RouterLink :to="{ name: entry.routeName }" class="entry-link">
+        <RouterLink :to="{ name: entry.routeName, query: entry.query }" class="entry-link">
           <component :is="icons[entry.id] || Document" class="entry-icon" aria-hidden="true" />
           <span class="entry-label">{{ entry.label }}</span>
           <span class="entry-kind">{{ kinds[entry.kind] }}</span>

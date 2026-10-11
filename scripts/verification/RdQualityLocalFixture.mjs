@@ -27,6 +27,7 @@ export const prepareQuality = async () => {
     name,
     model = "QR-QC-A",
     layer = "上层",
+    weight = 1000,
   ) => {
     const id = await api(
       "/rd/production-output/create",
@@ -41,7 +42,7 @@ export const prepareQuality = async () => {
         furnaceNo: `QC-${taskId}-${name}`,
         furnaceLayer: layer,
         outputQty: count,
-        packageWeight: 1000,
+        packageWeight: weight,
         sourceSheet: marker,
         remark: marker,
       },

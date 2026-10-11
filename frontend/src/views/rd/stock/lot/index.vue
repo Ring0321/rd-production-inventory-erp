@@ -84,6 +84,12 @@
   </ContentWrap>
 
   <ContentWrap>
+    <el-alert
+      v-if="stockSync.error.value"
+      :title="stockSync.error.value"
+      type="warning"
+      :closable="false"
+    />
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
       <el-table-column label="货位" align="center" prop="locationCode" width="100" />
       <el-table-column label="客户" align="center" prop="customerName" min-width="150" />
@@ -146,6 +152,8 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { hasPermission } from '@/directives/permission/hasPermi'
+import { useStockRefresh } from '../useStockRefresh'
 import download from '@/utils/download'
 import { useMessage } from '@/hooks/web/useMessage'
 import { RdStockLotApi } from '@/api/rd/stock/lot'
@@ -174,7 +182,11 @@ const queryParams = reactive({
   furnaceLayer: undefined as string | undefined,
   status: undefined as string | undefined
 })
-const statusOptions: Array<{ label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }> = [
+const statusOptions: Array<{
+  label: string
+  value: string
+  type: 'success' | 'warning' | 'info' | 'danger'
+}> = [
   { label: '可用', value: 'AVAILABLE', type: 'success' },
   { label: '锁定', value: 'LOCKED', type: 'warning' },
   { label: '已空', value: 'EMPTY', type: 'info' },
@@ -182,19 +194,38 @@ const statusOptions: Array<{ label: string; value: string; type: 'success' | 'wa
 ]
 const statusMap = statusOptions.reduce(
   (map, item) => ({ ...map, [item.value]: item }),
-  {} as Record<string, { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }>
+  {} as Record<
+    string,
+    { label: string; value: string; type: 'success' | 'warning' | 'info' | 'danger' }
+  >
 )
 
-const getList = async () => {
-  loading.value = true
+let listRevision = 0
+let submittedFilter = JSON.stringify(queryParams)
+const fetchList = async (canApply = () => stockSync.current(), quiet = false) => {
+  const request = ++listRevision
+  const filter = JSON.stringify(queryParams)
+  if (!quiet) {
+    submittedFilter = filter
+    loading.value = true
+  }
   try {
-    const data = await RdStockLotApi.getPage(queryParams)
+    const data = await RdStockLotApi.getPage({ ...queryParams })
+    if (!canApply() || request !== listRevision || filter !== JSON.stringify(queryParams))
+      return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (request === listRevision) loading.value = false
   }
 }
+const getList = () => fetchList()
+const stockSync = useStockRefresh(
+  () => hasPermission(['rd:stock-lot:query']),
+  (canApply) => fetchList(canApply, true),
+  () => !loading.value && submittedFilter === JSON.stringify(queryParams)
+)
 
 const handleQuery = () => {
   queryParams.pageNo = 1

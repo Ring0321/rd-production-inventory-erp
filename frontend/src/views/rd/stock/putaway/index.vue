@@ -9,6 +9,12 @@
         <Icon icon="ep:refresh" class="mr-5px" />刷新
       </el-button>
     </div>
+    <el-alert
+      v-if="locationSync.error.value"
+      :title="locationSync.error.value"
+      type="warning"
+      :closable="false"
+    />
     <el-tabs v-model="activeTab">
       <el-tab-pane label="库位与派单" name="dispatch" />
       <el-tab-pane label="上架任务" name="task" />
@@ -609,6 +615,7 @@
 </template>
 
 <script setup lang="ts">
+import { useStockRefresh } from '../useStockRefresh'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { hasPermission } from '@/directives/permission/hasPermi'
@@ -875,14 +882,24 @@ const confirmLocationOptions = computed(() =>
 const detailVisible = ref(false)
 const taskDetail = ref<RdPutawayTaskDetailVO>()
 
-const getLocations = async () => {
+let locationRevision = 0
+const getLocations = async (canApply = () => locationSync.current()) => {
+  const request = ++locationRevision
   locationLoading.value = true
   try {
-    allLocations.value = await RdPutawayTaskApi.getLocationMap()
+    const data = await RdPutawayTaskApi.getLocationMap()
+    if (!canApply() || request !== locationRevision) return false
+    allLocations.value = data
+    return true
   } finally {
-    locationLoading.value = false
+    if (request === locationRevision) locationLoading.value = false
   }
 }
+const locationSync = useStockRefresh(
+  () => hasPermission(['rd:putaway-task:query']),
+  (canApply) => getLocations(canApply),
+  () => !locationLoading.value && !refreshing.value
+)
 
 const getPendingPackages = async () => {
   pendingLoading.value = true

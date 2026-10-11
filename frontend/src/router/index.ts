@@ -41,6 +41,7 @@ export const resetRouter = (): void => {
     'PdaWorkspace',
     'PdaProduction',
     'PdaQuality',
+    'PdaWarehouse',
     'PdaDriverPutaway',
     'PdaDriverLoading'
   ]

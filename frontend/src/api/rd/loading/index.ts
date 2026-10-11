@@ -202,13 +202,14 @@ export const RdLoadingApi = {
     request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/preview', data }),
   confirmBatchScan: (data: {
     taskId: number
+    version: number
     representativePackageCode: string
     idempotencyKey: string
     taskLineIds: number[]
     deviceCode?: string
     deviceTime?: string
   }) => request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/confirm', data }),
-  confirmOutbound: (data: { taskId: number; version?: number; remark?: string }) =>
+  confirmOutbound: (data: { taskId: number; version: number; remark?: string }) =>
     request.post<LoadingConfirmOutboundResp>({ url: '/rd/loading-task/confirm-outbound', data }),
   reportException: (data: {
     taskId: number

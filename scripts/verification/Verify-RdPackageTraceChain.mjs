@@ -467,6 +467,7 @@ if (process.env.RD_TRACE_UI_ONLY === "true") {
             {
               taskId: loadingTaskId,
               representativePackageCode: packages[1].qrCode,
+              version: loading.task.version,
               taskLineIds: loading.lines.map((line) => line.id),
               idempotencyKey: `e5-batch-rollback-${Date.now()}`,
             },
@@ -496,8 +497,10 @@ if (process.env.RD_TRACE_UI_ONLY === "true") {
       false,
     );
   for (const line of loading.lines) {
+    const currentTask = await api(loadingUrl, tokens.warehouse);
     const req = {
       taskId: loadingTaskId,
+      version: currentTask.task.version,
       representativePackageCode: packages[1].qrCode,
       taskLineIds: [line.id],
       idempotencyKey: `e5-load-${line.id}-${Date.now()}`,

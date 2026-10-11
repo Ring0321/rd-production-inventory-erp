@@ -519,6 +519,7 @@
 </template>
 
 <script setup lang="ts">
+import { useWarehouseSession } from '../../pda/warehouse/useWarehouseSession'
 import { useRoute } from 'vue-router'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import {
@@ -537,6 +538,8 @@ import { RdPutawayTaskApi, type RdPutawayLocationMapVO } from '@/api/rd/stock/pu
 
 defineOptions({ name: 'RdLoadingDispatch' })
 const route = useRoute()
+const warehouseSession = useWarehouseSession()
+let batchPreviewRevision = 0
 const message = useMessage()
 const tab = ref('dispatch')
 const refreshing = ref(false)
@@ -815,7 +818,14 @@ const applyDefaultBatchSelection = async () => {
   }
 }
 const previewBatchScan = async () => {
-  if (!batchScanForm.packageCode) return
+  if (
+    !warehouseSession.allowed('rd:loading-task:dispatch') ||
+    !batchScanForm.packageCode ||
+    batchScanConfirming.value ||
+    outboundConfirming.value
+  )
+    return
+  const requestGeneration = ++batchPreviewRevision
   batchScanLoading.value = true
   const packageCode = batchScanForm.packageCode.trim()
   const scannedCode = packageCode.split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop()
@@ -824,25 +834,50 @@ const previewBatchScan = async () => {
       ? batchScanResp.value?.task.id
       : undefined
   try {
-    batchScanResp.value = await RdLoadingApi.previewBatchScan({
+    const result = await RdLoadingApi.previewBatchScan({
       taskId: batchScanForm.taskId ?? previousTaskId,
       packageCode,
       deviceCode: 'WEB_KEEPER'
     })
+    if (
+      !warehouseSession.current() ||
+      requestGeneration !== batchPreviewRevision ||
+      outboundConfirming.value
+    )
+      return
+    batchScanResp.value = result
     await applyDefaultBatchSelection()
   } catch {
-    batchScanResp.value = undefined
-    batchSelectedLineIds.value = []
+    if (
+      warehouseSession.current() &&
+      requestGeneration === batchPreviewRevision &&
+      !outboundConfirming.value
+    ) {
+      batchScanResp.value = undefined
+      batchSelectedLineIds.value = []
+    }
   } finally {
-    batchScanLoading.value = false
+    if (requestGeneration === batchPreviewRevision) batchScanLoading.value = false
   }
 }
 const confirmBatchScan = async () => {
-  if (!batchScanResp.value || !batchSelectedLineIds.value.length) return
+  if (
+    !warehouseSession.allowed('rd:loading-task:dispatch') ||
+    batchScanLoading.value ||
+    batchScanConfirming.value ||
+    outboundConfirming.value ||
+    !batchScanResp.value ||
+    !batchSelectedLineIds.value.length
+  )
+    return
+  const version = batchScanResp.value.task.version
+  if (typeof version !== 'number' || !Number.isSafeInteger(version))
+    return message.warning('任务版本缺失，请重新读取任务')
   batchScanConfirming.value = true
   try {
     batchScanResp.value = await RdLoadingApi.confirmBatchScan({
       taskId: batchScanResp.value.task.id,
+      version,
       representativePackageCode:
         batchScanResp.value.representativePackageCode || batchScanForm.packageCode.trim(),
       idempotencyKey: createIdempotencyKey(),
@@ -858,25 +893,60 @@ const confirmBatchScan = async () => {
   }
 }
 const confirmOutbound = async () => {
-  if (!batchScanResp.value || batchScanResp.value.task.status !== 'PENDING_REVIEW') return
-  await message.confirm(
-    `确认将装车任务 ${batchScanResp.value.task.taskNo} 的 ${batchScanResp.value.task.scannedPackageCount} 包正式出库过账吗？过账后将扣减库存并释放库位。`
+  if (
+    !warehouseSession.allowed('rd:loading-task:dispatch') ||
+    batchScanLoading.value ||
+    batchScanConfirming.value ||
+    outboundConfirming.value ||
+    !batchScanResp.value ||
+    batchScanResp.value.task.status !== 'PENDING_REVIEW'
   )
+    return
+  const version = batchScanResp.value.task.version
+  if (typeof version !== 'number' || !Number.isSafeInteger(version))
+    return message.warning('任务版本缺失，请重新读取任务')
+  const target = { taskId: batchScanResp.value.task.id, version }
+  const taskNo = batchScanResp.value.task.taskNo
+  const packageCount = batchScanResp.value.task.scannedPackageCount
+  const representative =
+    batchScanResp.value.representativePackageCode || batchScanForm.packageCode.trim()
+  const generation = batchPreviewRevision
+  const sessionGeneration = warehouseSession.generation()
+  const routeContext = route.fullPath
   outboundConfirming.value = true
   try {
-    const result = await RdLoadingApi.confirmOutbound({
-      taskId: batchScanResp.value.task.id,
-      version: batchScanResp.value.task.version
-    })
-    message.success(result.message || '装车任务已确认出库')
-    batchScanResp.value = await RdLoadingApi.previewBatchScan({
-      taskId: result.taskId,
-      packageCode:
-        batchScanResp.value.representativePackageCode || batchScanForm.packageCode.trim(),
+    await message.confirm(
+      `确认将装车任务 ${taskNo} 的 ${packageCount} 包正式出库过账吗？过账后将扣减库存并释放库位。`
+    )
+    warehouseSession.assertCurrent()
+    if (
+      !warehouseSession.allowed('rd:loading-task:dispatch') ||
+      warehouseSession.generation() !== sessionGeneration ||
+      generation !== batchPreviewRevision ||
+      route.fullPath !== routeContext ||
+      batchScanResp.value?.task.id !== target.taskId ||
+      batchScanResp.value?.task.version !== target.version ||
+      batchScanResp.value?.task.status !== 'PENDING_REVIEW'
+    )
+      throw new Error('任务或页面已变化，请重新核定出库对象')
+    const result = await RdLoadingApi.confirmOutbound(target)
+    warehouseSession.assertCurrent()
+    if (result?.taskId !== target.taskId) throw new Error('出库返回的任务不一致，请核对原任务')
+    const verified = await RdLoadingApi.previewBatchScan({
+      taskId: target.taskId,
+      packageCode: representative,
       deviceCode: 'WEB_KEEPER'
     })
+    warehouseSession.assertCurrent()
+    if (verified.task.id !== target.taskId || verified.task.status !== 'OUTBOUNDED')
+      throw new Error('实际出库状态待核，请重新读取')
+    batchScanResp.value = verified
+    message.success(result.message || '装车任务已确认出库')
     await applyDefaultBatchSelection()
     await loadTasks()
+  } catch (cause) {
+    if (cause !== 'cancel' && cause !== 'close')
+      message.warning(cause instanceof Error ? cause.message : '出库结果待核，请重新读取任务')
   } finally {
     outboundConfirming.value = false
   }

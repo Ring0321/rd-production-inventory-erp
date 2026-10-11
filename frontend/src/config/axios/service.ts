@@ -193,7 +193,13 @@ service.interceptors.response.use(
       } else {
         ElNotification.error({ title: msg })
       }
-      if (config.url === '/rd/quality-inspection/create-batch') {
+      if (
+        [
+          '/rd/quality-inspection/create-batch',
+          '/rd/putaway-task/batch-scan/confirm',
+          '/rd/loading-task/batch-scan/confirm'
+        ].includes(config.url || '')
+      ) {
         return Promise.reject(Object.assign(new Error(msg), { businessCode: code }))
       }
       return Promise.reject('error')

@@ -51,6 +51,9 @@ try {
         });
     });
     await page.goto(`${baseUrl}/pda`, { waitUntil: "networkidle" });
+    await page.waitForURL((url) => url.pathname === "/login", {
+      timeout: 15000,
+    });
     assert.ok(page.url().includes("/login"));
     await page.getByPlaceholder("账号", { exact: true }).fill(account.username);
     await page.getByPlaceholder("密码", { exact: true }).fill(account.password);

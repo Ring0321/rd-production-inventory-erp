@@ -92,7 +92,9 @@ watch(
       <div v-if="logoutError" class="logout-error" role="alert">{{ logoutError }}</div>
     </header>
     <main ref="content" class="pda-content" aria-label="岗位工作内容" tabindex="-1">
-      <div class="content-inner"><RouterView /></div>
+      <div class="content-inner"
+        ><RouterView :key="route.name === 'PdaWarehouse' ? route.fullPath : undefined"
+      /></div>
     </main>
   </div>
 </template>

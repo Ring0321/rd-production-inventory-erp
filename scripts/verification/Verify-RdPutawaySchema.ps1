@@ -229,6 +229,8 @@ AND ((table_name='rd_quality_inspection' AND column_name IN ('production_output_
     $qualityAuditRows = Invoke-Scalar $Database "SELECT COUNT(*) FROM rd_quality_inspection_event;"
     Assert-Equal "transactional quality audit columns" "18" $qualityAuditColumns
     Assert-Equal "quality audit history not reconstructed" "0" $qualityAuditRows
+    $loadingDigestColumn = Invoke-Scalar $Database "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='rd_loading_scan_record' AND column_name='request_digest' AND data_type='char' AND character_maximum_length=64 AND is_nullable='YES' AND column_default IS NULL;"
+    Assert-Equal "nullable loading request digest" "1" $loadingDigestColumn
     Assert-Equal "putaway table count" "5" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
     Assert-Equal "putaway column count" "127" $putawayColumnCount
@@ -239,7 +241,7 @@ AND ((table_name='rd_quality_inspection' AND column_name IN ('production_output_
     Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
     Assert-Equal "audit and readonly putaway query grant count" "2" $readOnlyQueryGrantCount
     Assert-Equal "audit and readonly putaway mutation grant count" "0" $readOnlyMutationGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly|$pdaEntryMenus|$pdaEntryGrants|$qualityMemberColumns|$qualityMemberIndices|$qualityRows|$qualityLinks|$qualityRequestIndex"
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly|$pdaEntryMenus|$pdaEntryGrants|$qualityMemberColumns|$qualityMemberIndices|$qualityRows|$qualityLinks|$qualityRequestIndex|$loadingDigestColumn"
 }
 
 Import-LocalEnvironment
@@ -279,6 +281,9 @@ ALTER TABLE rd_quality_inspection DROP INDEX uk_rd_quality_request,
  DROP COLUMN production_output_id, DROP COLUMN client_request_id, DROP COLUMN request_digest,
  DROP COLUMN registrar_id, DROP COLUMN registrar_name;
 ALTER TABLE rd_quality_inspection_item DROP COLUMN sample_package_id;
+ALTER TABLE rd_loading_scan_record DROP COLUMN request_digest;
+INSERT INTO rd_loading_scan_record (tenant_id,task_id,package_code,plan_version,idempotency_key,scan_result,success,operator_id,operator_name,scan_time)
+VALUES (1,991,'D4-SCHEMA-LEGACY',1,'D4-SCHEMA-LEGACY','LEGACY',b'1',997,'Schema fixture, not field data','2026-10-11 00:00:00.123456');
 ALTER TABLE rd_production_output DROP INDEX idx_rd_output_task, DROP INDEX uk_rd_output_request,
  DROP COLUMN production_task_id, DROP COLUMN production_task_no, DROP COLUMN shift_code, DROP COLUMN furnace_out_date,
  DROP COLUMN operator_id, DROP COLUMN operator_name, DROP COLUMN client_request_id, DROP COLUMN request_digest;
@@ -302,17 +307,22 @@ ALTER TABLE rd_location
   DROP COLUMN column_code,
   DROP COLUMN row_code;
 "@)
+    $legacyLoadingSnapshot = Invoke-Scalar $upgradeDatabase "SELECT CONCAT_WS('|',task_id,package_code,plan_version,idempotency_key,scan_result,operator_id,operator_name,scan_time) FROM rd_loading_scan_record WHERE idempotency_key='D4-SCHEMA-LEGACY';"
 
     Invoke-MySqlFile -Database $upgradeDatabase -Path $upgradeSql
     $firstUpgradeFingerprint = Get-SchemaFingerprint $upgradeDatabase
     Invoke-MySqlFile -Database $upgradeDatabase -Path $upgradeSql
     $secondUpgradeFingerprint = Get-SchemaFingerprint $upgradeDatabase
+    $preservedLegacyLoadingSnapshot = Invoke-Scalar $upgradeDatabase "SELECT CONCAT_WS('|',task_id,package_code,plan_version,idempotency_key,scan_result,operator_id,operator_name,scan_time) FROM rd_loading_scan_record WHERE idempotency_key='D4-SCHEMA-LEGACY';"
+    Assert-Equal "legacy loading row preserved" $legacyLoadingSnapshot $preservedLegacyLoadingSnapshot
+    Assert-Equal "legacy loading digest not invented" "1" (Invoke-Scalar $upgradeDatabase "SELECT COUNT(*) FROM rd_loading_scan_record WHERE idempotency_key='D4-SCHEMA-LEGACY' AND request_digest IS NULL;")
 
     Assert-Equal "clean and upgraded schema" $cleanFingerprint $firstUpgradeFingerprint
     Assert-Equal "repeated upgrade schema" $firstUpgradeFingerprint $secondUpgradeFingerprint
     Write-Host "PASS: clean initialization created the putaway schema."
     Write-Host "PASS: upgrade added the schema to a pre-B2 database."
     Write-Host "PASS: the second upgrade produced no duplicate tables, columns, indexes, or seed rows."
+    Write-Host "PASS: loading digest is nullable CHAR(64), legacy row is preserved without a fabricated digest."
 }
 finally {
     if (-not $KeepDatabases) {

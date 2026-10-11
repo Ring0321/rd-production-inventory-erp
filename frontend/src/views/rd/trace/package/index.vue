@@ -642,8 +642,12 @@ const buildTraceActions = () => {
         label: canDo(['rd:loading-task:dispatch']) ? '出库扫码复核' : '查看装车任务',
         description: '打开该包关联的装车任务；由仓管核对实际装车包件。',
         icon: 'lucide:clipboard-list',
-        routeName: 'RdLoadingDispatch',
-        query: { ...taskQuery, mode: canDo(['rd:loading-task:dispatch']) ? 'scan' : 'view' },
+        routeName: pdaMode.value ? 'PdaWarehouse' : 'RdLoadingDispatch',
+        query: {
+          ...taskQuery,
+          mode: canDo(['rd:loading-task:dispatch']) ? 'scan' : 'view',
+          ...(pdaMode.value ? { section: 'loading' } : {})
+        },
         type: 'primary',
         primary: true
       })
@@ -664,8 +668,12 @@ const buildTraceActions = () => {
         label: canDo(['rd:putaway-task:confirm']) ? '入库扫码核验' : '查看上架任务',
         description: '打开该包关联的上架任务。',
         icon: 'lucide:warehouse',
-        routeName: 'RdPutawayWorkbench',
-        query: { ...taskQuery, mode: canDo(['rd:putaway-task:confirm']) ? 'scan' : 'view' },
+        routeName: pdaMode.value ? 'PdaWarehouse' : 'RdPutawayWorkbench',
+        query: {
+          ...taskQuery,
+          mode: canDo(['rd:putaway-task:confirm']) ? 'scan' : 'view',
+          ...(pdaMode.value ? { section: 'putaway' } : {})
+        },
         type: 'success',
         primary: true
       })

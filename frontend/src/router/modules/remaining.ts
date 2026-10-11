@@ -126,6 +126,12 @@ const remainingRouter: AppRouteRecordRaw[] = [
         meta: { title: '质量检验', noTagsView: true }
       },
       {
+        path: 'warehouse',
+        name: 'PdaWarehouse',
+        component: () => import('@/views/rd/pda/warehouse/index.vue'),
+        meta: { title: '仓管工作台', noTagsView: true }
+      },
+      {
         path: 'driver-loading',
         name: 'PdaDriverLoading',
         component: () => import('@/views/rd/pda/loading/index.vue'),

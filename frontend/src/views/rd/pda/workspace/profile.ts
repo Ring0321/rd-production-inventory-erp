@@ -17,6 +17,7 @@ export interface WorkspaceEntry {
   routeName: string
   required: string[]
   kind: 'pda' | 'web' | 'query'
+  query?: Record<string, string>
 }
 
 export const profileLabels: Record<WorkspaceProfileId, string> = {
@@ -68,8 +69,9 @@ const entry = (
   label: string,
   routeName: string,
   required: string[],
-  kind: WorkspaceEntry['kind'] = 'query'
-): WorkspaceEntry => ({ id, label, routeName, required, kind })
+  kind: WorkspaceEntry['kind'] = 'query',
+  query?: Record<string, string>
+): WorkspaceEntry => ({ id, label, routeName, required, kind, query })
 
 const queryEntries = [
   entry('task', '生产任务查询', 'RdProductionTask', ['rd:production-task:query']),
@@ -106,9 +108,22 @@ const entries: Record<WorkspaceProfileId, WorkspaceEntry[]> = {
   ],
   quality: [entry('quality', '质量检验', 'PdaQuality', ['rd:quality-inspection:query'], 'pda')],
   warehouse: [
-    entry('putaway', '入库上架', 'RdPutawayWorkbench', ['rd:putaway-task:query'], 'web'),
-    entry('loading', '出库装车', 'RdLoadingDispatch', ['rd:loading-task:query'], 'web'),
-    entry('location', '仓库货位', 'RdWarehouseLocation', ['rd:warehouse-location:query'], 'web'),
+    entry('putaway', '入库上架', 'PdaWarehouse', ['rd:putaway-task:query'], 'pda', {
+      section: 'putaway'
+    }),
+    entry('loading', '出库装车', 'PdaWarehouse', ['rd:loading-task:query'], 'pda', {
+      section: 'loading'
+    }),
+    entry('location', '库位状态', 'PdaWarehouse', ['rd:putaway-task:query'], 'pda', {
+      section: 'locations'
+    }),
+    entry(
+      'location-master',
+      '库位资料',
+      'RdWarehouseLocation',
+      ['rd:warehouse-location:query'],
+      'web'
+    ),
     entry('inbound', '入库单', 'RdInboundOrder', ['rd:inbound-order:query'], 'web'),
     entry('outbound', '出库单', 'RdOutboundOrder', ['rd:outbound-order:query'], 'web'),
     entry('goods', '包码库存', 'RdPackageUnit', ['rd:package-unit:query']),
