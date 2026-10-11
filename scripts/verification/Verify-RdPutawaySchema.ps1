@@ -199,6 +199,8 @@ AND ((table_name='rd_production_output' AND column_name IN ('production_task_id'
     $productionTaskMenus = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_menu WHERE id BETWEEN 600110 AND 600115 AND deleted=0;"
     $productionTaskGrants = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_role_menu WHERE tenant_id=1 AND role_id=600001 AND menu_id BETWEEN 600110 AND 600115 AND deleted=0;"
     $productionReadOnly = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_role_menu WHERE tenant_id=1 AND role_id IN (600004,600005) AND menu_id BETWEEN 600111 AND 600115 AND deleted=0;"
+    $pdaEntryMenus = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_menu WHERE id=600118 AND permission='' AND component='rd/pda/entry/index' AND component_name='RdPdaEntry' AND status=0 AND deleted=0;"
+    $pdaEntryGrants = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_role_menu WHERE tenant_id=1 AND role_id BETWEEN 600001 AND 600008 AND menu_id=600118 AND deleted=0;"
     Assert-Equal "production task columns" "18" $productionTaskColumns
     Assert-Equal "production task seed rows" "0" $productionTaskRows
     Assert-Equal "nullable production links" "12" $productionLinks
@@ -206,6 +208,8 @@ AND ((table_name='rd_production_output' AND column_name IN ('production_task_id'
     Assert-Equal "production task menus" "6" $productionTaskMenus
     Assert-Equal "production role task grants" "6" $productionTaskGrants
     Assert-Equal "readonly production mutation grants" "0" $productionReadOnly
+    Assert-Equal "PDA entry menu without business permission" "1" $pdaEntryMenus
+    Assert-Equal "PDA entry default role grants" "8" $pdaEntryGrants
     Assert-Equal "putaway table count" "5" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
     Assert-Equal "putaway column count" "127" $putawayColumnCount
@@ -216,7 +220,7 @@ AND ((table_name='rd_production_output' AND column_name IN ('production_task_id'
     Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
     Assert-Equal "audit and readonly putaway query grant count" "2" $readOnlyQueryGrantCount
     Assert-Equal "audit and readonly putaway mutation grant count" "0" $readOnlyMutationGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly"
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly|$pdaEntryMenus|$pdaEntryGrants"
 }
 
 Import-LocalEnvironment
@@ -258,6 +262,8 @@ ALTER TABLE rd_package_unit DROP INDEX idx_rd_package_task, DROP COLUMN producti
  DROP COLUMN production_task_no, DROP COLUMN operator_id, DROP COLUMN operator_name;
 DELETE FROM system_role_menu WHERE menu_id BETWEEN 600110 AND 600115;
 DELETE FROM system_menu WHERE id BETWEEN 600110 AND 600115;
+DELETE FROM system_role_menu WHERE menu_id = 600118;
+DELETE FROM system_menu WHERE id = 600118;
 ALTER TABLE rd_location
   DROP INDEX idx_rd_location_map,
   DROP INDEX idx_rd_location_availability,
