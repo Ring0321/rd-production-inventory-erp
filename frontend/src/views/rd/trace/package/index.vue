@@ -207,6 +207,12 @@
           </dl>
         </section>
 
+        <PackageAiPanel
+          v-if="trace.internalView && canViewPackageAi && trace.packageCode === packageCode"
+          :package-code="packageCode"
+          :facts-revision="aiFactsRevision"
+        />
+
         <section
           v-if="trace.internalView"
           v-loading="batchLoading"
@@ -359,6 +365,8 @@ import {
 import { getAccessToken } from '@/utils/auth'
 import { formatDate } from '@/utils/formatTime'
 import { hasPermission } from '@/directives/permission/hasPermi'
+import PackageAiPanel from './PackageAiPanel.vue'
+import { usePackageAiAccess } from './usePackageAi'
 
 defineOptions({ name: 'RdPackageTrace' })
 
@@ -379,6 +387,8 @@ type TraceAction = {
 
 const route = useRoute()
 const router = useRouter()
+const { permitted: canViewPackageAi } = usePackageAiAccess()
+const aiFactsRevision = ref(0)
 const pdaMode = computed(() => route.query.workMode === 'pda')
 const loading = ref(false)
 const batchLoading = ref(false)
@@ -956,6 +966,7 @@ const loadTrace = async () => {
   const code = packageCode.value
   if (!code) return
   const requestId = ++traceRequestSequence
+  aiFactsRevision.value++
   loading.value = true
   let currentTrace: RdPackageTraceVO | null = null
   try {

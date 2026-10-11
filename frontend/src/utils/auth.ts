@@ -6,6 +6,18 @@ const { wsCache } = useCache()
 const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
 
+let authContextRevision = 0
+const contextListeners = new Set<() => void>()
+export const getAuthContextRevision = () => authContextRevision
+export const onAuthContextChange = (callback: () => void) => {
+  contextListeners.add(callback)
+  return () => contextListeners.delete(callback)
+}
+const notifyContextChange = () => {
+  authContextRevision++
+  contextListeners.forEach((callback) => callback())
+}
+
 // 获取token
 export const getAccessToken = () => {
   // 此处与TokenKey相同，此写法解决初始化时Cookies中不存在TokenKey报错
@@ -22,12 +34,14 @@ export const getRefreshToken = () => {
 export const setToken = (token: TokenType) => {
   wsCache.set(RefreshTokenKey, token.refreshToken)
   wsCache.set(AccessTokenKey, token.accessToken)
+  notifyContextChange()
 }
 
 // 删除token
 export const removeToken = () => {
   wsCache.delete(AccessTokenKey)
   wsCache.delete(RefreshTokenKey)
+  notifyContextChange()
 }
 
 /** 格式化token（jwt格式） */
@@ -40,6 +54,19 @@ export const formatToken = (token: string): string => {
 export const getCurrentUserId = (): number => {
   const user = wsCache.get(CACHE_KEY.USER)?.user
   return Number(user?.id) || 0
+}
+
+export const getCachedAuthScope = (data: unknown = wsCache.get(CACHE_KEY.USER)) => {
+  const info = data as { user?: { id?: unknown }; roles?: unknown; permissions?: unknown } | null
+  return {
+    userId: Number(info?.user?.id) || 0,
+    roles: Array.isArray(info?.roles)
+      ? info.roles.filter((value) => typeof value === 'string').sort()
+      : [],
+    permissions: Array.isArray(info?.permissions)
+      ? info.permissions.filter((value) => typeof value === 'string').sort()
+      : []
+  }
 }
 
 export type LoginFormType = {
@@ -67,6 +94,7 @@ export const getTenantId = () => {
 
 export const setTenantId = (tenantId: number) => {
   wsCache.set(CACHE_KEY.TenantId, tenantId)
+  notifyContextChange()
 }
 
 export const getVisitTenantId = () => {
@@ -75,4 +103,5 @@ export const getVisitTenantId = () => {
 
 export const setVisitTenantId = (visitTenantId: number) => {
   wsCache.set(CACHE_KEY.VisitTenantId, visitTenantId)
+  notifyContextChange()
 }

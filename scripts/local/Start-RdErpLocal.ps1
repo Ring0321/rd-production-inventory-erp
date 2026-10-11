@@ -345,6 +345,9 @@ function Start-LocalRedis([int]$port) {
             "--password", $env:RD_REDIS_PASSWORD,
             "--memory", "256m",
             "--index", "16m",
+            "--lua", "true",
+            "--lua-transaction-mode", "true",
+            "--lua-script-timeout", "2000",
             "--protected-mode", "false"
         ) `
         -WorkingDirectory $garnetDataRoot `

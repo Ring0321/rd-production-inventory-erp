@@ -77,6 +77,14 @@ yudao:
 rd:
   erp:
     digital-link-base-url: ${RD_DIGITAL_LINK_BASE_URL:https://id.tjldsic.com/pkg}
+    ai:
+      enabled: ${RD_AI_ENABLED:false}
+      api-key: ${RD_AI_GLM_API_KEY:}
+      model: ${RD_AI_GLM_MODEL:}
+      cost-approved: ${RD_AI_COST_APPROVED:false}
+      daily-call-limit: ${RD_AI_DAILY_CALL_LIMIT:0}
+      per-user-minute-limit: ${RD_AI_USER_MINUTE_LIMIT:2}
+      max-output-tokens: ${RD_AI_MAX_OUTPUT_TOKENS:512}
     bootstrap:
       admin-password: ${RD_ADMIN_INITIAL_PASSWORD:}
     auth:
