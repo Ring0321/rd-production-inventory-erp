@@ -2,6 +2,7 @@ package com.ruiding.erp.service.putaway;
 
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import com.ruiding.erp.controller.admin.common.vo.RdBatchScanStatusRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPendingPutawayPackagePageReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
@@ -39,6 +40,8 @@ public interface RdPutawayTaskService {
 
     RdPutawayBatchScanRespVO confirmBatchScan(RdPutawayBatchScanConfirmReqVO reqVO,
                                             Long warehouseKeeperId, String warehouseKeeperName);
+
+    RdBatchScanStatusRespVO getBatchScanStatus(RdPutawayBatchScanConfirmReqVO reqVO, Long warehouseKeeperId);
 
     Long reportException(RdPutawayExceptionCreateReqVO reqVO, Long forkliftDriverId,
                          String forkliftDriverName);

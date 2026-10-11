@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.starter.annotation.LogRecord;
+import com.ruiding.erp.controller.admin.common.vo.RdBatchScanStatusRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPendingPutawayPackagePageReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
@@ -476,30 +477,15 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
             bizNo = "{{#reqVO.id}}", success = "上架任务【{{#reqVO.id}}】批次代表码【{{#reqVO.packageCode}}】核验")
     public RdPutawayBatchScanRespVO confirmBatchScan(RdPutawayBatchScanConfirmReqVO reqVO,
                                                     Long warehouseKeeperId, String warehouseKeeperName) {
-        if (!permissionService.hasAnyPermissions(warehouseKeeperId, "rd:putaway-task:confirm")) {
-            throw exception(FORBIDDEN);
-        }
-        List<Long> selectedIds = reqVO.getTaskLineIds();
-        if (reqVO.getId() == null || reqVO.getVersion() == null || !hasText(reqVO.getIdempotencyKey())
-                || reqVO.getIdempotencyKey().length() > 128 || selectedIds == null || selectedIds.isEmpty()
-                || selectedIds.size() > 500 || selectedIds.stream().anyMatch(id -> id == null || id <= 0)
-                || new LinkedHashSet<>(selectedIds).size() != selectedIds.size()) {
-            throw exception(PUTAWAY_BATCH_SELECTION_INVALID);
-        }
+        validateBatchScanRequest(reqVO, warehouseKeeperId);
         String code = normalizePackageCode(reqVO.getPackageCode());
-        List<Long> orderedIds = selectedIds.stream().sorted().toList();
-        Map<String, Object> payload = new java.util.TreeMap<>();
-        payload.put("taskId", reqVO.getId());
-        payload.put("version", reqVO.getVersion());
-        payload.put("packageCode", normalizeCode(code));
-        payload.put("lineIds", orderedIds);
-        payload.put("operatorId", warehouseKeeperId);
-        String digest = DigestUtil.sha256Hex(JsonUtils.toJsonString(payload));
+        List<Long> orderedIds = reqVO.getTaskLineIds().stream().sorted().toList();
+        String digest = batchScanRequestDigest(reqVO, code, warehouseKeeperId);
         RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
         if (task == null) throw exception(PUTAWAY_TASK_NOT_EXISTS);
         RdPutawayBatchScanRecordDO replay = batchScanRecordMapper.selectByTaskAndKey(task.getId(), reqVO.getIdempotencyKey());
         if (replay != null) {
-            if (!Objects.equals(replay.getRequestDigest(), digest)) throw exception(PUTAWAY_SCAN_KEY_CONFLICT);
+            validateBatchScanReplay(replay, digest);
             return batchScanResponse(task, taskLineMapper.selectListByTaskId(task.getId()),
                     replay.getRepresentativePackageCode(), replay.getId(), true, 0);
         }
@@ -549,6 +535,49 @@ public class RdPutawayTaskServiceImpl implements RdPutawayTaskService {
         batchScanRecordMapper.insert(record);
         return batchScanResponse(taskMapper.selectById(task.getId()), taskLineMapper.selectListByTaskId(task.getId()),
                 code, record.getId(), false, selected.size());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RdBatchScanStatusRespVO getBatchScanStatus(RdPutawayBatchScanConfirmReqVO reqVO,
+                                                     Long warehouseKeeperId) {
+        validateBatchScanRequest(reqVO, warehouseKeeperId);
+        String digest = batchScanRequestDigest(reqVO, normalizePackageCode(reqVO.getPackageCode()), warehouseKeeperId);
+        // Keep a normal transaction: confirmation's FOR UPDATE lock must remain available.
+        RdPutawayTaskDO task = taskMapper.selectByIdForUpdate(reqVO.getId());
+        if (task == null) throw exception(PUTAWAY_TASK_NOT_EXISTS);
+        RdPutawayBatchScanRecordDO record = batchScanRecordMapper.selectByTaskAndKey(task.getId(), reqVO.getIdempotencyKey());
+        if (record != null) validateBatchScanReplay(record, digest);
+        return RdBatchScanStatusRespVO.of(task.getId(), reqVO.getVersion(), task.getVersion(), task.getStatus(),
+                record == null ? null : record.getId());
+    }
+
+    private void validateBatchScanRequest(RdPutawayBatchScanConfirmReqVO reqVO, Long warehouseKeeperId) {
+        if (!permissionService.hasAnyPermissions(warehouseKeeperId, "rd:putaway-task:confirm")) {
+            throw exception(FORBIDDEN);
+        }
+        List<Long> selectedIds = reqVO.getTaskLineIds();
+        if (reqVO.getId() == null || reqVO.getVersion() == null || !hasText(reqVO.getIdempotencyKey())
+                || reqVO.getIdempotencyKey().length() > 128 || selectedIds == null || selectedIds.isEmpty()
+                || selectedIds.size() > 500 || selectedIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new LinkedHashSet<>(selectedIds).size() != selectedIds.size()) {
+            throw exception(PUTAWAY_BATCH_SELECTION_INVALID);
+        }
+    }
+
+    private String batchScanRequestDigest(RdPutawayBatchScanConfirmReqVO reqVO, String code, Long warehouseKeeperId) {
+        Map<String, Object> payload = new java.util.TreeMap<>();
+        payload.put("taskId", reqVO.getId());
+        payload.put("version", reqVO.getVersion());
+        payload.put("packageCode", normalizeCode(code));
+        payload.put("lineIds", reqVO.getTaskLineIds().stream().sorted().toList());
+        payload.put("operatorId", warehouseKeeperId);
+        return DigestUtil.sha256Hex(JsonUtils.toJsonString(payload));
+    }
+
+    private void validateBatchScanReplay(RdPutawayBatchScanRecordDO record, String digest) {
+        // The digest binds the actor as well as the original selection; never infer legacy IDs.
+        if (!Objects.equals(record.getRequestDigest(), digest)) throw exception(PUTAWAY_SCAN_KEY_CONFLICT);
     }
 
     private RdPutawayBatchScanRespVO batchScanResponse(RdPutawayTaskDO task, List<RdPutawayTaskLineDO> lines,

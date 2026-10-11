@@ -2,6 +2,7 @@ package com.ruiding.erp.controller.admin.loading;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import com.ruiding.erp.controller.admin.common.vo.RdBatchScanStatusRespVO;
 import com.ruiding.erp.controller.admin.loading.vo.*;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingTaskDO;
@@ -76,6 +77,13 @@ public class RdLoadingDispatchController {
     public CommonResult<RdLoadingBatchScanRespVO> confirmBatchScan(
             @Valid @RequestBody RdLoadingBatchScanConfirmReqVO req) {
         return success(service.confirmBatchScan(req, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PostMapping("/batch-scan/status")
+    @PreAuthorize("@ss.hasPermission('rd:loading-task:dispatch')")
+    public CommonResult<RdBatchScanStatusRespVO> getBatchScanStatus(
+            @Valid @RequestBody RdLoadingBatchScanConfirmReqVO req) {
+        return success(service.getBatchScanStatus(req, getLoginUserId()));
     }
 
     @PostMapping("/confirm-outbound")

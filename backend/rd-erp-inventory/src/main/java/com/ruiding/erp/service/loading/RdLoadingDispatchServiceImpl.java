@@ -6,6 +6,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import com.ruiding.erp.controller.admin.common.vo.RdBatchScanStatusRespVO;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.ruiding.erp.controller.admin.loading.vo.*;
@@ -434,13 +435,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
                                                      String keeperName) {
         validateBatchScanRequest(req);
         String packageCode = normalizePackageCode(req.getRepresentativePackageCode());
-        Map<String, Object> payload = new TreeMap<>();
-        payload.put("taskId", req.getTaskId());
-        payload.put("version", req.getVersion());
-        payload.put("packageCode", normalizeCode(packageCode));
-        payload.put("lineIds", req.getTaskLineIds().stream().sorted().toList());
-        payload.put("operatorId", keeperId);
-        String requestDigest = DigestUtil.sha256Hex(JsonUtils.toJsonString(payload));
+        String requestDigest = batchScanRequestDigest(req, packageCode, keeperId);
         RdLoadingTaskDO task = taskMapper.selectByIdForUpdate(req.getTaskId());
         if (task == null) {
             throw exception(LOADING_TASK_NOT_EXISTS);
@@ -448,11 +443,7 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         RdLoadingScanRecordDO replay = scanRecordMapper.selectByTaskAndIdempotencyKey(
                 task.getId(), req.getIdempotencyKey());
         if (replay != null) {
-            // Legacy records have no selection evidence and cannot authorize a replay.
-            if (replay.getRequestDigest() == null || !Objects.equals(replay.getOperatorId(), keeperId)
-                    || !Objects.equals(replay.getRequestDigest(), requestDigest)) {
-                throw exception(LOADING_SCAN_KEY_CONFLICT);
-            }
+            validateBatchScanReplay(replay, requestDigest, keeperId);
             List<RdLoadingTaskLineDO> replayLines = sortedTaskLines(task.getId());
             RdLoadingTaskLineDO replayLine = replayLines.stream()
                     .filter(item -> Objects.equals(item.getId(), replay.getTaskLineId()))
@@ -542,6 +533,38 @@ public class RdLoadingDispatchServiceImpl implements RdLoadingDispatchService {
         return buildBatchScanResponse(record, task, lines, representative, packageCode,
                 record.getScanResult(), true, false, toConfirm.size(), confirmedWeight,
                 "已按代表码批量确认 " + toConfirm.size() + " 包，仍保留每包独立二维码记录");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RdBatchScanStatusRespVO getBatchScanStatus(RdLoadingBatchScanConfirmReqVO req, Long keeperId) {
+        validateBatchScanRequest(req);
+        String digest = batchScanRequestDigest(req, normalizePackageCode(req.getRepresentativePackageCode()), keeperId);
+        // Keep a normal transaction: confirmation's FOR UPDATE lock must remain available.
+        RdLoadingTaskDO task = taskMapper.selectByIdForUpdate(req.getTaskId());
+        if (task == null) throw exception(LOADING_TASK_NOT_EXISTS);
+        RdLoadingScanRecordDO record = scanRecordMapper.selectByTaskAndIdempotencyKey(task.getId(), req.getIdempotencyKey());
+        if (record != null) validateBatchScanReplay(record, digest, keeperId);
+        return RdBatchScanStatusRespVO.of(task.getId(), req.getVersion(), task.getVersion(), task.getStatus(),
+                record == null ? null : record.getId());
+    }
+
+    private String batchScanRequestDigest(RdLoadingBatchScanConfirmReqVO req, String packageCode, Long keeperId) {
+        Map<String, Object> payload = new TreeMap<>();
+        payload.put("taskId", req.getTaskId());
+        payload.put("version", req.getVersion());
+        payload.put("packageCode", normalizeCode(packageCode));
+        payload.put("lineIds", req.getTaskLineIds().stream().sorted().toList());
+        payload.put("operatorId", keeperId);
+        return DigestUtil.sha256Hex(JsonUtils.toJsonString(payload));
+    }
+
+    private void validateBatchScanReplay(RdLoadingScanRecordDO record, String digest, Long keeperId) {
+        // Legacy records have no selection evidence and cannot authorize a replay.
+        if (record.getRequestDigest() == null || !Objects.equals(record.getOperatorId(), keeperId)
+                || !Objects.equals(record.getRequestDigest(), digest)) {
+            throw exception(LOADING_SCAN_KEY_CONFLICT);
+        }
     }
 
     @Override

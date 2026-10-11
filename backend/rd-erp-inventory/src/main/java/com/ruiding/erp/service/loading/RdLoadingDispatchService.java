@@ -1,6 +1,7 @@
 package com.ruiding.erp.service.loading;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import com.ruiding.erp.controller.admin.common.vo.RdBatchScanStatusRespVO;
 import com.ruiding.erp.controller.admin.loading.vo.RdLoadingBatchScanConfirmReqVO;
 import com.ruiding.erp.controller.admin.loading.vo.RdLoadingBatchScanPreviewReqVO;
 import com.ruiding.erp.controller.admin.loading.vo.RdLoadingBatchScanRespVO;
@@ -27,6 +28,7 @@ public interface RdLoadingDispatchService {
     Long createTask(RdLoadingTaskCreateReqVO req, Long keeperId, String keeperName);
     RdLoadingBatchScanRespVO previewBatchScan(RdLoadingBatchScanPreviewReqVO req);
     RdLoadingBatchScanRespVO confirmBatchScan(RdLoadingBatchScanConfirmReqVO req, Long keeperId, String keeperName);
+    RdBatchScanStatusRespVO getBatchScanStatus(RdLoadingBatchScanConfirmReqVO req, Long keeperId);
     RdLoadingConfirmOutboundRespVO confirmOutbound(RdLoadingConfirmOutboundReqVO req, Long keeperId, String keeperName);
     Long reportException(RdLoadingExceptionCreateReqVO req, Long driverId, String driverName);
     void resolveException(RdLoadingExceptionResolveReqVO req, Long keeperId, String keeperName);

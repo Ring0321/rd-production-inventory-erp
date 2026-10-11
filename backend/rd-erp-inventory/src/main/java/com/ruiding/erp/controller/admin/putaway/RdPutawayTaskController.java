@@ -3,6 +3,7 @@ package com.ruiding.erp.controller.admin.putaway;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import com.ruiding.erp.controller.admin.common.vo.RdBatchScanStatusRespVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPendingPutawayPackagePageReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayExceptionCreateReqVO;
 import com.ruiding.erp.controller.admin.putaway.vo.RdPutawayDriverOptionRespVO;
@@ -97,6 +98,13 @@ public class RdPutawayTaskController {
     public CommonResult<RdPutawayBatchScanRespVO> confirmBatchScan(
             @Valid @RequestBody RdPutawayBatchScanConfirmReqVO reqVO) {
         return success(service.confirmBatchScan(reqVO, getLoginUserId(), getLoginUserNickname()));
+    }
+
+    @PostMapping("/batch-scan/status")
+    @PreAuthorize("@ss.hasPermission('rd:putaway-task:confirm')")
+    public CommonResult<RdBatchScanStatusRespVO> getBatchScanStatus(
+            @Valid @RequestBody RdPutawayBatchScanConfirmReqVO reqVO) {
+        return success(service.getBatchScanStatus(reqVO, getLoginUserId()));
     }
 
     @PostMapping("/exception")
