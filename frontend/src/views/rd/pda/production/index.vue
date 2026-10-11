@@ -216,14 +216,13 @@
                 <span>{{ modelError }}</span>
                 <el-button link type="primary" @click="loadModels()">重试</el-button>
               </div>
-              <div class="form-pair">
-                <el-form-item label="炉号" prop="furnaceNo"
-                  ><el-input v-model="form.furnaceNo"
-                /></el-form-item>
-                <el-form-item label="炉层" prop="furnaceLayer"
-                  ><el-input v-model="form.furnaceLayer"
-                /></el-form-item>
-              </div>
+              <FurnaceFields
+                v-model:furnace-no="form.furnaceNo"
+                v-model:furnace-layer="form.furnaceLayer"
+                :customer-name="task.customerName"
+                :product-model="form.productModel"
+                :disabled="submitting || !!cacheError"
+              />
               <el-form-item label="整包数" prop="outputQty">
                 <el-input-number
                   v-model="form.outputQty"
@@ -431,6 +430,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { useMessage } from '@/hooks/web/useMessage'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { generateUUID } from '@/utils'
+import FurnaceFields from '@/views/rd/production/task/FurnaceFields.vue'
 import { useUserStore } from '@/store/modules/user'
 import { getTenantId } from '@/utils/auth'
 import { RdCustomerProductApi } from '@/api/rd/masterdata/customer-product'

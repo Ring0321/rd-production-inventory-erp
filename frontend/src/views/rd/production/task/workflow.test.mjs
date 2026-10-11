@@ -304,6 +304,7 @@ const pdaHarness = (storage = new Map()) => {
       },
       '@/views/rd/production/task/draftRequest': { bindProductionDraft, restoreProductionDraft },
       '@/utils': { generateUUID: () => crypto.randomUUID() },
+      '@/views/rd/production/task/FurnaceFields.vue': { default: {} },
       '@/views/rd/production/task/useTaskOutputs': {
         outputStatusText: () => '',
         useTaskOutputs: () => ({

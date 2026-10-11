@@ -61,12 +61,13 @@
           class="!w-1/1"
         />
       </el-form-item>
-      <el-form-item label="生产炉号" prop="furnaceNo">
-        <el-input v-model="formData.furnaceNo" placeholder="请输入生产炉号" />
-      </el-form-item>
-      <el-form-item label="所在炉层" prop="furnaceLayer">
-        <el-input v-model="formData.furnaceLayer" placeholder="请输入所在炉层" />
-      </el-form-item>
+      <FurnaceFields
+        v-model:furnace-no="formData.furnaceNo"
+        v-model:furnace-layer="formData.furnaceLayer"
+        :customer-name="formData.customerName"
+        :product-model="formData.productModel"
+        :disabled="formLoading"
+      />
       <el-form-item label="实际产额" prop="outputQty">
         <el-input-number
           v-model="formData.outputQty"
@@ -107,6 +108,7 @@ import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.
 import { RdProductionTaskApi, type RdProductionTaskVO } from '@/api/rd/production/task'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { generateUUID } from '@/utils'
+import FurnaceFields from '@/views/rd/production/task/FurnaceFields.vue'
 
 defineOptions({ name: 'RdProductionOutputForm' })
 
