@@ -19,6 +19,10 @@ public class RdPackageUnitDO extends TenantBaseDO {
     private String packageCode;
     private String qrCode;
     private Long productionOutputId;
+    private Long productionTaskId;
+    private String productionTaskNo;
+    private Long operatorId;
+    private String operatorName;
     private LocalDate productionDate;
     private LocalDate furnaceOutDate;
     private String shiftCode;

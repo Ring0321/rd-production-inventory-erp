@@ -9,6 +9,7 @@ public interface RdLogRecordConstants {
     String BIZ_ID_EXPRESSION = "{{#rdBizId}}";
 
     String PRODUCTION_TYPE = "RD 生产";
+    String PRODUCTION_TASK_TYPE = "RD 生产任务";
     String PRODUCTION_CREATE_SUB_TYPE = "新增生产产出";
     String PRODUCTION_CREATE_SUCCESS = "新增生产产出，炉号【{{#createReqVO.furnaceNo}}】，炉层【{{#createReqVO.furnaceLayer}}】，数量【{{#createReqVO.outputQty}}】";
     String PRODUCTION_UPDATE_SUB_TYPE = "修改生产产出";

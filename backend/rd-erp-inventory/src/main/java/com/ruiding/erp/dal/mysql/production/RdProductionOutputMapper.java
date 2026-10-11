@@ -15,6 +15,13 @@ import java.util.List;
  */
 @Mapper
 public interface RdProductionOutputMapper extends BaseMapperX<RdProductionOutputDO> {
+    default List<RdProductionOutputDO> selectListByTaskId(Long taskId) {
+        return selectList(new LambdaQueryWrapperX<RdProductionOutputDO>()
+                .eq(RdProductionOutputDO::getProductionTaskId, taskId).orderByAsc(RdProductionOutputDO::getId));
+    }
+    default RdProductionOutputDO selectByClientRequestId(String requestId) {
+        return selectOne(RdProductionOutputDO::getClientRequestId, requestId);
+    }
 
     @Select("SELECT * FROM rd_production_output WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdProductionOutputDO selectByIdForUpdate(Long id);
@@ -32,6 +39,7 @@ public interface RdProductionOutputMapper extends BaseMapperX<RdProductionOutput
                 .likeIfPresent(RdProductionOutputDO::getFurnaceNo, reqVO.getFurnaceNo())
                 .likeIfPresent(RdProductionOutputDO::getFurnaceLayer, reqVO.getFurnaceLayer())
                 .eqIfPresent(RdProductionOutputDO::getStatus, reqVO.getStatus())
+                .eqIfPresent(RdProductionOutputDO::getProductionTaskId, reqVO.getProductionTaskId())
                 .orderByDesc(RdProductionOutputDO::getProductionDate)
                 .orderByDesc(RdProductionOutputDO::getId));
     }

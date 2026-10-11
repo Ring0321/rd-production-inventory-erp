@@ -188,6 +188,24 @@ AND ((table_name IN ('rd_package_unit','rd_stock_transaction') AND column_name =
     Assert-Equal "trace event index count" "2" $traceIndexCount
     Assert-Equal "trace event seed row count" "0" $traceRowCount
     Assert-Equal "trace source precision count" "8" $tracePrecisionCount
+    $productionTaskColumns = Invoke-Scalar $Database "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND table_name='rd_production_task';"
+    $productionTaskRows = Invoke-Scalar $Database "SELECT COUNT(*) FROM rd_production_task;"
+    $productionLinks = Invoke-Scalar $Database @"
+SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND is_nullable='YES'
+AND ((table_name='rd_production_output' AND column_name IN ('production_task_id','production_task_no','shift_code','furnace_out_date','operator_id','operator_name','client_request_id','request_digest'))
+  OR (table_name='rd_package_unit' AND column_name IN ('production_task_id','production_task_no','operator_id','operator_name')));
+"@
+    $productionTaskIndices = Invoke-Scalar $Database "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema='$Database' AND index_name IN ('uk_rd_production_task_no','idx_rd_production_task_status','idx_rd_production_task_customer','idx_rd_output_task','uk_rd_output_request','idx_rd_package_task');"
+    $productionTaskMenus = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_menu WHERE id BETWEEN 600110 AND 600115 AND deleted=0;"
+    $productionTaskGrants = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_role_menu WHERE tenant_id=1 AND role_id=600001 AND menu_id BETWEEN 600110 AND 600115 AND deleted=0;"
+    $productionReadOnly = Invoke-Scalar $Database "SELECT COUNT(*) FROM system_role_menu WHERE tenant_id=1 AND role_id IN (600004,600005) AND menu_id BETWEEN 600111 AND 600115 AND deleted=0;"
+    Assert-Equal "production task columns" "18" $productionTaskColumns
+    Assert-Equal "production task seed rows" "0" $productionTaskRows
+    Assert-Equal "nullable production links" "12" $productionLinks
+    Assert-Equal "production task indices" "6" $productionTaskIndices
+    Assert-Equal "production task menus" "6" $productionTaskMenus
+    Assert-Equal "production role task grants" "6" $productionTaskGrants
+    Assert-Equal "readonly production mutation grants" "0" $productionReadOnly
     Assert-Equal "putaway table count" "5" $tableCount
     Assert-Equal "location extension column count" "10" $locationColumnCount
     Assert-Equal "putaway column count" "127" $putawayColumnCount
@@ -198,7 +216,7 @@ AND ((table_name IN ('rd_package_unit','rd_stock_transaction') AND column_name =
     Assert-Equal "warehouse putaway confirm grant count" "1" $warehouseConfirmGrantCount
     Assert-Equal "audit and readonly putaway query grant count" "2" $readOnlyQueryGrantCount
     Assert-Equal "audit and readonly putaway mutation grant count" "0" $readOnlyMutationGrantCount
-    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount"
+    return "$tableCount|$locationColumnCount|$putawayColumnCount|$indexCount|$rowCount|$driverMenuCount|$driverGrantCount|$warehouseConfirmGrantCount|$readOnlyQueryGrantCount|$readOnlyMutationGrantCount|$traceColumnCount|$traceIndexCount|$traceRowCount|$tracePrecisionCount|$productionTaskColumns|$productionTaskRows|$productionLinks|$productionTaskIndices|$productionTaskMenus|$productionTaskGrants|$productionReadOnly"
 }
 
 Import-LocalEnvironment
@@ -232,6 +250,14 @@ try {
     Invoke-MySqlFile -Database $upgradeDatabase -Path $cleanSql
     [void](Invoke-MySql -Database $upgradeDatabase -Sql @"
 DROP TABLE IF EXISTS rd_putaway_exception, rd_putaway_batch_scan_record, rd_putaway_scan_record, rd_putaway_task_line, rd_putaway_task;
+DROP TABLE IF EXISTS rd_production_task;
+ALTER TABLE rd_production_output DROP INDEX idx_rd_output_task, DROP INDEX uk_rd_output_request,
+ DROP COLUMN production_task_id, DROP COLUMN production_task_no, DROP COLUMN shift_code, DROP COLUMN furnace_out_date,
+ DROP COLUMN operator_id, DROP COLUMN operator_name, DROP COLUMN client_request_id, DROP COLUMN request_digest;
+ALTER TABLE rd_package_unit DROP INDEX idx_rd_package_task, DROP COLUMN production_task_id,
+ DROP COLUMN production_task_no, DROP COLUMN operator_id, DROP COLUMN operator_name;
+DELETE FROM system_role_menu WHERE menu_id BETWEEN 600110 AND 600115;
+DELETE FROM system_menu WHERE id BETWEEN 600110 AND 600115;
 ALTER TABLE rd_location
   DROP INDEX idx_rd_location_map,
   DROP INDEX idx_rd_location_availability,

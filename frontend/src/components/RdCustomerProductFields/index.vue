@@ -10,7 +10,7 @@
       default-first-option
       :remote-method="searchCustomers"
       :loading="customerLoading"
-      :disabled="disabled"
+      :disabled="disabled || customerDisabled"
       placeholder="请选择或输入客户"
       class="!w-240px"
       @change="handleCustomerChange"
@@ -54,13 +54,15 @@ const props = withDefaults(
     allowCreate?: boolean
     queryMode?: boolean
     disabled?: boolean
+    customerDisabled?: boolean
   }>(),
   {
     customerProp: 'customerName',
     modelProp: 'productModel',
     allowCreate: true,
     queryMode: false,
-    disabled: false
+    disabled: false,
+    customerDisabled: false
   }
 )
 

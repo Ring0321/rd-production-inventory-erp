@@ -8,6 +8,17 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
  * <p>RD inventory uses 1-080-000-000 range.</p>
  */
 public interface ErrorCodeConstants {
+    ErrorCode PRODUCTION_TASK_NOT_EXISTS = new ErrorCode(1_080_110_000, "生产任务不存在");
+    ErrorCode PRODUCTION_TASK_NOT_ACTIVE = new ErrorCode(1_080_110_001, "生产任务已结束登记或作废");
+    ErrorCode PRODUCTION_TASK_VERSION_CONFLICT = new ErrorCode(1_080_110_002, "生产任务已更新，请刷新后重试");
+    ErrorCode PRODUCTION_TASK_HAS_OUTPUT = new ErrorCode(1_080_110_003, "任务已有有效产出，不能修改或作废");
+    ErrorCode PRODUCTION_TASK_OUTPUT_INCOMPLETE = new ErrorCode(1_080_110_004, "请先确认任务产出并生成全部实际包码");
+    ErrorCode PRODUCTION_TASK_BINDING_INVALID = new ErrorCode(1_080_110_005, "客户、生产日期或班次与任务不一致");
+    ErrorCode PRODUCTION_TASK_BINDING_LOCKED = new ErrorCode(1_080_110_006, "已关联产出不能变更生产任务");
+    ErrorCode PRODUCTION_TASK_OUTPUT_INVALID = new ErrorCode(1_080_110_007, "任务产出须为整包数草稿，不能预登记库存或最终库位");
+    ErrorCode PRODUCTION_TASK_REQUEST_REQUIRED = new ErrorCode(1_080_110_008, "任务产出缺少提交请求编号");
+    ErrorCode PRODUCTION_TASK_REQUEST_CONFLICT = new ErrorCode(1_080_110_009, "请求编号已绑定另一录入内容或人员");
+    ErrorCode PRODUCTION_TASK_PRINT_MISMATCH = new ErrorCode(1_080_110_010, "打印包件不属于所选生产任务");
 
     // ========== RD production output 1-080-100-000 ==========
     ErrorCode PRODUCTION_OUTPUT_NOT_EXISTS = new ErrorCode(1_080_100_000, "生产炉层产量不存在");

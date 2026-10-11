@@ -41,6 +41,8 @@ class RdProductionOutputInboundCompatibilityTest {
 
     @Test
     void shouldRejectCancellingProductionAfterPackagesWereGenerated() {
+        when(productionOutputMapper.selectById(1L)).thenReturn(new RdProductionOutputDO()
+                .setId(1L).setStatus(RdProductionOutputStatusEnum.CONFIRMED.getStatus()).setVersion(2));
         when(productionOutputMapper.selectByIdForUpdate(1L)).thenReturn(new RdProductionOutputDO()
                 .setId(1L).setStatus(RdProductionOutputStatusEnum.CONFIRMED.getStatus()).setVersion(2));
         when(packageUnitMapper.selectCountByProductionOutputId(1L)).thenReturn(1L);

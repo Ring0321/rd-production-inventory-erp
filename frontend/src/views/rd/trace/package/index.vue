@@ -178,6 +178,10 @@
               <dt>生产记录号</dt>
               <dd>{{ trace.productionOutputId || '-' }}</dd>
             </div>
+            <div v-if="trace.productionTaskNo">
+              <dt>生产任务</dt>
+              <dd>{{ trace.productionTaskNo }}</dd>
+            </div>
           </dl>
         </section>
 
@@ -581,6 +585,27 @@ const buildTraceActions = () => {
       !actions.some((item) => item.key === action.key)
     )
       actions.push(action)
+  }
+
+  if (trace.value.productionTaskId) {
+    addAction(['rd:production-task:query'], {
+      key: 'production-task',
+      label: '生产任务',
+      description: '查看原生产任务及其产出记录',
+      icon: 'lucide:clipboard-list',
+      type: '',
+      routeName: 'RdProductionTask',
+      query: { productionTaskId: trace.value.productionTaskId }
+    })
+    addAction(['rd:label-print:print'], {
+      key: 'task-labels',
+      label: '任务标签',
+      description: '按原生产任务查询和打印标签',
+      icon: 'lucide:printer',
+      type: '',
+      routeName: 'RdPackageUnit',
+      query: { productionTaskId: trace.value.productionTaskId }
+    })
   }
 
   for (const task of workContext.value?.tasks || []) {

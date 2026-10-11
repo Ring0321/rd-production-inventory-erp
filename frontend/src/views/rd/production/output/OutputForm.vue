@@ -7,6 +7,27 @@
       label-width="100px"
       v-loading="formLoading"
     >
+      <el-form-item v-if="hasPermission(['rd:production-task:query'])" label="生产任务">
+        <el-select
+          v-model="formData.productionTaskId"
+          clearable
+          filterable
+          remote
+          :remote-method="loadTasks"
+          :loading="taskLoading"
+          :disabled="Boolean(formData.id && formData.productionTaskId)"
+          class="!w-1/1"
+          placeholder="可选生产任务"
+          @change="selectTask"
+        >
+          <el-option
+            v-for="task in tasks"
+            :key="task.id"
+            :value="task.id"
+            :label="`${task.taskNo} · ${task.customerName} · ${task.shiftCode}`"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item label="产出日期" prop="productionDate">
         <el-date-picker
           v-model="formData.productionDate"
@@ -14,15 +35,32 @@
           value-format="YYYY-MM-DD"
           placeholder="请选择产出日期"
           class="!w-1/1"
+          :disabled="Boolean(formData.productionTaskId)"
         />
       </el-form-item>
-      <el-form-item label="货位" prop="locationCode">
+      <el-form-item v-if="!formData.productionTaskId" label="货位" prop="locationCode">
         <el-input v-model="formData.locationCode" placeholder="请输入货位" />
       </el-form-item>
       <RdCustomerProductFields
         v-model:customer-name="formData.customerName"
         v-model:product-model="formData.productModel"
+        :customer-disabled="Boolean(formData.productionTaskId)"
       />
+      <el-form-item label="生产班次">
+        <el-input
+          v-model="formData.shiftCode"
+          :disabled="Boolean(formData.productionTaskId)"
+          maxlength="32"
+        />
+      </el-form-item>
+      <el-form-item label="出炉日期">
+        <el-date-picker
+          v-model="formData.furnaceOutDate"
+          type="date"
+          value-format="YYYY-MM-DD"
+          class="!w-1/1"
+        />
+      </el-form-item>
       <el-form-item label="生产炉号" prop="furnaceNo">
         <el-input v-model="formData.furnaceNo" placeholder="请输入生产炉号" />
       </el-form-item>
@@ -66,6 +104,9 @@ import { reactive, ref } from 'vue'
 import { useMessage } from '@/hooks/web/useMessage'
 import { RdProductionOutputApi, RdProductionOutputVO } from '@/api/rd/production/output'
 import RdCustomerProductFields from '@/components/RdCustomerProductFields/index.vue'
+import { RdProductionTaskApi, type RdProductionTaskVO } from '@/api/rd/production/task'
+import { hasPermission } from '@/directives/permission/hasPermi'
+import { generateUUID } from '@/utils'
 
 defineOptions({ name: 'RdProductionOutputForm' })
 
@@ -86,6 +127,33 @@ const formRules = reactive({
   packageWeight: [{ required: true, message: '单包重量不能为空', trigger: 'blur' }]
 })
 const formRef = ref()
+const tasks = ref<RdProductionTaskVO[]>([])
+const taskLoading = ref(false)
+const loadTasks = async (taskNo = '') => {
+  if (!hasPermission(['rd:production-task:query'])) return
+  taskLoading.value = true
+  try {
+    tasks.value = (
+      await RdProductionTaskApi.getPage({ pageNo: 1, pageSize: 100, taskNo, status: 'ACTIVE' })
+    ).list
+    if (
+      formData.value.productionTaskId &&
+      !tasks.value.some((task) => task.id === formData.value.productionTaskId)
+    )
+      tasks.value.unshift(await RdProductionTaskApi.get(formData.value.productionTaskId))
+  } finally {
+    taskLoading.value = false
+  }
+}
+const selectTask = async (id?: number) => {
+  if (!id) return
+  const task = await RdProductionTaskApi.get(id)
+  formData.value.customerName = task.customerName
+  formData.value.productionDate = task.productionDate
+  formData.value.shiftCode = task.shiftCode
+  formData.value.locationId = undefined
+  formData.value.locationCode = undefined
+}
 
 const open = async (type: string, id?: number) => {
   dialogVisible.value = true
@@ -100,6 +168,7 @@ const open = async (type: string, id?: number) => {
       formLoading.value = false
     }
   }
+  await loadTasks()
 }
 defineExpose({ open })
 
@@ -113,6 +182,10 @@ const submitForm = async () => {
       status: formData.value.status || 'DRAFT'
     }
     if (formType.value === 'create') {
+      if (formData.value.productionTaskId) {
+        formData.value.clientRequestId ||= generateUUID()
+        data.clientRequestId = formData.value.clientRequestId
+      }
       await RdProductionOutputApi.create(data)
       message.success('新增成功')
     } else {

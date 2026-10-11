@@ -10,6 +10,7 @@ import java.util.List;
 
 @Data
 public class RdPackageBatchPrintReqVO {
+    @Positive private Long productionTaskId;
     @NotEmpty
     @Size(max = 500)
     private List<@NotNull @Positive Long> packageIds;

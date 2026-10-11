@@ -18,6 +18,26 @@
           class="!w-180px"
         />
       </el-form-item>
+      <el-form-item v-if="hasPermission(['rd:production-task:query'])" label="生产任务">
+        <el-select
+          v-model="queryParams.productionTaskId"
+          filterable
+          remote
+          clearable
+          :remote-method="loadTasks"
+          :loading="taskLoading"
+          placeholder="搜索任务号"
+          class="!w-260px"
+          @change="handleQuery"
+        >
+          <el-option
+            v-for="task in taskOptions"
+            :key="task.id"
+            :value="task.id"
+            :label="`${task.taskNo} · ${task.customerName} · ${task.shiftCode}`"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item>
         <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" />查询</el-button>
         <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" />重置</el-button>
@@ -57,6 +77,14 @@
           @click="prepareProductionPrint"
           ><Icon icon="lucide:layers" class="mr-5px" />整批打印</el-button
         >
+        <el-button
+          v-hasPermi="['rd:label-print:print']"
+          :disabled="!queryParams.productionTaskId"
+          :loading="printPreparing"
+          @click="prepareTaskPrint"
+        >
+          <Icon icon="lucide:clipboard-list" class="mr-5px" />任务标签打印
+        </el-button>
       </el-form-item>
     </el-form>
   </ContentWrap>
@@ -73,6 +101,7 @@
       <el-table-column type="selection" width="46" />
       <el-table-column label="包码" prop="packageCode" width="180" fixed="left" />
       <el-table-column label="生产记录ID" prop="productionOutputId" width="120" align="center" />
+      <el-table-column label="生产任务" prop="productionTaskNo" width="210" />
       <el-table-column label="生产日期" prop="productionDate" width="110" />
       <el-table-column label="客户" prop="customerName" min-width="130" />
       <el-table-column label="产品" prop="productName" min-width="120">
@@ -260,6 +289,8 @@ import {
   type PackageLabelPaper
 } from '@/utils/rdPackageLabel'
 import { RdProductionOutputApi, type RdProductionOutputVO } from '@/api/rd/production/output'
+import { RdProductionTaskApi, type RdProductionTaskVO } from '@/api/rd/production/task'
+import { hasPermission } from '@/directives/permission/hasPermi'
 import {
   RdPackageUnitApi,
   type RdPackageGenerateReqVO,
@@ -295,7 +326,27 @@ const selectedPackages = ref<RdPackageUnitVO[]>([])
 const total = ref(0)
 const traceMode = ref(false)
 const queryFormRef = ref<FormInstance>()
-const queryParams = reactive<{ packageCode?: string; productionOutputId?: number }>({})
+const queryParams = reactive<{
+  packageCode?: string
+  productionOutputId?: number
+  productionTaskId?: number
+}>({})
+const taskOptions = ref<RdProductionTaskVO[]>([])
+const taskLoading = ref(false)
+const loadTasks = async (taskNo = '') => {
+  if (!hasPermission(['rd:production-task:query'])) return
+  taskLoading.value = true
+  try {
+    taskOptions.value = (
+      await RdProductionTaskApi.getPage({ pageNo: 1, pageSize: 100, taskNo })
+    ).list
+    const id = queryParams.productionTaskId
+    if (id && !taskOptions.value.some((task) => task.id === id))
+      taskOptions.value.unshift(await RdProductionTaskApi.get(id))
+  } finally {
+    taskLoading.value = false
+  }
+}
 const pageParams = reactive({ pageNo: 1, pageSize: 10 })
 const displayList = computed(() => {
   const code = queryParams.packageCode?.trim().toLowerCase()
@@ -321,6 +372,7 @@ const printPreparing = ref(false)
 const printRegistering = ref(false)
 const printOpened = ref(false)
 const printLabels = ref<PackageLabel[]>([])
+const printTaskId = ref<number>()
 const printPaper = ref<PackageLabelPaper>('LABEL_100_76')
 const reprintMode = ref(false)
 const reprintReason = ref('')
@@ -354,17 +406,23 @@ const getList = async () => {
 }
 const handleQuery = async () => {
   const packageCode = extractPackageCode(queryParams.packageCode || '')
-  if (!packageCode && !queryParams.productionOutputId) {
+  if (!packageCode && !queryParams.productionOutputId && !queryParams.productionTaskId) {
     pageParams.pageNo = 1
     await getList()
     return
   }
   loading.value = true
   try {
-    const packages = await RdPackageUnitApi.trace({
-      packageCode: packageCode || undefined,
-      productionOutputId: queryParams.productionOutputId
-    })
+    const packages = queryParams.productionTaskId
+      ? (await RdPackageUnitApi.getTaskPackages(queryParams.productionTaskId)).filter(
+          (item) =>
+            !queryParams.productionOutputId ||
+            item.productionOutputId === queryParams.productionOutputId
+        )
+      : await RdPackageUnitApi.trace({
+          packageCode: packageCode || undefined,
+          productionOutputId: queryParams.productionOutputId
+        })
     list.value = packages.map(normalizePackageDates)
     total.value = list.value.length
     traceMode.value = true
@@ -383,15 +441,24 @@ const getRouteNumber = (key: string) => {
 const applyRouteQuery = async () => {
   queryParams.packageCode = getRouteString('packageCode') || undefined
   queryParams.productionOutputId = getRouteNumber('productionOutputId')
+  queryParams.productionTaskId = getRouteNumber('productionTaskId')
+  await loadTasks()
   await handleQuery()
   if (getRouteString('labelAction') === 'preview' && list.value.length === 1) {
     await openPreview(list.value[0])
   }
+  if (
+    getRouteString('labelAction') === 'taskPrint' &&
+    queryParams.productionTaskId &&
+    hasPermission(['rd:label-print:print'])
+  )
+    await prepareTaskPrint()
 }
 const resetQuery = () => {
   queryFormRef.value?.resetFields()
   queryParams.packageCode = undefined
   queryParams.productionOutputId = undefined
+  queryParams.productionTaskId = undefined
   pageParams.pageNo = 1
   getList()
 }
@@ -456,10 +523,17 @@ const preparePrint = async (packages: RdPackageUnitVO[], reprint: boolean) => {
   }
   printPreparing.value = true
   try {
+    const taskId = queryParams.productionTaskId
     const outputIds = [...new Set(packages.map((item) => item.productionOutputId))]
-    const freshBatches = await Promise.all(outputIds.map((id) => RdPackageUnitApi.trace(id)))
+    const freshBatches = taskId
+      ? [await RdPackageUnitApi.getTaskPackages(taskId)]
+      : await Promise.all(outputIds.map((id) => RdPackageUnitApi.trace(id)))
     const selectedIds = new Set(packages.map((item) => item.id))
     const freshPackages = freshBatches.flat().filter((item) => selectedIds.has(item.id))
+    if (taskId !== queryParams.productionTaskId) {
+      message.warning('任务选择已变化，请重新准备打印')
+      return
+    }
     if (freshPackages.length !== packages.length) {
       message.warning('部分包件已不存在，请刷新列表')
       await handleQuery()
@@ -471,6 +545,7 @@ const preparePrint = async (packages: RdPackageUnitVO[], reprint: boolean) => {
       return
     }
     printLabels.value = await Promise.all(freshPackages.map(buildLabel))
+    printTaskId.value = taskId
     reprintMode.value = reprint
     reprintReason.value = ''
     printOpened.value = false
@@ -494,6 +569,16 @@ const prepareProductionPrint = async () => {
   } finally {
     printPreparing.value = false
   }
+}
+const prepareTaskPrint = async () => {
+  if (!queryParams.productionTaskId) return
+  const packages = await RdPackageUnitApi.getTaskPackages(queryParams.productionTaskId)
+  const pending = packages.filter((item) => item.status === 'CREATED')
+  if (!pending.length) {
+    message.warning('该任务没有待贴标包件')
+    return
+  }
+  await preparePrint(pending, false)
 }
 const openPrintWindow = () => {
   if (reprintMode.value && !reprintReason.value.trim()) {
@@ -521,6 +606,7 @@ const confirmPrinted = async () => {
   printRegistering.value = true
   try {
     const data = {
+      productionTaskId: printTaskId.value,
       packageIds: printLabels.value.map((label) => label.item.id),
       reprintReason: reason || undefined
     }
@@ -539,12 +625,14 @@ const confirmPrinted = async () => {
 }
 
 onMounted(() => {
-  if (route.query.packageCode || route.query.productionOutputId) return applyRouteQuery()
+  loadTasks()
+  if (route.query.packageCode || route.query.productionOutputId || route.query.productionTaskId)
+    return applyRouteQuery()
   return getList()
 })
 
 watch(
-  () => [route.query.packageCode, route.query.productionOutputId],
+  () => [route.query.packageCode, route.query.productionOutputId, route.query.productionTaskId],
   () => applyRouteQuery()
 )
 </script>

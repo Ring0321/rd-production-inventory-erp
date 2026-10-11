@@ -14,6 +14,9 @@ import com.ruiding.erp.dal.dataobject.loading.RdLoadingScanRecordDO;
 import com.ruiding.erp.dal.dataobject.loading.RdLoadingExceptionDO;
 import com.ruiding.erp.dal.dataobject.putaway.RdPutawayExceptionDO;
 import com.ruiding.erp.dal.dataobject.production.RdProductionOutputDO;
+import com.ruiding.erp.dal.dataobject.production.RdProductionTaskDO;
+import com.ruiding.erp.dal.mysql.production.RdProductionTaskMapper;
+import org.springframework.transaction.annotation.Isolation;
 import com.ruiding.erp.dal.dataobject.quality.RdQualityInspectionDO;
 import com.ruiding.erp.dal.dataobject.stock.RdStockTransactionDO;
 import com.ruiding.erp.dal.mysql.packageunit.RdLabelPrintLogMapper;
@@ -49,6 +52,7 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
     private RdPackageUnitMapper packageMapper;
     @Resource
     private RdProductionOutputMapper productionMapper;
+    @Resource private RdProductionTaskMapper productionTaskMapper;
     @Resource
     private RdLabelPrintLogMapper printLogMapper;
     @Resource
@@ -66,14 +70,24 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
     private final RdPackageCodeGenerator codeGenerator = new RdPackageCodeGenerator();
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public List<RdPackageUnitDO> generate(Long productionOutputId, Integer packageCount) {
+        RdProductionOutputDO before = productionMapper.selectById(productionOutputId);
+        if (before == null) throw exception(PRODUCTION_OUTPUT_NOT_EXISTS);
+        if (before.getProductionTaskId() != null) {
+            RdProductionTaskDO task = productionTaskMapper.selectByIdForUpdate(before.getProductionTaskId());
+            if (task == null) throw exception(PRODUCTION_TASK_NOT_EXISTS);
+            if (!"ACTIVE".equals(task.getStatus())) throw exception(PRODUCTION_TASK_NOT_ACTIVE);
+        }
         RdProductionOutputDO production = productionMapper.selectByIdForUpdate(productionOutputId);
         if (production == null) {
             throw exception(PRODUCTION_OUTPUT_NOT_EXISTS);
         }
         if (!RdProductionOutputStatusEnum.CONFIRMED.getStatus().equals(production.getStatus())) {
             throw exception(PRODUCTION_OUTPUT_STATUS_INVALID);
+        }
+        if (!java.util.Objects.equals(before.getProductionTaskId(), production.getProductionTaskId())) {
+            throw exception(PRODUCTION_OUTPUT_VERSION_CONFLICT);
         }
         if (packageMapper.selectCountByProductionOutputId(productionOutputId) > 0) {
             throw exception(PACKAGE_ALREADY_GENERATED);
@@ -96,6 +110,9 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
                     .setPackageCode(code)
                     .setQrCode(digitalLinkService.build(code))
                     .setProductionOutputId(production.getId())
+                    .setProductionTaskId(production.getProductionTaskId()).setProductionTaskNo(production.getProductionTaskNo())
+                    .setShiftCode(production.getShiftCode()).setFurnaceOutDate(production.getFurnaceOutDate())
+                    .setOperatorId(production.getOperatorId()).setOperatorName(production.getOperatorName())
                     .setProductionDate(production.getProductionDate())
                     .setCustomerName(production.getCustomerName())
                     .setProductModel(production.getProductModel())
@@ -169,6 +186,25 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
     @Override
     public List<RdPackageUnitDO> getByProductionOutputId(Long productionOutputId) {
         return packageMapper.selectListByProductionOutputId(productionOutputId);
+    }
+
+    @Override
+    public List<RdPackageUnitDO> getByProductionTaskId(Long taskId) {
+        if (productionTaskMapper.selectById(taskId) == null) throw exception(PRODUCTION_TASK_NOT_EXISTS);
+        return packageMapper.selectListByProductionTaskId(taskId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void markTaskPrinted(Long taskId, List<Long> packageIds, Long operatorId, String operatorName,
+                                boolean reprint, String reason) {
+        if (productionTaskMapper.selectByIdForUpdate(taskId) == null) throw exception(PRODUCTION_TASK_NOT_EXISTS);
+        if (packageIds == null || packageIds.isEmpty() || packageIds.size() > 500) throw exception(LABEL_PRINT_SELECTION_INVALID);
+        for (Long id : packageIds) {
+            RdPackageUnitDO unit = packageMapper.selectById(id);
+            if (unit == null || !taskId.equals(unit.getProductionTaskId())) throw exception(PRODUCTION_TASK_PRINT_MISMATCH);
+        }
+        markPrinted(packageIds, operatorId, operatorName, reprint, reason);
     }
 
     @Override
@@ -316,6 +352,7 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
                 .setEvents(events);
         if (internalView) {
             response.setCustomerName(unit.getCustomerName())
+                    .setProductionTaskId(unit.getProductionTaskId()).setProductionTaskNo(unit.getProductionTaskNo())
                     .setLocationCode(unit.getLocationCode())
                     .setProductionOutputId(unit.getProductionOutputId())
                     .setQualityInspectionId(latestInspection == null ? null : latestInspection.getId());

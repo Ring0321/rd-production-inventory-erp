@@ -18,6 +18,8 @@ export interface RdPackageUnitVO {
   packageCode: string
   qrCode: string
   productionOutputId: number
+  productionTaskId?: number
+  productionTaskNo?: string
   productionDate: string
   furnaceOutDate?: string
   shiftCode?: string
@@ -47,6 +49,7 @@ export interface RdPackagePrintReqVO {
 }
 
 export interface RdPackageBatchPrintReqVO {
+  productionTaskId?: number
   packageIds: number[]
   reprintReason?: string
 }
@@ -83,6 +86,8 @@ export interface RdPackageTraceVO {
   locationCode?: string
   productionOutputId?: number
   qualityInspectionId?: number
+  productionTaskId?: number
+  productionTaskNo?: string
   events: RdPackageTraceEventVO[]
 }
 
@@ -100,6 +105,11 @@ export interface RdPackageWorkContextVO {
 }
 
 export const RdPackageUnitApi = {
+  getTaskPackages: (productionTaskId: number) =>
+    request.get<RdPackageUnitVO[]>({
+      url: '/rd/package-unit/task-packages',
+      params: { productionTaskId }
+    }),
   getPage: (params: RdPackageUnitPageReqVO) =>
     request.get<PageResult<RdPackageUnitVO[]>>({ url: '/rd/package-unit/page', params }),
   get: (id: number) =>

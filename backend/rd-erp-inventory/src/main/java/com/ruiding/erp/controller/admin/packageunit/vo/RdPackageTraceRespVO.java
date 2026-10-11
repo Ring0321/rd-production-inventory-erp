@@ -39,6 +39,8 @@ public class RdPackageTraceRespVO {
 
     @Schema(description = "Internal field; omitted from public response")
     private Long productionOutputId;
+    private Long productionTaskId;
+    private String productionTaskNo;
 
     @Schema(description = "Internal field; omitted from public response")
     private Long qualityInspectionId;

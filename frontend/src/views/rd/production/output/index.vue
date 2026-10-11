@@ -106,7 +106,11 @@
             link
             type="primary"
             @click="openForm('update', scope.row.id)"
-            :disabled="scope.row.status === 'INBOUNDED' || scope.row.status === 'CANCELLED'"
+            :disabled="
+              scope.row.status === 'INBOUNDED' ||
+              scope.row.status === 'CANCELLED' ||
+              Boolean(scope.row.productionTaskId && scope.row.status !== 'DRAFT')
+            "
             v-hasPermi="['rd:production-output:update']"
           >
             编辑

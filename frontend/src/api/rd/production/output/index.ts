@@ -2,6 +2,13 @@ import request from '@/config/axios'
 
 export interface RdProductionOutputVO {
   id: number
+  productionTaskId?: number
+  productionTaskNo?: string
+  shiftCode?: string
+  furnaceOutDate?: string
+  operatorId?: number
+  operatorName?: string
+  clientRequestId?: string
   productionDate: string
   locationId?: number
   locationCode?: string

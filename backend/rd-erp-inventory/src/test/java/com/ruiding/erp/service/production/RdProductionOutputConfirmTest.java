@@ -9,6 +9,7 @@ import com.ruiding.erp.enums.RdProductionOutputStatusEnum;
 import com.ruiding.erp.service.masterdata.RdCustomerProductPair;
 import com.ruiding.erp.service.masterdata.RdCustomerProductService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -27,6 +28,9 @@ class RdProductionOutputConfirmTest {
     @Mock private RdOrderSplitOutputBindMapper bindMapper;
     @Mock private RdPackageUnitMapper packageUnitMapper;
     @Mock private RdCustomerProductService customerProductService;
+    @BeforeEach void prepareRoutingRead() {
+        when(productionOutputMapper.selectById(1L)).thenReturn(output("DRAFT", 2));
+    }
 
     @Test
     void shouldConfirmDraftWithMatchingVersion() {

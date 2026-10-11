@@ -13,6 +13,9 @@ public interface RdPackageUnitService {
                      boolean reprint, String reprintReason);
     RdPackageUnitDO get(Long id);
     List<RdPackageUnitDO> getByProductionOutputId(Long productionOutputId);
+    List<RdPackageUnitDO> getByProductionTaskId(Long productionTaskId);
+    void markTaskPrinted(Long taskId, List<Long> packageIds, Long operatorId, String operatorName,
+                         boolean reprint, String reason);
     List<RdPackageUnitDO> trace(String packageCode, Long productionOutputId);
     RdPackageTraceRespVO getTraceDetail(String packageCode, boolean internalView);
     PageResult<RdPackageUnitDO> page(PageParam pageParam);

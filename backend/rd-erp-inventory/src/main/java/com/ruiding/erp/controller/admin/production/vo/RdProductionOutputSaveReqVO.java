@@ -6,6 +6,8 @@ import lombok.Data;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Positive;
+import javax.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -18,6 +20,10 @@ public class RdProductionOutputSaveReqVO {
 
     @Schema(description = "Version required for update", example = "1")
     private Integer version;
+    @Positive private Long productionTaskId;
+    @Size(max = 32) private String shiftCode;
+    private LocalDate furnaceOutDate;
+    @Size(max = 128) private String clientRequestId;
 
     @Schema(description = "产出日期", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "产出日期不能为空")

@@ -15,6 +15,10 @@ import java.util.List;
 
 @Mapper
 public interface RdPackageUnitMapper extends BaseMapperX<RdPackageUnitDO> {
+    default java.util.List<RdPackageUnitDO> selectListByProductionTaskId(Long taskId) {
+        return selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<RdPackageUnitDO>()
+                .eq(RdPackageUnitDO::getProductionTaskId, taskId).orderByAsc(RdPackageUnitDO::getId));
+    }
     @Select("SELECT * FROM rd_package_unit WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     RdPackageUnitDO selectByIdForUpdate(Long id);
 

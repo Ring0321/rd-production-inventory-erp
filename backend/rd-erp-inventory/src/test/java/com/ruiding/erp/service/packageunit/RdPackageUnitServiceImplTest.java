@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -52,6 +53,7 @@ class RdPackageUnitServiceImplTest {
 
     @Mock private RdPackageUnitMapper packageMapper;
     @Mock private RdProductionOutputMapper productionMapper;
+    @Mock private com.ruiding.erp.dal.mysql.production.RdProductionTaskMapper productionTaskMapper;
     @Mock private RdLabelPrintLogMapper printLogMapper;
     @Mock private RdDigitalLinkService digitalLinkService;
     @Mock private RdQualityInspectionMapper qualityInspectionMapper;
@@ -143,6 +145,7 @@ class RdPackageUnitServiceImplTest {
                 .setOutputQty(BigDecimal.ONE).setPackageWeight(new BigDecimal("1000"))
                 .setStatus(RdProductionOutputStatusEnum.CONFIRMED.getStatus());
         when(productionMapper.selectByIdForUpdate(1L)).thenReturn(production);
+        when(productionMapper.selectById(1L)).thenReturn(production);
         when(packageMapper.selectCountByProductionOutputId(1L)).thenReturn(0L);
         when(packageMapper.selectCurrentDailySequenceForUpdate(1L, production.getProductionDate())).thenReturn(1);
         when(digitalLinkService.build("LD20260712A0001"))
@@ -156,6 +159,15 @@ class RdPackageUnitServiceImplTest {
         verify(packageMapper).insert(captor.capture());
         assertEquals("LD20260712A0001", captor.getValue().getPackageCode());
         assertEquals("https://id.tjldsic.com/pkg/LD20260712A0001", captor.getValue().getQrCode());
+    }
+
+    @Test void taskPrintingMustRejectForeignPackageBeforeRegisteringAnyLabel() {
+        when(productionTaskMapper.selectByIdForUpdate(10L)).thenReturn(new com.ruiding.erp.dal.dataobject.production.RdProductionTaskDO().setId(10L));
+        when(packageMapper.selectById(1L)).thenReturn(new RdPackageUnitDO().setId(1L).setProductionTaskId(10L));
+        when(packageMapper.selectById(2L)).thenReturn(new RdPackageUnitDO().setId(2L).setProductionTaskId(11L));
+        assertThrows(RuntimeException.class, () -> service.markTaskPrinted(10L, List.of(1L,2L), 3L, "operator", false, null));
+        verify(packageMapper, never()).selectByIdForUpdate(anyLong());
+        verifyNoInteractions(printLogMapper);
     }
 
     @Test
@@ -175,6 +187,8 @@ class RdPackageUnitServiceImplTest {
         assertNull(result.getCustomerName());
         assertNull(result.getLocationCode());
         assertNull(result.getProductionOutputId());
+        assertNull(result.getProductionTaskId());
+        assertNull(result.getProductionTaskNo());
         assertNull(result.getQualityInspectionId());
         assertEquals("在库", result.getStatusName());
         assertEquals(4, result.getEvents().size());
@@ -207,6 +221,7 @@ class RdPackageUnitServiceImplTest {
                 .setId(10L)
                 .setPackageCode("LD20260712A0001")
                 .setProductionOutputId(99L)
+                .setProductionTaskId(100L).setProductionTaskNo("SC-PRIVATE-TASK")
                 .setProductionDate(LocalDate.of(2026, 7, 12))
                 .setCustomerName("示例客户")
                 .setProductModel("YG15")

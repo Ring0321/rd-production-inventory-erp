@@ -895,6 +895,8 @@ CREATE TABLE `rd_package_unit` (
   `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
   `package_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL, `qr_code` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
   `production_output_id` bigint NOT NULL, `production_date` date NOT NULL, `furnace_out_date` date DEFAULT NULL,
+  `production_task_id` bigint DEFAULT NULL, `production_task_no` varchar(32) DEFAULT NULL,
+  `operator_id` bigint DEFAULT NULL, `operator_name` varchar(64) DEFAULT NULL,
   `shift_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `customer_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
   `product_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL, `product_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
   `furnace_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL, `furnace_layer` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -905,6 +907,7 @@ CREATE TABLE `rd_package_unit` (
   `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
   UNIQUE KEY `uk_rd_package_code` (`tenant_id`,`package_code`,`deleted`), UNIQUE KEY `uk_rd_package_qr` (`tenant_id`,`qr_code`,`deleted`),
   KEY `idx_rd_package_production` (`tenant_id`,`production_output_id`,`deleted`,`status`),
+  KEY `idx_rd_package_task` (`tenant_id`,`production_task_id`,`id`),
   KEY `idx_rd_package_stock` (`tenant_id`,`stock_lot_id`,`location_code`,`status`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD package unit';
 
@@ -1398,6 +1401,14 @@ DROP TABLE IF EXISTS `rd_production_output`;
 CREATE TABLE `rd_production_output` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Production output ID',
   `tenant_id` bigint NOT NULL DEFAULT '0' COMMENT 'Tenant ID',
+  `production_task_id` bigint DEFAULT NULL,
+  `production_task_no` varchar(32) DEFAULT NULL,
+  `shift_code` varchar(32) DEFAULT NULL,
+  `furnace_out_date` date DEFAULT NULL,
+  `operator_id` bigint DEFAULT NULL,
+  `operator_name` varchar(64) DEFAULT NULL,
+  `client_request_id` varchar(128) DEFAULT NULL,
+  `request_digest` char(64) DEFAULT NULL,
   `production_date` date NOT NULL COMMENT 'Production date',
   `location_id` bigint DEFAULT NULL COMMENT 'Default location ID',
   `location_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Location code',
@@ -1420,6 +1431,8 @@ CREATE TABLE `rd_production_output` (
   `deleted` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`id`),
   KEY `idx_rd_output_date` (`tenant_id`,`deleted`,`production_date`,`id`),
+  KEY `idx_rd_output_task` (`tenant_id`,`production_task_id`,`id`),
+  UNIQUE KEY `uk_rd_output_request` (`tenant_id`,`client_request_id`),
   KEY `idx_rd_output_core` (`tenant_id`,`customer_name`,`product_model`,`furnace_no`,`furnace_layer`,`location_code`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD furnace-layer production output';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -2123,6 +2136,46 @@ UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu
 UNION ALL SELECT 600008,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id IN (600284,600285);
 
 -- Preserve sub-second event ordering for new trace records. Existing times are not reconstructed.
+DROP TABLE IF EXISTS `rd_production_task`;
+CREATE TABLE `rd_production_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL DEFAULT 1,
+  `task_no` varchar(32) NOT NULL,
+  `production_date` date NOT NULL,
+  `customer_name` varchar(128) NOT NULL,
+  `shift_code` varchar(32) NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'ACTIVE',
+  `version` int NOT NULL DEFAULT 0,
+  `manager_id` bigint DEFAULT NULL,
+  `manager_name` varchar(64) DEFAULT NULL,
+  `closed_time` datetime(6) DEFAULT NULL,
+  `cancelled_time` datetime(6) DEFAULT NULL,
+  `remark` varchar(1000) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_production_task_no` (`tenant_id`,`task_no`,`deleted`),
+  KEY `idx_rd_production_task_status` (`tenant_id`,`status`,`production_date`,`id`),
+  KEY `idx_rd_production_task_customer` (`tenant_id`,`customer_name`,`production_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Production registration task';
+
+INSERT INTO `system_menu`
+(`id`,`name`,`permission`,`type`,`sort`,`parent_id`,`path`,`icon`,`component`,`component_name`,`status`,`visible`,`keep_alive`,`always_show`,`creator`,`create_time`,`updater`,`update_time`,`deleted`) VALUES
+(600110,'生产任务','rd:production-task:query',2,11,600100,'task','lucide:clipboard-list','rd/production/task/index','RdProductionTask',0,b'1',b'1',b'1','system',NOW(),'system',NOW(),b'0'),
+(600111,'新增生产任务','rd:production-task:create',3,1,600110,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600112,'修改生产任务','rd:production-task:update',3,2,600110,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600113,'结束生产登记','rd:production-task:close',3,3,600110,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600114,'作废生产任务','rd:production-task:cancel',3,4,600110,'','','',NULL,0,b'0',b'0',b'0','system',NOW(),'system',NOW(),b'0'),
+(600115,'生产录入','rd:production-output:create',2,12,600100,'production-entry','lucide:package-plus','rd/pda/production/index','RdProductionEntry',0,b'1',b'1',b'1','system',NOW(),'system',NOW(),b'0')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`deleted`=b'0';
+INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
+SELECT 600001,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600110 AND 600115
+UNION ALL SELECT 600004,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id=600110
+UNION ALL SELECT 600005,id,'system',NOW(),'system',NOW(),b'0',1 FROM system_menu WHERE id=600110;
+
 ALTER TABLE `rd_package_unit` MODIFY `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
 ALTER TABLE `rd_quality_inspection` MODIFY `submit_time` datetime(6) DEFAULT NULL,
   MODIFY `review_time` datetime(6) DEFAULT NULL;

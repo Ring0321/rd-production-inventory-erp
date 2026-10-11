@@ -23,6 +23,7 @@ export const buildPackageLabelHtml = (
 ) => {
   const cards = labels.map(({ item, qrDataUrl }) => {
     const fields = [
+      ...(item.productionTaskNo ? [field('生产任务', item.productionTaskNo)] : []),
       field('客户', item.customerName),
       field('产品', item.productName || item.productModel),
       field('型号', item.productModel),

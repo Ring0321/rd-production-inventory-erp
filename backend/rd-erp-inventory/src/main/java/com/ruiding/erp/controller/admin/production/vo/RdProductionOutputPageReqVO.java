@@ -38,5 +38,6 @@ public class RdProductionOutputPageReqVO extends PageParam {
 
     @Schema(description = "入库状态", example = "DRAFT")
     private String status;
+    private Long productionTaskId;
 
 }

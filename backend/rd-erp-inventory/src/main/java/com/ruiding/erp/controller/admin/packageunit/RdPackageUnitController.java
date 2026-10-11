@@ -45,10 +45,15 @@ public class RdPackageUnitController {
             @RequestParam(required = false) Long productionOutputId) {
         return success(service.trace(packageCode, productionOutputId));
     }
+    @GetMapping("/task-packages") @PreAuthorize("@ss.hasPermission('rd:package-unit:query')")
+    public CommonResult<List<RdPackageUnitDO>> taskPackages(@RequestParam Long productionTaskId) {
+        return success(service.getByProductionTaskId(productionTaskId));
+    }
     @GetMapping("/export-excel") @PreAuthorize("@ss.hasPermission('rd:package-unit:query')")
     @ApiAccessLog(operateType = EXPORT)
     public void exportExcel(@RequestParam(required = false) String packageCode,
                             @RequestParam(required = false) Long productionOutputId,
+                            @RequestParam(required = false) Long productionTaskId,
                             HttpServletResponse response) throws IOException {
         PageParam pageParam = new PageParam();
         pageParam.setPageSize(PageParam.PAGE_SIZE_NONE);
@@ -56,6 +61,7 @@ public class RdPackageUnitController {
         List<RdPackageUnitExportRespVO> rows = BeanUtils.toBean(service.page(pageParam).getList().stream()
                 .filter(unit -> code.isEmpty() || unit.getPackageCode().toLowerCase(Locale.ROOT).contains(code))
                 .filter(unit -> productionOutputId == null || productionOutputId.equals(unit.getProductionOutputId()))
+                .filter(unit -> productionTaskId == null || productionTaskId.equals(unit.getProductionTaskId()))
                 .toList(), RdPackageUnitExportRespVO.class);
         ExcelUtils.write(response, "吨袋包码台账.xlsx", "包码明细", RdPackageUnitExportRespVO.class, rows);
     }
@@ -85,13 +91,14 @@ public class RdPackageUnitController {
     }
     @PostMapping("/print-batch") @PreAuthorize("@ss.hasPermission('rd:label-print:print')")
     public CommonResult<Boolean> printBatch(@Valid @RequestBody RdPackageBatchPrintReqVO reqVO) {
-        service.markPrinted(reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), false, null);
+        if (reqVO.getProductionTaskId() == null) service.markPrinted(reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), false, null);
+        else service.markTaskPrinted(reqVO.getProductionTaskId(), reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), false, null);
         return success(true);
     }
     @PostMapping("/reprint-batch") @PreAuthorize("@ss.hasPermission('rd:label-print:reprint')")
     public CommonResult<Boolean> reprintBatch(@Valid @RequestBody RdPackageBatchPrintReqVO reqVO) {
-        service.markPrinted(reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), true,
-                reqVO.getReprintReason());
+        if (reqVO.getProductionTaskId() == null) service.markPrinted(reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), true, reqVO.getReprintReason());
+        else service.markTaskPrinted(reqVO.getProductionTaskId(), reqVO.getPackageIds(), getLoginUserId(), getLoginUserNickname(), true, reqVO.getReprintReason());
         return success(true);
     }
 }

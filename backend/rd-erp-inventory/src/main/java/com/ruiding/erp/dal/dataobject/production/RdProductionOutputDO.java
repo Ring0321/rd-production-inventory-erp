@@ -32,6 +32,14 @@ public class RdProductionOutputDO extends TenantBaseDO {
      */
     @TableId
     private Long id;
+    private Long productionTaskId;
+    private String productionTaskNo;
+    private String shiftCode;
+    private LocalDate furnaceOutDate;
+    private Long operatorId;
+    private String operatorName;
+    private String clientRequestId;
+    private String requestDigest;
     /**
      * Production date.
      */
