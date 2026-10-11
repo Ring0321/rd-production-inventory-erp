@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import * as vue from 'vue'
 import { evaluate, plain } from './testHelpers.mjs'
+import { registerReconcileTests } from './reconcileContractTests.mjs'
 
 const response = (version = 1, status = 'ASSIGNED') => ({
   task: {
@@ -24,7 +25,7 @@ const response = (version = 1, status = 'ASSIGNED') => ({
   })),
   exceptions: []
 })
-const setup = (overrides = {}, grants = ['*:*:*'], saved) => {
+const setup = (overrides = {}, grants = ['*:*:*'], saved, confirm = async () => true) => {
   const data = new Map(saved || [])
   const calls = []
   const identity = vue.reactive({ current: true })
@@ -85,11 +86,12 @@ const setup = (overrides = {}, grants = ['*:*:*'], saved) => {
   }
   const controller = evaluate('./usePutawayWork.ts', {
     vue,
-    'element-plus': { ElMessageBox: { confirm: async () => true } },
+    'element-plus': { ElMessageBox: { confirm } },
     '@/utils': { generateUUID: () => 'REQ-1' },
     '@/utils/rdDigitalLink': { extractPackageCode: (value) => value.trim().split('/pkg/').at(-1) },
     '@/api/rd/stock/putaway': { RdPutawayTaskApi: api },
-    './useBatchPending': pendingModule
+    './useBatchPending': pendingModule,
+    './reconcileStatus': evaluate('./reconcileStatus.ts')
   })
   const work = controller.usePutawayWork(
     session,
@@ -335,3 +337,5 @@ test('a false reassign acknowledgement cannot be reported as resolved', async ()
   assert.equal(h.work.feedback.value, '')
   assert.equal(h.work.needsCheck.value, true)
 })
+
+registerReconcileTests({ kind: 'putaway', setup, detail: response })

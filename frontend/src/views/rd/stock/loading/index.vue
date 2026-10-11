@@ -282,14 +282,13 @@
         </div>
         <el-tag type="success">一包一码 + 批次代表扫码</el-tag>
       </div>
-      <el-form :inline="true" :model="batchScanForm">
+      <el-form :inline="true" :model="batchScanForm" @submit.prevent="previewBatchScan">
         <el-form-item label="包码/二维码链接">
           <el-input
             v-model="batchScanForm.packageCode"
             clearable
             class="!w-420px"
             placeholder="扫描任意一包，支持 LD... 或 https://id.tjldsic.com/pkg/LD..."
-            @keyup.enter="previewBatchScan"
           />
         </el-form-item>
         <el-form-item>

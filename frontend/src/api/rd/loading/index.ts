@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { WarehouseBatchRequestStatus } from '../stock/batch-status'
 
 export interface PickupSlipLine {
   id: number
@@ -164,7 +165,19 @@ export interface LoadingConfirmOutboundResp {
   message: string
 }
 
+export interface LoadingBatchConfirmReq {
+  taskId: number
+  version: number
+  representativePackageCode: string
+  idempotencyKey: string
+  taskLineIds: number[]
+  deviceCode?: string
+  deviceTime?: string
+}
+
 export const RdLoadingApi = {
+  getBatchStatus: (data: LoadingBatchConfirmReq) =>
+    request.post<WarehouseBatchRequestStatus>({ url: '/rd/loading-task/batch-scan/status', data }),
   createPickupSlip: (data: PickupSlipCreate) =>
     request.post<number>({ url: '/rd/loading-task/pickup-slip/create', data }),
   getPickupSlipPage: (
@@ -200,15 +213,8 @@ export const RdLoadingApi = {
   }) => request.post<number>({ url: '/rd/loading-task/create', data }),
   previewBatchScan: (data: { taskId?: number; packageCode: string; deviceCode?: string }) =>
     request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/preview', data }),
-  confirmBatchScan: (data: {
-    taskId: number
-    version: number
-    representativePackageCode: string
-    idempotencyKey: string
-    taskLineIds: number[]
-    deviceCode?: string
-    deviceTime?: string
-  }) => request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/confirm', data }),
+  confirmBatchScan: (data: LoadingBatchConfirmReq) =>
+    request.post<LoadingBatchScanResp>({ url: '/rd/loading-task/batch-scan/confirm', data }),
   confirmOutbound: (data: { taskId: number; version: number; remark?: string }) =>
     request.post<LoadingConfirmOutboundResp>({ url: '/rd/loading-task/confirm-outbound', data }),
   reportException: (data: {

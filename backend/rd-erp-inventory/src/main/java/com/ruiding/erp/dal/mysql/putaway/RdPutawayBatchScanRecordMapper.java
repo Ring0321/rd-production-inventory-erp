@@ -10,6 +10,7 @@ public interface RdPutawayBatchScanRecordMapper extends BaseMapperX<RdPutawayBat
     default RdPutawayBatchScanRecordDO selectByTaskAndKey(Long taskId, String key) {
         return selectOne(new LambdaQueryWrapperX<RdPutawayBatchScanRecordDO>()
                 .eq(RdPutawayBatchScanRecordDO::getTaskId, taskId)
-                .eq(RdPutawayBatchScanRecordDO::getIdempotencyKey, key));
+                .eq(RdPutawayBatchScanRecordDO::getIdempotencyKey, key)
+                .last("FOR UPDATE"));
     }
 }

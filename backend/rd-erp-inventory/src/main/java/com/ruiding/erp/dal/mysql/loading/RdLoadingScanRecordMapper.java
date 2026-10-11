@@ -10,6 +10,7 @@ public interface RdLoadingScanRecordMapper extends BaseMapperX<RdLoadingScanReco
     default RdLoadingScanRecordDO selectByTaskAndIdempotencyKey(Long taskId, String idempotencyKey) {
         return selectOne(new LambdaQueryWrapperX<RdLoadingScanRecordDO>()
                 .eq(RdLoadingScanRecordDO::getTaskId, taskId)
-                .eq(RdLoadingScanRecordDO::getIdempotencyKey, idempotencyKey));
+                .eq(RdLoadingScanRecordDO::getIdempotencyKey, idempotencyKey)
+                .last("FOR UPDATE"));
     }
 }

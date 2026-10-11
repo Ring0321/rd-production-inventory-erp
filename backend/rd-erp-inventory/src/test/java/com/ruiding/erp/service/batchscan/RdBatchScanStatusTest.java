@@ -48,6 +48,14 @@ import static org.mockito.Mockito.*;
 
 class RdBatchScanStatusTest {
     @ParameterizedTest @ValueSource(booleans = {false, true})
+    void shouldKeepAnAbsentFutureVersionUnknown(boolean loading) {
+        var f = new Fixture(loading);
+        f.current(3, "ASSIGNED");
+        f.assertResponse(f.status(20L), "UNKNOWN", 3, "ASSIGNED", null);
+        f.verifyReadOnly();
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
     void shouldLeaveAbsentSameVersionUnknownEvenAtTerminalStatus(boolean loading) {
         for (String status : List.of("ASSIGNED", "COMPLETED", "CANCELLED")) {
             var f = new Fixture(loading);

@@ -3,8 +3,6 @@ package com.ruiding.erp.controller.admin.common.vo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
-import java.util.Objects;
-
 @Data
 public class RdBatchScanStatusRespVO {
     public enum State { APPLIED, NOT_APPLIED_STALE, UNKNOWN }
@@ -21,11 +19,12 @@ public class RdBatchScanStatusRespVO {
     public static RdBatchScanStatusRespVO of(Long taskId, Integer requestVersion, Integer currentVersion,
                                             String taskStatus, Long verifiedRecordId) {
         State state = verifiedRecordId != null ? State.APPLIED
-                : Objects.equals(requestVersion, currentVersion) ? State.UNKNOWN : State.NOT_APPLIED_STALE;
+                : requestVersion != null && currentVersion != null && currentVersion > requestVersion
+                    ? State.NOT_APPLIED_STALE : State.UNKNOWN;
         String message = switch (state) {
             case APPLIED -> "The original batch scan request was applied.";
-            case NOT_APPLIED_STALE -> "No record exists and the task version has changed; this request cannot be confirmed.";
-            case UNKNOWN -> "No record exists at this version; the request may still arrive.";
+            case NOT_APPLIED_STALE -> "No record exists and the task version has advanced; this request cannot be confirmed.";
+            case UNKNOWN -> "No record exists and the request version is not older; the request may still arrive.";
         };
         return new RdBatchScanStatusRespVO().setTaskId(taskId).setRequestVersion(requestVersion)
                 .setCurrentVersion(currentVersion).setTaskStatus(taskStatus).setState(state)

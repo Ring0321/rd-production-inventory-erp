@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { WarehouseBatchRequestStatus } from '../batch-status'
 
 export type RdPutawayTaskStatus =
   | 'PENDING_PUTAWAY'
@@ -220,6 +221,8 @@ export const RdPutawayTaskApi = {
     request.post<RdPutawayBatchScanRespVO>({ url: '/rd/putaway-task/batch-scan/preview', data }),
   confirmBatchScan: (data: RdPutawayBatchConfirmReqVO) =>
     request.post<RdPutawayBatchScanRespVO>({ url: '/rd/putaway-task/batch-scan/confirm', data }),
+  getBatchStatus: (data: RdPutawayBatchConfirmReqVO) =>
+    request.post<WarehouseBatchRequestStatus>({ url: '/rd/putaway-task/batch-scan/status', data }),
   reportException: (data: RdPutawayExceptionCreateReqVO) =>
     request.post<number>({ url: '/rd/putaway-task/exception', data }),
   confirm: (data: RdPutawayTaskConfirmReqVO) =>

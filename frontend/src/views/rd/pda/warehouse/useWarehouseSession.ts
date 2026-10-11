@@ -1,6 +1,6 @@
 import { onActivated, onBeforeUnmount, onDeactivated } from 'vue'
 import { useUserStore } from '@/store/modules/user'
-import { getTenantId, getVisitTenantId } from '@/utils/auth'
+import { getAccessToken, getCurrentUserId, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { hasPermission } from '@/directives/permission/hasPermi'
 
 export const useWarehouseSession = () => {
@@ -13,6 +13,8 @@ export const useWarehouseSession = () => {
   const current = () =>
     alive &&
     active &&
+    !!getAccessToken() &&
+    getCurrentUserId() === ownerId &&
     user.getUser.id === ownerId &&
     String(getVisitTenantId() ?? getTenantId() ?? '') === tenant
   const allowed = (permission: string) => current() && hasPermission([permission])

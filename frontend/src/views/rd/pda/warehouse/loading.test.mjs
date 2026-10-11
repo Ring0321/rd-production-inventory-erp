@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import * as vue from 'vue'
 import { evaluate, plain } from './testHelpers.mjs'
+import { registerReconcileTests } from './reconcileContractTests.mjs'
 
 const initial = (status = 'ASSIGNED', version = 1) => ({
   task: {
@@ -27,7 +28,7 @@ const initial = (status = 'ASSIGNED', version = 1) => ({
       ? [{ id: 8, exceptionStatus: 'OPEN', description: '验证异常' }]
       : []
 })
-const setup = (overrides = {}, grants = ['*:*:*'], saved) => {
+const setup = (overrides = {}, grants = ['*:*:*'], saved, confirm = async () => true) => {
   const calls = []
   const data = new Map(saved || [])
   const identity = vue.reactive({ current: true })
@@ -106,11 +107,12 @@ const setup = (overrides = {}, grants = ['*:*:*'], saved) => {
   }
   const module = evaluate('./useLoadingWork.ts', {
     vue,
-    'element-plus': { ElMessageBox: { confirm: async () => true } },
+    'element-plus': { ElMessageBox: { confirm } },
     '@/utils': { generateUUID: () => 'REQ-2' },
     '@/utils/rdDigitalLink': { extractPackageCode: (value) => value.trim().split('/pkg/').at(-1) },
     '@/api/rd/loading': { RdLoadingApi: api },
-    './useBatchPending': pendingModule
+    './useBatchPending': pendingModule,
+    './reconcileStatus': evaluate('./reconcileStatus.ts')
   })
   return {
     work: module.useLoadingWork(session, async () => {
@@ -345,4 +347,10 @@ test('a resolution true reply with original exceptions still open remains pendin
   await h.work.act('resolve')
   assert.equal(h.work.feedback.value, '')
   assert.equal(h.work.needsCheck.value, true)
+})
+
+registerReconcileTests({
+  kind: 'loading',
+  setup,
+  detail: (version) => initial('ASSIGNED', version)
 })

@@ -51,6 +51,7 @@ const {
   read,
   reset,
   confirmBatch,
+  reconcile,
   act
 } = useLoadingWork(props.session, props.map.load)
 const labels: Record<string, string> = {
@@ -94,6 +95,14 @@ onMounted(async () => {
           {{ pending.request.taskLineIds.length }} 包</p
         ><el-button v-if="canDispatch" type="primary" :loading="writing" @click="confirmBatch"
           ><el-icon><RefreshRight /></el-icon>重试原装车核验</el-button
+        ><el-button
+          v-if="canDispatch"
+          :loading="writing"
+          :disabled="writing || reading"
+          @click="reconcile"
+          ><el-icon><Check /></el-icon>核定原装车请求</el-button
+        ><el-button v-if="canQuery" :disabled="writing || reading" @click="read()"
+          ><el-icon><Search /></el-icon>查看当前装车任务</el-button
         ></section
       >
       <form v-if="canDispatch" class="lookup" @submit.prevent="locate"

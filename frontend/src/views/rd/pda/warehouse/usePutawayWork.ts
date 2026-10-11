@@ -11,6 +11,7 @@ import {
 } from '@/api/rd/stock/putaway'
 import type { WarehouseSession } from './useWarehouseSession'
 import { useBatchPending } from './useBatchPending'
+import { verifyReconcileStatus } from './reconcileStatus'
 
 export const usePutawayWork = (
   session: WarehouseSession,
@@ -305,6 +306,60 @@ export const usePutawayWork = (
       writing.value = false
     }
   }
+  const reconcile = async () => {
+    if (
+      !session.allowed('rd:putaway-task:confirm') ||
+      !session.allowed('rd:putaway-task:query') ||
+      writing.value ||
+      reading.value ||
+      pending.value?.kind !== 'putaway'
+    )
+      return
+    const original = pending.value
+    writing.value = true
+    error.value = ''
+    feedback.value = ''
+    try {
+      store.assertOriginal(original)
+      const result = await api.getBatchStatus(original.request)
+      store.assertOriginal(original)
+      const state = verifyReconcileStatus(result, original)
+      if (state === 'UNKNOWN') {
+        error.value = '原请求结果仍未知，请保留并重试原请求'
+        return
+      }
+      if (state === 'NOT_APPLIED_STALE') {
+        await ElMessageBox.confirm(
+          '服务器确认原核验未执行且旧版本已不可执行。结束本机旧版待核后，需重新核对当前任务并选择实际包件。',
+          '核定旧版请求'
+        )
+        store.assertOriginal(original)
+      }
+      if (!session.allowed('rd:putaway-task:query')) throw new Error('当前无任务查询权限')
+      const current = await api.get(original.request.id)
+      store.assertOriginal(original)
+      if (current.task.id !== original.request.id) throw new Error('当前任务与原请求不一致')
+      if (
+        !Number.isSafeInteger(current.task.version) ||
+        current.task.version < result.currentVersion
+      )
+        throw new Error('当前任务版本未核实，请保留原请求')
+      if (!session.allowed('rd:putaway-task:confirm')) throw new Error('当前无上架核验权限')
+      store.clear(original)
+      apply(current)
+      feedback.value =
+        state === 'APPLIED'
+          ? '原核验已执行，已恢复当前任务'
+          : '旧版未执行请求已核定结束，请重新选择实际包件'
+      await loadList()
+      if (session.current()) await changed()
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close')
+        error.value = cause instanceof Error ? cause.message : '原请求核定失败，待核记录已保留'
+    } finally {
+      writing.value = false
+    }
+  }
   if (pending.value?.kind === 'putaway') {
     targetId.value = pending.value.request.id
     input.value = pending.value.request.packageCode
@@ -339,6 +394,7 @@ export const usePutawayWork = (
     read,
     reset,
     confirmBatch,
+    reconcile,
     act
   }
 }

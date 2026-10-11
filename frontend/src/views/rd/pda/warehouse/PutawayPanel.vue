@@ -48,6 +48,7 @@ const {
   read,
   reset,
   confirmBatch,
+  reconcile,
   act
 } = usePutawayWork(props.session, props.map.load, (id) =>
   props.map.rows.value.find((row) => row.id === id)
@@ -94,6 +95,16 @@ onMounted(async () => {
         >
         <el-button v-if="canConfirm" type="primary" :loading="writing" @click="confirmBatch"
           ><el-icon><RefreshRight /></el-icon>重试原上架核验</el-button
+        >
+        <el-button
+          v-if="canConfirm"
+          :loading="writing"
+          :disabled="writing || reading"
+          @click="reconcile"
+          ><el-icon><Check /></el-icon>核定原上架请求</el-button
+        >
+        <el-button v-if="canQuery" :disabled="writing || reading" @click="read()"
+          ><el-icon><Search /></el-icon>查看当前上架任务</el-button
         >
       </section>
       <form class="lookup" @submit.prevent="locate">
