@@ -18,7 +18,7 @@
 | E4 本地问句 | 7新增前端用例，NFKC/两及全角数量/更新设为/混合意图/UNKNOWN空诊断复现修复 | 242前端全部通过；识别0自动POST，原文不进请求/回执，不做业务写入 |
 | E5 新模型问法 | 真实服务器DISABLED拒绝；明确浏览器协议模拟两种问法各1显式POST、可信键映射、只留原请求元数据 | 仅协议准备，不是GLM质量/费用验收，没有本轮GLM费用 |
 | E6 实际页面 | 新增强7图（1440/390/320真实上下视口＋2协议模拟），0页面异常；人工看桌面/320，原8浏览器场景/6图 | 手机网页验证，不冒称实体PDA/扫码枪/打印机或现场验收；禁止角色不挂入口 |
-| E7 保留及构建 | 原AI13类/8场景及双页1POST；品牌12图/4场景旧URL及记录不变；10标签/2纸张/390与320；类型/规范/构建与可执行JAR | 原C5/C6/D/E/F完成数不变；源码/Git冻结待核，非正式商用发布 |
+| E7 保留及构建 | 原AI13类/8场景及双页1POST；品牌12图/4场景旧URL及记录不变；10标签/2纸张/390与320；类型/规范/构建与可执行JAR | 完整源码8e1d608已推送且远端一致、验证包302项通过；原C5/C6/D/E/F与A5完成数不变，非正式商用发布 |
 
 AI读取前后包件深比较相同，测试明确“非现场数据”。纯计算器无数据库依赖或写方法；事实服务复用原权限/查询。外发仍受控流程状态、汇总和解释键7字段，单包重量、原文/样例/客户/库位等不直接送模型，Redis限额/原UUID去重及未知不自动重试继续适用。
 
@@ -35,3 +35,9 @@ Java警告被PowerShell Stop误当异常后改执行壳；真正重包失败是�
 可复跑Verify-RdAiEnhancement.mjs及原PackageAi/Browser、ProductBrand、PackageLabels验证。本地证据：temp/ai-enhancement-verification/result.json及7图；ai-enhancement-runtime-final.log、ai-enhancement-original-browser-final.log、ai-enhancement-brand-regression.log、ai-enhancement-qr-label-regression.log、ai-enhancement-backend-stopped-runtime.log、ai-enhancement-frontend-final.log、ai-enhancement-build-final.log；当前库存模块surefire XML可重算365。具体测试跟源码保存，临时日志不上传仓库。
 
 AI-A5仍需负责人确认实际GLM模型、费用/平台预算及本机配置，再授权少量真实调用对照验收；不重复索取已定供应商/外发范围，不在聊天传密钥。跨设备待核、Redis恢复、附件/OCR和自由模型问答未在本轮完成。原事实与解释分离，协议模拟和本地规则不充当已上线真实AI。
+
+## 实现冻结与归档
+
+后端81e50f8及完整实现8e1d608a60ca0fc222388000f752c2ae41c00d29已推送原开发分支，ls-remote实际相同；19路径分两笔，新增密钥模式0命中，私密.env.local及临时资料未入库。源代码和验证环境对应上列证据，E1至E7在本地技术边界均通过。记录归档为后续文档提交，不另增软件版本或扩大验收范围。
+
+干净快照验证包temp/ai-enhancement-package/duoxu-erp-trial-8e1d608_20261013_032646.zip，129005710字节，SHA256 3fa4b3431ede0f2690c4a4388e4f17f629f50c5855d3d8bde0e2e3ea47dd20fb。实际302项检查：VERSION绑定8e1d608/dirty=false，编译AI入口含两问法及未知保护，后端JAR哈希等于已验构建，唯一产品指南存在；私密环境、验收/规格/台账未分发，ZIP重算哈希一致。此包不公开上传、不宣称正式商用、实机或真实GLM验收。
