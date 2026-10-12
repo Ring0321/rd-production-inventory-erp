@@ -1,6 +1,11 @@
 import request from '@/config/axios'
 
-export type PackageAiQuestion = 'STATUS' | 'SOURCE_PROGRESS' | 'NEXT_STEP'
+export type PackageAiQuestion =
+  | 'STATUS'
+  | 'SOURCE_PROGRESS'
+  | 'NEXT_STEP'
+  | 'RISK_REVIEW'
+  | 'HANDOVER'
 export type PackageAiProviderState =
   | 'DISABLED'
   | 'UNCONFIGURED'
@@ -21,6 +26,23 @@ export interface PackageAiContext {
   factsAt: string
   providerState: PackageAiProviderState
   notices: Array<{ key: string; text: string }>
+  diagnosis?: PackageAiDiagnosis
+}
+
+export interface PackageAiDiagnosis {
+  scope: 'PRODUCTION_OUTPUT'
+  state: 'KNOWN' | 'UNKNOWN'
+  inspectedPackages: number | null
+  findings: Array<{
+    key: string
+    severity: 'HIGH' | 'REVIEW' | 'INFO'
+    owner: 'PRODUCTION' | 'QUALITY' | 'WAREHOUSE'
+    title: string
+    detail: string
+    affectedCount: number | null
+    packageCodes: string[]
+    evidence: string
+  }>
 }
 
 export interface PackageAiAskRequest {

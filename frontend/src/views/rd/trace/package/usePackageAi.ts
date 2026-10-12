@@ -6,6 +6,7 @@ import {
   type PackageAiAnswer,
   type PackageAiAskRequest,
   type PackageAiContext,
+  type PackageAiDiagnosis,
   type PackageAiQuestion
 } from '@/api/rd/ai'
 import { generateUUID } from '@/utils'
@@ -26,8 +27,45 @@ const permission = 'rd:package-unit:query'
 export const packageAiQuestions: Array<{ value: PackageAiQuestion; label: string }> = [
   { value: 'STATUS', label: '当前状态' },
   { value: 'SOURCE_PROGRESS', label: '来源登记进度' },
-  { value: 'NEXT_STEP', label: '下一步办理提示' }
+  { value: 'NEXT_STEP', label: '下一步办理提示' },
+  { value: 'RISK_REVIEW', label: '风险核对' },
+  { value: 'HANDOVER', label: '交接摘要' }
 ]
+
+type FieldQuestion =
+  | { state: 'MATCHED'; question: PackageAiQuestion }
+  | { state: 'AMBIGUOUS'; candidates: PackageAiQuestion[] }
+  | { state: 'UNSUPPORTED' }
+
+export const interpretPackageAiQuestion = (value: string): FieldQuestion => {
+  const input = value.normalize('NFKC').trim()
+  if (
+    !input ||
+    input.length > 120 ||
+    /删除|修改|更改|改成|更新|设为|设置|调整|转移|过账|作废|放行|自动|提交|扣库存|调账|SQL|密钥|密码|https?:\/\//i.test(
+      input
+    ) ||
+    /[0-9零一二两三四五六七八九十百千万点壹贰叁肆伍陆柒捌玖拾佰仟]+\s*(?:吨|t\b|kg\b|千克|公斤|包)/i.test(
+      input
+    )
+  )
+    return { state: 'UNSUPPORTED' }
+  const patterns: Array<[PackageAiQuestion, RegExp]> = [
+    ['STATUS', /状态|到哪|哪一步|什么阶段/],
+    ['SOURCE_PROGRESS', /包数|重量|多重|多少包|多少吨|多少公斤|进度/],
+    ['NEXT_STEP', /下一步|接下来|谁处理|谁负责|谁确认|找谁|哪个部门/],
+    [
+      'RISK_REVIEW',
+      /(?:能|可以|可不可以|能不能|是否能).*?(?:发|出库|入库)|风险|异常|有没有问题|有问题吗|注意|检查/
+    ],
+    ['HANDOVER', /交接|交班|摘要/]
+  ]
+  const candidates = patterns
+    .filter(([, pattern]) => pattern.test(input))
+    .map(([question]) => question)
+  if (candidates.length === 1) return { state: 'MATCHED', question: candidates[0] }
+  return candidates.length ? { state: 'AMBIGUOUS', candidates } : { state: 'UNSUPPORTED' }
+}
 const providerLabels = {
   DISABLED: '未启用',
   UNCONFIGURED: '未配置',
@@ -58,6 +96,77 @@ const validQuestion = (value: unknown): value is PackageAiQuestion =>
 const text = (value: unknown): value is string => typeof value === 'string' && !!value.trim()
 const count = (value: unknown) => Number.isSafeInteger(value) && Number(value) >= 0
 const weight = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0
+const diagnosticKeys = new Set([
+  'DIAG_VOIDED',
+  'DIAG_QUALITY_REJECTED',
+  'DIAG_QUALITY_PENDING',
+  'DIAG_STOCKTAKE_MISSING',
+  'DIAG_UNKNOWN_STATUS',
+  'DIAG_INVALID_WEIGHT',
+  'DIAG_MISSING_LOCATION',
+  'DIAG_SPLIT_LOCATION',
+  'DIAG_SOURCE_UNKNOWN'
+])
+const validDiagnosis = (
+  value: PackageAiDiagnosis | undefined,
+  source: PackageAiContext['source']
+) => {
+  if (value === undefined || value === null) return true
+  if (
+    value.state === 'KNOWN' &&
+    (!count(value.inspectedPackages) || Number(value.inspectedPackages) < 1)
+  )
+    return false
+  if (
+    value.state === 'UNKNOWN' &&
+    (!Array.isArray(value.findings) ||
+      value.findings.length !== 1 ||
+      value.findings[0]?.key !== 'DIAG_SOURCE_UNKNOWN')
+  )
+    return false
+  if (
+    value.scope !== 'PRODUCTION_OUTPUT' ||
+    value.state !== source.state ||
+    !Array.isArray(value.findings) ||
+    value.findings.length > diagnosticKeys.size
+  )
+    return false
+  if (
+    value.state === 'KNOWN'
+      ? value.inspectedPackages !== source.packageCount
+      : value.inspectedPackages !== null
+  )
+    return false
+  return (
+    new Set(value.findings.map((finding) => finding.key)).size === value.findings.length &&
+    value.findings.every(
+      (finding) =>
+        diagnosticKeys.has(finding.key) &&
+        ['HIGH', 'REVIEW', 'INFO'].includes(finding.severity) &&
+        ['PRODUCTION', 'QUALITY', 'WAREHOUSE'].includes(finding.owner) &&
+        text(finding.title) &&
+        finding.title.length <= 100 &&
+        text(finding.detail) &&
+        finding.detail.length <= 1000 &&
+        text(finding.evidence) &&
+        finding.evidence.length <= 256 &&
+        Array.isArray(finding.packageCodes) &&
+        finding.packageCodes.length <= 5 &&
+        new Set(finding.packageCodes).size === finding.packageCodes.length &&
+        finding.packageCodes.every(
+          (code) => typeof code === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(code)
+        ) &&
+        (value.state === 'UNKNOWN'
+          ? finding.key === 'DIAG_SOURCE_UNKNOWN' &&
+            finding.affectedCount === null &&
+            finding.packageCodes.length === 0
+          : finding.key !== 'DIAG_SOURCE_UNKNOWN' &&
+            count(finding.affectedCount) &&
+            Number(finding.affectedCount) > 0 &&
+            Number(finding.affectedCount) <= Number(value.inspectedPackages))
+    )
+  )
+}
 
 export const packageAiStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
@@ -230,7 +339,8 @@ const validContext = (
     Object.values(source.counts).every(count) &&
     Array.isArray(value.notices) &&
     value.notices.every((notice) => text(notice?.key) && text(notice?.text)) &&
-    new Set(value.notices.map((notice) => notice.key)).size === value.notices.length
+    new Set(value.notices.map((notice) => notice.key)).size === value.notices.length &&
+    validDiagnosis(value.diagnosis, source)
   )
 }
 

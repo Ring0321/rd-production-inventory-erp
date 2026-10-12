@@ -494,5 +494,5 @@ if ($dashboard.code -ne 0) {
 Write-Host "[5/5] DUOXU ERP is ready."
 Write-Host "Web:      http://127.0.0.1:$webPort/login"
 Write-Host "Username: admin"
-Write-Host "Password: $env:RD_ADMIN_INITIAL_PASSWORD"
+Write-Host "Password: not displayed; use the protected local credentials file"
 Write-Host "Local credentials: $envFile"

@@ -29,11 +29,13 @@ const registerControls = (app) => {
   for (const [name, tag] of Object.entries({
     ElButton: 'button',
     ElSelect: 'select',
+    ElInput: 'input',
     ElOption: 'option',
     ElTag: 'span',
     ElTooltip: 'div',
     ElAlert: 'p',
     ElSkeleton: 'div',
+    RouterLink: 'a',
     Icon: 'span'
   })) {
     app.component(name, {
