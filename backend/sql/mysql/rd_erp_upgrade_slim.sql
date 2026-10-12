@@ -706,7 +706,7 @@ DROP TABLE IF EXISTS `system_oauth2_code`;
 DROP TABLE IF EXISTS `system_oauth2_client`;
 
 UPDATE `system_tenant`
-SET `name` = '宁夏天净隆鼎碳化硅有限公司', `status` = 0,
+SET `status` = 0,
     `expire_time` = '2099-12-31 23:59:59',
     `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
 WHERE `id` = 1;
@@ -720,7 +720,7 @@ SET `name` = '生产货物管理', `updater` = 'rd-slim-migration', `update_time
 WHERE `id` = 600000;
 
 UPDATE `system_dept`
-SET `name` = '宁夏天净隆鼎碳化硅有限公司', `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
+SET `updater` = 'rd-slim-migration', `update_time` = NOW(), `deleted` = b'0'
 WHERE `id` = 1 AND `tenant_id` = 1;
 
 INSERT INTO `system_post`

@@ -282,7 +282,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import QRCode from 'qrcode'
 import { useRoute } from 'vue-router'
 import download from '@/utils/download'
-import { extractPackageCode, getPackageDigitalLink } from '@/utils/rdDigitalLink'
+import { extractPackageCode, resolvePackageDigitalLink } from '@/utils/rdDigitalLink'
 import {
   buildPackageLabelHtml,
   type PackageLabel,
@@ -504,11 +504,14 @@ const openPreview = async (row: RdPackageUnitVO) => {
 }
 const buildLabel = async (item: RdPackageUnitVO): Promise<PackageLabel> => ({
   item: normalizePackageDates(item),
-  qrDataUrl: await QRCode.toDataURL(getPackageDigitalLink(item.packageCode, item.qrCode), {
-    width: 420,
-    margin: 4,
-    errorCorrectionLevel: 'M'
-  })
+  qrDataUrl: await QRCode.toDataURL(
+    await resolvePackageDigitalLink(item.packageCode, item.qrCode, RdPackageUnitApi.getPublicTrace),
+    {
+      width: 420,
+      margin: 4,
+      errorCorrectionLevel: 'M'
+    }
+  )
 })
 const preparePrint = async (packages: RdPackageUnitVO[], reprint: boolean) => {
   if (!packages.length || packages.length > 500) {

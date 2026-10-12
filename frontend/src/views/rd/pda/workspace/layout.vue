@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElButton, ElMessageBox, ElTooltip } from 'element-plus'
 import { ArrowLeft, House, SwitchButton } from '@element-plus/icons-vue'
-import brandLogo from '@/assets/imgs/logo.png'
+import { productBrand } from '@/config/brand'
 import { useUserStore } from '@/store/modules/user'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { getRoleLabel } from './profile'
@@ -64,8 +64,11 @@ watch(
     <header class="pda-header">
       <div class="header-row">
         <div class="company">
-          <img :src="brandLogo" alt="天净隆鼎" width="40" height="32" />
-          <div class="company-name"><strong>天净隆鼎</strong><span>岗位 PDA</span></div>
+          <img :src="productBrand.logoUrl" :alt="productBrand.name" width="40" height="40" />
+          <div class="company-name"
+            ><strong>{{ productBrand.shortName }}</strong
+            ><span>岗位 PDA</span></div
+          >
         </div>
         <nav class="shell-actions" aria-label="工作台导航">
           <ElTooltip content="返回">

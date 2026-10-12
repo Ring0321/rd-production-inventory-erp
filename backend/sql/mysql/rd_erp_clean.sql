@@ -1996,12 +1996,12 @@ ON DUPLICATE KEY UPDATE `sort`=VALUES(`sort`), `label`=VALUES(`label`), `value`=
 
 
 INSERT INTO `system_tenant` (`id`, `name`, `contact_user_id`, `contact_name`, `contact_mobile`, `status`, `websites`, `expire_time`, `account_count`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES
-(1, '宁夏天净隆鼎碳化硅有限公司', 1, '系统管理员', NULL, 0, '[]', '2099-12-31 23:59:59', 500, 'system', NOW(), 'system', NOW(), b'0')
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `contact_user_id`=VALUES(`contact_user_id`), `status`=VALUES(`status`), `expire_time`=VALUES(`expire_time`), `account_count`=VALUES(`account_count`), `deleted`=b'0';
+(1, '默认组织', 1, '系统管理员', NULL, 0, '[]', '2099-12-31 23:59:59', 500, 'system', NOW(), 'system', NOW(), b'0')
+ON DUPLICATE KEY UPDATE `contact_user_id`=VALUES(`contact_user_id`), `status`=VALUES(`status`), `expire_time`=VALUES(`expire_time`), `account_count`=VALUES(`account_count`), `deleted`=b'0';
 
 INSERT INTO `system_dept` (`id`, `name`, `parent_id`, `sort`, `leader_user_id`, `phone`, `email`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES
-(1, '宁夏天净隆鼎碳化硅有限公司', 0, 1, 1, NULL, NULL, 0, 'system', NOW(), 'system', NOW(), b'0', 1)
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `status`=VALUES(`status`), `tenant_id`=1, `deleted`=b'0';
+(1, '默认组织', 0, 1, 1, NULL, NULL, 0, 'system', NOW(), 'system', NOW(), b'0', 1)
+ON DUPLICATE KEY UPDATE `status`=VALUES(`status`), `tenant_id`=1, `deleted`=b'0';
 
 INSERT INTO `system_post` (`id`, `code`, `name`, `sort`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES
 (1, 'RD_PRODUCTION', '生产录入岗', 10, 0, '生产产量录入与确认', 'system', NOW(), 'system', NOW(), b'0', 1),

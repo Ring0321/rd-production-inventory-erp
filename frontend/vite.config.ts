@@ -3,6 +3,7 @@ import type {ConfigEnv, UserConfig} from 'vite'
 import {loadEnv, normalizePath} from 'vite'
 import {createVitePlugins} from './build/vite'
 import {exclude, include} from "./build/vite/optimize"
+import {createProductBrand, applyProductBrandHtml} from './src/config/brand'
 // 当前执行node命令时文件夹的地址(工作目录)
 const root = process.cwd()
 
@@ -27,6 +28,7 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
         env = loadEnv(mode, root)
     }
     const variablesScssPath = pathResolve('src/styles/variables.scss')
+    const productBrand = createProductBrand({...env, BASE_URL: env.VITE_BASE_PATH || '/'})
     return {
         base: env.VITE_BASE_PATH,
         root: root,
@@ -46,7 +48,13 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
             // },
         },
         // 项目使用的vite插件。 单独提取到build/vite/plugin中管理
-        plugins: createVitePlugins(isBuild, env),
+        plugins: [...createVitePlugins(isBuild, env), {
+            name: 'product-brand-document',
+            transformIndexHtml: {
+                order: 'pre',
+                handler: (html) => applyProductBrandHtml(html, productBrand)
+            }
+        }],
         css: {
             lightningcss: {
                 // Preserve legacy star-hack declarations by stripping invalid syntax during minification.

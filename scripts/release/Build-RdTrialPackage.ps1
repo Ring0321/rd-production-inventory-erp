@@ -66,8 +66,9 @@ if (-not (Test-Path -LiteralPath $serverJar) -or -not (Test-Path -LiteralPath $f
 $gitCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $gitShort = (& git -C $repoRoot rev-parse --short HEAD).Trim()
 $dirty = [bool](& git -C $repoRoot status --porcelain)
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$packageBase = "rd-erp-trial-${gitShort}_${timestamp}"
+$builtAt = [TimeZoneInfo]::ConvertTime([DateTimeOffset]::UtcNow, [TimeZoneInfo]::FindSystemTimeZoneById("China Standard Time"))
+$timestamp = $builtAt.ToString("yyyyMMdd_HHmmss")
+$packageBase = "duoxu-erp-trial-${gitShort}_${timestamp}"
 $tempRoot = Join-Path $repoRoot "temp"
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 $stageRoot = Join-Path $tempRoot $packageBase
@@ -85,7 +86,11 @@ try {
 
     Copy-Item -LiteralPath $serverJar -Destination (Join-Path $stageRoot "backend\rd-erp-server.jar")
     Copy-Item -Path (Join-Path $frontendDist "*") -Destination (Join-Path $stageRoot "frontend") -Recurse
-    Copy-Item -LiteralPath (Join-Path $repoRoot "deploy\trial") -Destination (Join-Path $stageRoot "deploy") -Recurse
+    $trialTarget = Join-Path $stageRoot "deploy\trial"
+    New-Item -ItemType Directory -Path $trialTarget -Force | Out-Null
+    foreach ($name in @(".env.example", "application-trial.yaml", "backend-runtime.Dockerfile", "backend.Dockerfile", "compose.runtime.yaml", "compose.yaml", "frontend-runtime.Dockerfile", "frontend.Dockerfile", "nginx.conf", "README.md")) {
+        Copy-Item -LiteralPath (Join-Path $repoRoot "deploy\trial\$name") -Destination (Join-Path $trialTarget $name)
+    }
     Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\backup") -Destination (Join-Path $stageRoot "scripts") -Recurse
 
     @(
@@ -95,18 +100,20 @@ try {
         Copy-Item -LiteralPath (Join-Path $backendRoot "sql\mysql\$_") `
                 -Destination (Join-Path $stageRoot "database\$_")
     }
-    Copy-Item -Path (Join-Path $repoRoot "docs\*.md") -Destination (Join-Path $stageRoot "docs")
+    Copy-Item -Path (Join-Path $repoRoot "docs\product\*.md") -Destination (Join-Path $stageRoot "docs")
 
     @(
-        "RD ERP trial package",
+        "DUOXU ERP trial package",
         "Git commit: $gitCommit",
         "Dirty working tree: $dirty",
-        "Built at: $((Get-Date).ToString('o'))",
+        "Built at: $($builtAt.ToString('o'))",
         "Web port: 9000"
     ) | Set-Content -LiteralPath (Join-Path $stageRoot "VERSION.txt") -Encoding UTF8
 
     Compress-Archive -LiteralPath $stageRoot -DestinationPath $zipPath -CompressionLevel Optimal -Force
-    $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stream = [IO.File]::OpenRead($zipPath)
+    try { $hash = ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($stream))).Replace("-", "").ToLowerInvariant() }
+    finally { $stream.Dispose() }
     "$hash  $([IO.Path]::GetFileName($zipPath))" | Set-Content -LiteralPath $hashPath -Encoding ASCII
 } finally {
     $resolvedTempRoot = [IO.Path]::GetFullPath($tempRoot).TrimEnd('\') + '\'

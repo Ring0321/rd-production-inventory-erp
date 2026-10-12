@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-@Schema(description = "管理后台 - 瑞鼎库存看板 Response VO")
+@Schema(description = "管理后台 - 库存看板 Response VO")
 @Data
 public class RdInventoryDashboardRespVO {
 

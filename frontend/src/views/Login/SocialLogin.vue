@@ -1,6 +1,6 @@
 <template>
   <main class="social-callback" aria-live="polite">
-    <img src="@/assets/imgs/logo.png" alt="天净隆鼎" />
+    <img :src="productBrand.logoUrl" :alt="productBrand.name" />
     <h1>正在验证企业账号</h1>
     <p>请稍候，验证完成后将自动进入 ERP 工作台。</p>
     <el-progress :percentage="100" :indeterminate="true" :duration="2" />
@@ -10,6 +10,7 @@
 <script lang="ts" setup>
 import * as LoginApi from '@/api/login'
 import * as authUtil from '@/utils/auth'
+import { productBrand } from '@/config/brand'
 
 defineOptions({ name: 'SocialLogin' })
 

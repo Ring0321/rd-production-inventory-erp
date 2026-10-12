@@ -3,18 +3,10 @@
     <section class="login-stage">
       <div class="system-context">
         <div class="brand">
-          <img src="@/assets/imgs/logo.png" alt="天净隆鼎" />
-          <strong>{{ appStore.getTitle }}</strong>
+          <img :src="productBrand.logoUrl" :alt="productBrand.name" />
         </div>
-        <h1>生产货物二维码数字化管理系统</h1>
-        <p>围绕生产任务、包装标签、质检放行、入库出库和数字护照，建立一包一码的管理闭环。</p>
-        <div class="flow-tags" aria-label="系统业务范围">
-          <span>生产</span>
-          <span>质检</span>
-          <span>入库</span>
-          <span>出库</span>
-          <span>追溯</span>
-        </div>
+        <h1>{{ productBrand.name }}</h1>
+        <p>{{ productBrand.subtitle }}</p>
       </div>
 
       <div class="login-panel">
@@ -31,13 +23,12 @@
 </template>
 
 <script lang="ts" setup>
-import { useAppStore } from '@/store/modules/app'
+import { productBrand } from '@/config/brand'
 import { ThemeSwitch } from '@/layout/components/ThemeSwitch'
 import { LocaleDropdown } from '@/layout/components/LocaleDropdown'
 import { LoginForm, MobileForm, ForgetPasswordForm } from './components'
 
 defineOptions({ name: 'Login' })
-const appStore = useAppStore()
 </script>
 
 <style lang="scss" scoped>
@@ -45,8 +36,9 @@ const appStore = useAppStore()
   display: flex;
   min-height: 100%;
   padding: 36px;
-  color: #fff;
-  background: linear-gradient(118deg, #173a5a 0%, #24596a 52%, #28776f 100%);
+  color: #202a30;
+  background: #f5f7f8;
+  border-top: 4px solid #087e72;
   align-items: center;
   justify-content: center;
 }
@@ -59,61 +51,38 @@ const appStore = useAppStore()
 }
 
 .brand img {
-  width: 116px;
-  height: 58px;
+  width: 96px;
+  height: 96px;
   object-fit: contain;
-}
-
-.brand strong {
-  max-width: 390px;
-  font-size: 20px;
-  line-height: 1.45;
-  letter-spacing: 0;
 }
 
 .login-stage {
   display: grid;
-  width: min(1720px, 100%);
+  width: min(1040px, 100%);
   align-items: center;
-  gap: clamp(56px, 9vw, 180px);
+  gap: 72px;
   grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
 }
 
 .system-context {
-  max-width: 760px;
+  max-width: 460px;
   justify-self: center;
 }
 
 .system-context h1 {
-  margin: 36px 0 18px;
-  font-size: clamp(38px, 3.2vw, 56px);
+  margin: 22px 0 12px;
+  overflow-wrap: anywhere;
+  font-size: 34px;
   line-height: 1.22;
   letter-spacing: 0;
 }
 
 .system-context p {
-  max-width: 720px;
+  max-width: 460px;
   margin: 0;
-  font-size: 18px;
-  line-height: 1.75;
-  color: rgb(255 255 255 / 78%);
-}
-
-.flow-tags {
-  display: flex;
-  margin-top: 34px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.flow-tags span {
-  min-width: 84px;
-  padding: 10px 18px;
   font-size: 16px;
-  text-align: center;
-  background: rgb(14 42 61 / 14%);
-  border: 1px solid rgb(255 255 255 / 28%);
-  border-radius: 6px;
+  line-height: 1.75;
+  color: #606b72;
 }
 
 .login-panel {
@@ -121,9 +90,9 @@ const appStore = useAppStore()
   padding: 32px 34px;
   color: #27313f;
   background: #fff;
-  border: 1px solid rgb(255 255 255 / 44%);
+  border: 1px solid #d9e0e4;
   border-radius: 8px;
-  box-shadow: 0 22px 56px rgb(7 33 45 / 22%);
+  box-shadow: 0 12px 36px rgb(32 42 48 / 6%);
 }
 
 .panel-tools {
@@ -155,13 +124,8 @@ const appStore = useAppStore()
   }
 
   .brand img {
-    width: 96px;
-    height: 48px;
-  }
-
-  .brand strong {
-    max-width: 220px;
-    font-size: 15px;
+    width: 64px;
+    height: 64px;
   }
 
   .system-context h1 {
@@ -170,9 +134,9 @@ const appStore = useAppStore()
     text-align: center;
   }
 
-  .system-context p,
-  .flow-tags {
-    display: none;
+  .system-context p {
+    font-size: 14px;
+    text-align: center;
   }
 
   .login-panel {

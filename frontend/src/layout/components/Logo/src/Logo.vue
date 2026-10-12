@@ -3,7 +3,7 @@ import { computed, onMounted, ref, unref, watch } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { getLayoutRenderMode, isHeaderNavLayout } from '@/utils/layout'
-import brandLogo from '@/assets/imgs/logo.png'
+import { productBrand } from '@/config/brand'
 
 defineOptions({ name: 'Logo' })
 
@@ -71,8 +71,8 @@ watch(
       to="/"
     >
       <img
-        :src="brandLogo"
-        alt="天净隆鼎"
+        :src="productBrand.logoUrl"
+        :alt="productBrand.name"
         :class="['rd-logo-image', { 'rd-logo-image--expanded': show }]"
       />
       <div
@@ -88,8 +88,8 @@ watch(
           }
         ]"
       >
-        <span>天净隆鼎生产货物</span>
-        <span>二维码管理系统</span>
+        <span :title="productBrand.name">{{ productBrand.name }}</span>
+        <span class="rd-logo-subtitle">{{ productBrand.subtitle }}</span>
       </div>
     </router-link>
   </div>
@@ -101,6 +101,9 @@ watch(
   height: calc(var(--logo-height) - 12px);
   flex: none;
   object-fit: contain;
+  padding: 2px;
+  background: #f8fcfb;
+  border-radius: 4px;
   transition: width 0.2s ease;
 }
 
@@ -114,6 +117,15 @@ watch(
   flex-direction: column;
   font-size: 13px;
   line-height: 1.3;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+.rd-logo-title > span {
+  max-width: 100%;
+}
+
+.rd-logo-subtitle {
+  font-size: 11px;
+  font-weight: 400;
 }
 </style>

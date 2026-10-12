@@ -335,7 +335,8 @@ public class RdPackageUnitServiceImpl implements RdPackageUnitService {
         events.sort(Comparator.comparing(RdPackageTraceEventRespVO::getEventTime));
         RdPackageTraceRespVO response = new RdPackageTraceRespVO()
                 .setPackageCode(unit.getPackageCode())
-                .setDigitalLink(digitalLinkService.build(unit.getPackageCode()))
+                .setDigitalLink(unit.getQrCode() != null && !unit.getQrCode().isBlank()
+                        ? unit.getQrCode() : digitalLinkService.build(unit.getPackageCode()))
                 .setStatus(unit.getStatus())
                 .setStatusName(packageStatusName(unit.getStatus()))
                 .setProductionDate(unit.getProductionDate())

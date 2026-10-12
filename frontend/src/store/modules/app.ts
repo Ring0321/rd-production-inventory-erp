@@ -8,6 +8,7 @@ import { normalizeLayout } from '@/utils/layout'
 import { ElMessage } from 'element-plus'
 import { defineStore } from 'pinia'
 import { store } from '../index'
+import { productBrand } from '@/config/brand'
 
 const { wsCache } = useCache()
 
@@ -48,7 +49,7 @@ export const useAppStore = defineStore('app', {
       userInfo: 'userInfo', // 登录信息存储字段-建议每个项目换一个字段，避免与其他项目冲突
       sizeMap: ['default', 'large', 'small'],
       mobile: false, // 是否是移动端
-      title: import.meta.env.VITE_APP_TITLE, // 标题
+      title: productBrand.name, // 标题
       pageLoading: false, // 路由跳转loading
 
       breadcrumb: true, // 面包屑
@@ -76,13 +77,13 @@ export const useAppStore = defineStore('app', {
       currentSize: wsCache.get('default') || 'default', // 组件尺寸
       theme: wsCache.get(CACHE_KEY.THEME) || {
         // 主题色
-        elColorPrimary: '#409eff',
+        elColorPrimary: '#087e72',
         // 左侧菜单边框颜色
         leftMenuBorderColor: 'inherit',
         // 左侧菜单背景颜色
-        leftMenuBgColor: '#001529',
+        leftMenuBgColor: '#212a2f',
         // 左侧菜单浅色背景颜色
-        leftMenuBgLightColor: '#0f2438',
+        leftMenuBgLightColor: '#303c42',
         // 左侧菜单选中背景颜色
         leftMenuBgActiveColor: 'var(--el-color-primary)',
         // 左侧菜单收起选中背景颜色

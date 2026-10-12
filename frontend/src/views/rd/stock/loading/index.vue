@@ -288,7 +288,7 @@
             v-model="batchScanForm.packageCode"
             clearable
             class="!w-420px"
-            placeholder="扫描任意一包，支持 LD... 或 https://id.tjldsic.com/pkg/LD..."
+            placeholder="扫描包件二维码，或输入完整包号"
           />
         </el-form-item>
         <el-form-item>

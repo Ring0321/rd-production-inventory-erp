@@ -2,6 +2,7 @@
 param(
     [switch]$SkipBackendBuild,
     [switch]$SkipFrontendBuild,
+    [switch]$SkipDatabaseUpgrade,
     [ValidateSet("Auto", "Docker", "Local")]
     [string]$InfrastructureMode = "Auto",
     [string]$InstanceName = "",
@@ -409,7 +410,7 @@ if ($resolvedInfrastructureMode -eq "Docker") {
     Start-LocalMySql $dbPort | Out-Null
     Start-LocalRedis $redisPort | Out-Null
 }
-Apply-DatabaseUpgrade $dbPort
+if (-not $SkipDatabaseUpgrade) { Apply-DatabaseUpgrade $dbPort }
 [IO.File]::WriteAllText($infraModeFile, $resolvedInfrastructureMode)
 Write-Host "Infrastructure: $resolvedInfrastructureMode"
 
@@ -418,6 +419,9 @@ $env:RD_SLAVE_DATASOURCE_URL = $env:RD_MASTER_DATASOURCE_URL
 $env:RD_DB_USERNAME = "root"
 $env:RD_REDIS_HOST = "127.0.0.1"
 $env:RD_CAPTCHA_ENABLED = "false"
+if ([string]::IsNullOrWhiteSpace($env:RD_DIGITAL_LINK_BASE_URL)) {
+    $env:RD_DIGITAL_LINK_BASE_URL = "http://localhost:$webPort/pkg"
+}
 $env:SPRING_PROFILES_ACTIVE = "dev"
 $env:LOG_FILE = Join-Path $runtimeRoot "application.log"
 
@@ -487,7 +491,7 @@ if ($dashboard.code -ne 0) {
     throw "Dashboard verification failed: $($dashboard.msg)"
 }
 
-Write-Host "[5/5] RD ERP is ready."
+Write-Host "[5/5] DUOXU ERP is ready."
 Write-Host "Web:      http://127.0.0.1:$webPort/login"
 Write-Host "Username: admin"
 Write-Host "Password: $env:RD_ADMIN_INITIAL_PASSWORD"

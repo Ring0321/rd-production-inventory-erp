@@ -208,6 +208,28 @@ class RdPackageUnitServiceImplTest {
     }
 
     @Test
+    void shouldPreservePersistedQrIdentityAcrossNewBrandDomainConfiguration() {
+        var unit = buildTracePackage();
+        String original = "https://id.tjldsic.com/pkg/" + unit.getPackageCode();
+        unit.setQrCode(original);
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        assertEquals(original, service.getTraceDetail(unit.getPackageCode(), false).getDigitalLink());
+        assertEquals(original, service.getTraceDetail(unit.getPackageCode(), true).getDigitalLink());
+        verifyNoInteractions(digitalLinkService);
+        verify(packageMapper, never()).updateById(any(RdPackageUnitDO.class));
+    }
+
+    @Test
+    void shouldOnlyGenerateTraceLinkForLegacyPackageWithoutPersistedQr() {
+        var unit = buildTracePackage().setQrCode(" ");
+        when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);
+        String link = "http://localhost:9000/pkg/" + unit.getPackageCode();
+        when(digitalLinkService.build(unit.getPackageCode())).thenReturn(link);
+        assertEquals(link, service.getTraceDetail(unit.getPackageCode(), false).getDigitalLink());
+        verify(packageMapper, never()).updateById(any(RdPackageUnitDO.class));
+    }
+
+    @Test
     void shouldIncludeOperationalFieldsInInternalTrace() {
         RdPackageUnitDO unit = buildTracePackage();
         when(packageMapper.selectByPackageCode(unit.getPackageCode())).thenReturn(unit);

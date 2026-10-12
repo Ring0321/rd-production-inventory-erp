@@ -1,4 +1,5 @@
 import type { RdPackageUnitVO } from '@/api/rd/stock/package'
+import { productBrand } from '@/config/brand'
 
 export type PackageLabelPaper = 'LABEL_100_76' | 'A4'
 export type PackageLabel = { item: RdPackageUnitVO; qrDataUrl: string }
@@ -19,7 +20,8 @@ const field = (name: string, value: unknown) => {
 export const buildPackageLabelHtml = (
   labels: PackageLabel[],
   paper: PackageLabelPaper,
-  autoPrint = false
+  autoPrint = false,
+  labelTitle = productBrand.labelTitle
 ) => {
   const cards = labels.map(({ item, qrDataUrl }) => {
     const fields = [
@@ -32,7 +34,7 @@ export const buildPackageLabelHtml = (
       field('生产日期', item.productionDate),
       field('出炉 / 班次', `${item.furnaceOutDate || '-'} / ${item.shiftCode || '-'}`)
     ].join('')
-    return `<article class="goods-label"><h1>天净隆鼎货品标识卡</h1><div class="label-body"><div>${fields}</div><div class="qr-column"><img src="${escapeHtml(qrDataUrl)}" alt="${escapeHtml(item.packageCode)} 二维码"/><div class="weight">${escapeHtml(item.packageWeight)} kg</div></div></div><div class="package-code">${escapeHtml(item.packageCode)}</div></article>`
+    return `<article class="goods-label"><h1>${escapeHtml(labelTitle)}</h1><div class="label-body"><div>${fields}</div><div class="qr-column"><img src="${escapeHtml(qrDataUrl)}" alt="${escapeHtml(item.packageCode)} 二维码"/><div class="weight">${escapeHtml(item.packageWeight)} kg</div></div></div><div class="package-code">${escapeHtml(item.packageCode)}</div></article>`
   })
   const page = paper === 'A4' ? 'A4 portrait;margin:6mm' : '100mm 76mm;margin:4mm'
   const printScript = autoPrint

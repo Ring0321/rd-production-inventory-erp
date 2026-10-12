@@ -99,7 +99,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(webPort, '127.0.0.1', () => {
-  console.log(`RD ERP frontend listening on http://127.0.0.1:${webPort}`);
+  console.log(`DUOXU ERP frontend listening on http://127.0.0.1:${webPort}`);
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

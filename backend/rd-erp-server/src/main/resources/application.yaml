@@ -76,7 +76,7 @@ yudao:
     enable: ${RD_CAPTCHA_ENABLED:false}
 rd:
   erp:
-    digital-link-base-url: ${RD_DIGITAL_LINK_BASE_URL:https://id.tjldsic.com/pkg}
+    digital-link-base-url: ${RD_DIGITAL_LINK_BASE_URL:http://localhost:9000/pkg}
     ai:
       enabled: ${RD_AI_ENABLED:false}
       api-key: ${RD_AI_GLM_API_KEY:}

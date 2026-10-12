@@ -20,7 +20,25 @@ const source = await fs.readFile(
   path.join(root, "frontend/src/utils/rdPackageLabel.ts"),
   "utf8",
 );
-const javascript = ts.transpileModule(source, {
+const brandSource = await fs.readFile(path.join(root, "frontend/src/config/brand.ts"), "utf8");
+const brandJavascript = ts.transpileModule(brandSource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 }
+}).outputText;
+const brandModuleUrl = `data:text/javascript;base64,${Buffer.from(brandJavascript).toString("base64")}`;
+const parsedLabel = ts.createSourceFile("rdPackageLabel.ts", source, ts.ScriptTarget.Latest, true);
+const linkedLabel = ts.transform(parsedLabel, [(context) => {
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) && node.moduleSpecifier.text === "@/config/brand") {
+      return ts.factory.updateImportDeclaration(node, node.modifiers, node.importClause,
+        ts.factory.createStringLiteral(brandModuleUrl), node.attributes);
+    }
+    return ts.visitEachChild(node, visit, context);
+  };
+  return (node) => ts.visitNode(node, visit);
+}]);
+const linkedSource = ts.createPrinter().printFile(linkedLabel.transformed[0]);
+linkedLabel.dispose();
+const javascript = ts.transpileModule(linkedSource, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
     target: ts.ScriptTarget.ES2022,

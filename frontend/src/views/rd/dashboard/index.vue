@@ -3,7 +3,7 @@
     <ContentWrap>
       <div class="dashboard-header">
         <div>
-          <h1>天净隆鼎生产货物管理看板</h1>
+          <h1>{{ productBrand.shortName }} · 生产仓储看板</h1>
           <p>{{ displayAsOfDate }}</p>
         </div>
         <div class="header-actions">
@@ -126,6 +126,7 @@
 
 <script setup lang="ts">
 import type { EChartsOption } from 'echarts'
+import { productBrand } from '@/config/brand'
 import { formatDate } from '@/utils/formatTime'
 import { RdInventoryDashboardApi } from '@/api/rd/dashboard'
 import type { RdInventoryDashboardVO } from '@/api/rd/dashboard'

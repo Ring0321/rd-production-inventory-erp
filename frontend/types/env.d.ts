@@ -9,6 +9,9 @@ declare module '*.vue' {
 
 interface ImportMetaEnv {
   readonly VITE_APP_TITLE: string
+  readonly VITE_PRODUCT_SHORT_NAME: string
+  readonly VITE_PRODUCT_SUBTITLE: string
+  readonly VITE_PRODUCT_LOGO: string
   readonly VITE_PORT: number
   readonly VITE_OPEN: string
   readonly VITE_DEV: string
@@ -26,7 +29,6 @@ interface ImportMetaEnv {
   readonly VITE_SOURCEMAP: string
   readonly VITE_OUT_DIR: string
   readonly VITE_GOVIEW_URL: string
-  readonly VITE_RD_DIGITAL_LINK_BASE_URL: string
   // API 加解密相关配置
   readonly VITE_APP_API_ENCRYPT_ENABLE: string
   readonly VITE_APP_API_ENCRYPT_HEADER: string

@@ -9,7 +9,7 @@ public class RdDigitalLinkService {
     private final String baseUrl;
 
     public RdDigitalLinkService(
-            @Value("${rd.erp.digital-link-base-url:https://id.tjldsic.com/pkg}") String baseUrl) {
+            @Value("${rd.erp.digital-link-base-url:http://localhost:9000/pkg}") String baseUrl) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
     }
 
@@ -17,7 +17,9 @@ public class RdDigitalLinkService {
         if (packageCode == null || packageCode.isBlank()) {
             throw new IllegalArgumentException("Package code must not be blank");
         }
-        return baseUrl + "/" + packageCode.trim();
+        String link = baseUrl + "/" + packageCode.trim();
+        if (link.length() > 128) throw new IllegalArgumentException("Digital Link exceeds the package identity storage limit");
+        return link;
     }
 
     private static String normalizeBaseUrl(String value) {

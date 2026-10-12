@@ -18,7 +18,7 @@ import java.time.LocalDate;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_MONTH_DAY;
 
-@Tag(name = "管理后台 - 瑞鼎库存看板")
+@Tag(name = "管理后台 - 库存看板")
 @RestController
 @RequestMapping("/rd/dashboard")
 public class RdInventoryDashboardController {

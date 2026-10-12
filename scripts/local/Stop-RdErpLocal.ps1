@@ -91,4 +91,4 @@ if (($infrastructureMode -eq "Docker" -or $infrastructureMode -eq "Unknown") -an
 
 Remove-Item -LiteralPath $infraModeFile -Force -ErrorAction SilentlyContinue
 
-Write-Host "RD ERP local services stopped. Database data was preserved."
+Write-Host "DUOXU ERP local services stopped. Database data was preserved."

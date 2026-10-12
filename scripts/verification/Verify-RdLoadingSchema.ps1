@@ -86,7 +86,7 @@ ORDER BY table_name, index_name, seq_in_index
 
 function Assert-Equal {
     param([string]$Name, [string]$Expected, [string]$Actual)
-    if ($Expected -cne $Actual) { throw "$Name differs from the expected C2 schema" }
+    if ($Expected -cne $Actual) { throw "$Name differs from the expected C2 schema; expected=$Expected; actual=$Actual" }
 }
 
 Import-LocalEnvironment
@@ -110,16 +110,25 @@ try {
 
     Invoke-MySqlFile $cleanDatabase $cleanSql
     $cleanFingerprint = Get-SchemaFingerprint $cleanDatabase
+    # UTF-8 bytes for the neutral label; keep this ASCII for PowerShell 5 file parsing.
+    $neutralNameHex = "E9BB98E8AEA4E7BB84E7BB87"
+    Assert-Equal "neutral default organization" $neutralNameHex @((Invoke-MySql $cleanDatabase "SELECT HEX(name) FROM system_tenant WHERE id=1"))[0]
+    Assert-Equal "neutral default root department" $neutralNameHex @((Invoke-MySql $cleanDatabase "SELECT HEX(name) FROM system_dept WHERE id=1 AND tenant_id=1"))[0]
 
     Invoke-MySqlFile $upgradeDatabase $cleanSql
+    [void](Invoke-MySql $upgradeDatabase "UPDATE system_tenant SET name='BrandCustomOrganization' WHERE id=1; UPDATE system_dept SET name='BrandCustomRoot' WHERE id=1 AND tenant_id=1;")
     [void](Invoke-MySql $upgradeDatabase @"
 DROP TABLE IF EXISTS rd_loading_package_claim, rd_loading_exception, rd_loading_scan_record,
   rd_loading_task_line, rd_loading_task, rd_pickup_slip_line, rd_pickup_slip;
 "@)
     Invoke-MySqlFile $upgradeDatabase $upgradeSql
+    Assert-Equal "custom organization after upgrade" "BrandCustomOrganization" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_tenant WHERE id=1"))[0]
+    Assert-Equal "custom root after upgrade" "BrandCustomRoot" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_dept WHERE id=1 AND tenant_id=1"))[0]
     $firstUpgradeFingerprint = Get-SchemaFingerprint $upgradeDatabase
     Invoke-MySqlFile $upgradeDatabase $upgradeSql
     $secondUpgradeFingerprint = Get-SchemaFingerprint $upgradeDatabase
+    Assert-Equal "custom organization after repeated upgrade" "BrandCustomOrganization" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_tenant WHERE id=1"))[0]
+    Assert-Equal "custom root after repeated upgrade" "BrandCustomRoot" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_dept WHERE id=1 AND tenant_id=1"))[0]
     Assert-Equal "clean versus upgraded" $cleanFingerprint $firstUpgradeFingerprint
     Assert-Equal "first versus repeated upgrade" $firstUpgradeFingerprint $secondUpgradeFingerprint
 
@@ -172,6 +181,7 @@ VALUES (1,1001,2001,900001,'C2-PKG-1',1,'retry-key','ACCEPTED',b'1',NOW());
 
     Write-Host "PASS: clean initialization and pre-C2 upgrade have identical loading schema."
     Write-Host "PASS: repeated upgrade leaves the loading schema unchanged."
+    Write-Host "PASS: neutral fresh organization and custom legacy names survive both upgrades."
     Write-Host "PASS: one loading task supports mixed locations, models, layers, and outbound orders."
     Write-Host "PASS: active package claim and scan idempotency unique constraints work."
 }

@@ -1,19 +1,23 @@
-const DEFAULT_DIGITAL_LINK_BASE_URL = 'https://id.tjldsic.com/pkg'
-
-const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '')
-
 export const getPackageDigitalLink = (packageCode: string, storedQrCode?: string) => {
-  const configuredBaseUrl = import.meta.env.VITE_RD_DIGITAL_LINK_BASE_URL?.trim()
-  if (configuredBaseUrl) {
-    return `${normalizeBaseUrl(configuredBaseUrl)}/${encodeURIComponent(packageCode)}`
-  }
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
-    return `${window.location.origin}/pkg/${encodeURIComponent(packageCode)}`
-  }
+  if (!packageCode.trim()) throw new Error('Package identity is required before printing')
   if (storedQrCode && /^https?:\/\//i.test(storedQrCode.trim())) {
     return storedQrCode.trim()
   }
-  return `${DEFAULT_DIGITAL_LINK_BASE_URL}/${encodeURIComponent(packageCode)}`
+  throw new Error('Package QR identity is missing; resolve it from ERP before printing')
+}
+
+export const resolvePackageDigitalLink = async (
+  packageCode: string,
+  storedQrCode: string | undefined,
+  readTrace: (code: string) => Promise<{ packageCode: string; digitalLink?: string } | null>
+) => {
+  if (storedQrCode && /^https?:\/\//i.test(storedQrCode.trim())) {
+    return getPackageDigitalLink(packageCode, storedQrCode)
+  }
+  const trace = await readTrace(packageCode)
+  if (!trace || trace.packageCode !== packageCode)
+    throw new Error('Package identity could not be verified')
+  return getPackageDigitalLink(packageCode, trace.digitalLink)
 }
 
 export const extractPackageCode = (value: string) => {

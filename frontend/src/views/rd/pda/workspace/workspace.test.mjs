@@ -267,7 +267,9 @@ const shellHarness = (confirm = async () => true, loginOut = async () => true) =
     'vue-router': { RouterView: {}, useRoute: () => route, useRouter: () => router },
     'element-plus': { ElButton: {}, ElTooltip: {}, ElMessageBox: { confirm } },
     '@element-plus/icons-vue': { ArrowLeft: {}, House: {}, SwitchButton: {} },
-    '@/assets/imgs/logo.png': { default: 'real-logo.png' },
+    '@/config/brand': {
+      productBrand: { name: '垛序 ERP', shortName: '垛序', logoUrl: '/duoxu-mark.png' }
+    },
     '@/store/modules/user': { useUserStore: () => user },
     '@/store/modules/tagsView': {
       useTagsViewStore: () => ({

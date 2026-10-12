@@ -2,10 +2,10 @@
   <div class="package-trace-page">
     <header class="trace-header">
       <div class="trace-header__inner">
-        <div class="brand" aria-label="宁夏天净隆鼎碳化硅有限公司">
-          <img :src="logoUrl" alt="天净隆鼎" class="brand__logo" />
+        <div class="brand" :aria-label="productBrand.name">
+          <img :src="productBrand.logoUrl" :alt="productBrand.name" class="brand__logo" />
           <div>
-            <strong>宁夏天净隆鼎碳化硅有限公司</strong>
+            <strong>{{ productBrand.name }}</strong>
             <span>货物数字身份与追溯</span>
           </div>
         </div>
@@ -344,7 +344,7 @@
         </section>
 
         <footer class="trace-footer">
-          <span>数据来源：天净隆鼎 ERP</span>
+          <span>数据来源：企业业务记录 · {{ productBrand.name }}</span>
           <span>查询时间：{{ queryTime }}</span>
         </footer>
       </article>
@@ -354,7 +354,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import logoUrl from '@/assets/imgs/logo.png'
+import { productBrand } from '@/config/brand'
 import {
   RdPackageUnitApi,
   type RdPackageStatus,
