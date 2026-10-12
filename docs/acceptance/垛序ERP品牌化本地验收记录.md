@@ -22,7 +22,7 @@
 | 原C5实际回归 | 生产任务59、装车91/92，11检查和7截图通过 | 实际第二claim故障全回滚、真实版本竞争和失联不重复；仍一整车任务、司机无扫码/位置输入 |
 | 原E5实际回归 | 产出202、上架134、装车93、取消94；30历史记录、14内部/6公开里程碑 | 三实际回滚、公开隐私、只读指纹和多宽度通过；原阶段及现场门槛不关闭 |
 | 原AI只读接口 | 13类检查通过，DISABLED，包记录前后相同 | 未配置/调用真实GLM，没有扩大发送范围、授权或计费 |
-| 验证包检查 | 构建128MB级本地试用ZIP并实际检查302项内容 | 新图/新HTML/1份产品指南存在，私密环境、内部记录和旧public素材不包含；正式分发需重新绑定冻结提交并核定客户示例映射/许可 |
+| 验证包检查 | 冻结源码9879c08、干净快照；128991743字节ZIP，实际302项检查通过 | 新图/新HTML/1份产品指南存在，私密环境、内部记录和旧public素材不包含；仅为本地开发验证包，正式分发仍需核定客户示例映射/许可 |
 
 现有本地环境：MySQL3310、Redis6380、后端48080、Web9000；服务仅按核定归属启动/停止。原始文件、既有业务资料和私密配置未全局改名；默认主题不清除用户已选择的主题。
 
@@ -36,4 +36,6 @@
 
 可复跑脚本：Verify-RdProductBrand.mjs、Verify-RdPackageLabels.mjs、Verify-RdPackageLabelRuntime.mjs、Verify-RdLoadingSchema.ps1及原C5/E5/AI验证。当前运行记录在temp下：product-brand-verification、qr-label-verification、qr-label-runtime-verification、brand-schema-final.log、brand-backend-full.log、brand-frontend-final-tests.log、brand-c5-regression.log、brand-e5-regression.log。标注DTO-simulation的截图不是实际数据库缺失记录。
 
-剩余：正式商标/域名核定、企业初始化及行业参数、不同客户独立部署、平台预算/GLM真实接入、实机与现场签字。当前单组织原架构，不宣称跨设备AI待核、多组织SaaS或完整财务/人力已完成。原C5/C6/D/E/F及AI-A5仍开放。源码冻结和远端核对后才能关闭BRAND-4归档项。
+实现源码9879c08b271cf139896dcb760f6a3d20494f8c82已推送原feature/warehouse-pda-next-phase分支，远端哈希实际核对一致。入库仅核定50路径，新增密钥模式扫描0命中；frontend/.env仅四项公开品牌配置，不含密钥。验证包位于temp/product-brand-package/duoxu-erp-trial-9879c08_20261013_020627.zip，SHA256为7e53ac3f9f36903e4ab82bb35e178422d14c7793c014736bd34894ad93fb7bf6；VERSION与实现提交相同、dirty=false，哈希重算一致。BRAND-4的本地技术与归档边界已闭环，记录提交与实现提交分开，不改软件版本号。
+
+剩余：正式商标/域名核定、企业初始化及行业参数、不同客户独立部署、平台预算/GLM真实接入、实机与现场签字。当前单组织原架构，不宣称跨设备AI待核、多组织SaaS或完整财务/人力已完成。原C5/C6/D/E/F及AI-A5仍开放；源码推送和本地开发ZIP不是这些门槛的验收证据。
