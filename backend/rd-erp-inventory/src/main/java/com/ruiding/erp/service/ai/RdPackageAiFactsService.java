@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruiding.erp.controller.admin.ai.vo.RdPackageAiContext;
+import com.ruiding.erp.controller.admin.ai.vo.RdPackageAiAskReqVO;
 import com.ruiding.erp.dal.dataobject.packageunit.RdPackageUnitDO;
 import com.ruiding.erp.service.packageunit.RdPackageUnitService;
 import org.springframework.stereotype.Service;
@@ -41,8 +42,12 @@ public class RdPackageAiFactsService {
         if (trace == null || !code.equals(trace.getPackageCode()) || !Boolean.TRUE.equals(trace.getInternalView())) throw exception(PACKAGE_NOT_EXISTS);
         List<RdPackageUnitDO> members = trace.getProductionOutputId() == null ? List.of()
                 : packages.getByProductionOutputId(trace.getProductionOutputId());
-        boolean known = members != null && !members.isEmpty() && members.stream().anyMatch(p -> code.equals(p.getPackageCode()))
-                && members.stream().allMatch(p -> trace.getProductionOutputId().equals(p.getProductionOutputId()));
+        boolean known = members != null && !members.isEmpty()
+                && members.stream().allMatch(p -> p != null && p.getPackageCode() != null
+                    && p.getPackageCode().matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+                    && trace.getProductionOutputId().equals(p.getProductionOutputId()))
+                && members.stream().anyMatch(p -> code.equals(p.getPackageCode()))
+                && members.stream().map(RdPackageUnitDO::getPackageCode).distinct().count() == members.size();
         Map<String, Integer> counts = new TreeMap<>();
         BigDecimal weight = null;
         if (known) {
@@ -73,15 +78,25 @@ public class RdPackageAiFactsService {
         if ("OUTBOUND_PENDING".equals(status)) add(notices, "OUTBOUND_REVIEW", "装车不等于出库完成，仓管员仍需按商务提货单和实际成员复核后确认出库。");
         if (Set.of("QC_REJECTED", "STOCKTAKE_MISSING", "VOIDED").contains(status)) add(notices, "EXCEPTION_REVIEW", "本包存在异常或作废状态，需按原业务流程核对处置，不根据AI建议自动放行。");
         add(notices, "READ_ONLY_AI", "解读仅供核对，不代替质检审核、库位确认、商务审批或仓管出入库过账。");
-        var context = new RdPackageAiContext(code, status, quality, source, Instant.now().toString(), config.state(), List.copyOf(notices));
+        var checked = RdPackageAiDiagnostics.inspect(members, known);
+        var findings = checked.findings().stream().map(f -> new RdPackageAiContext.Finding(f.key(), f.severity(), f.owner(),
+                f.title(), f.detail(), f.affectedCount(), f.packageCodes(), f.evidence())).toList();
+        var diagnosis = new RdPackageAiContext.Diagnosis(checked.scope(), checked.state(), checked.inspectedPackages(), findings);
+        for (var finding : findings) {
+            String owner = Map.of("PRODUCTION", "生产登记岗", "QUALITY", "质检岗", "WAREHOUSE", "仓管员").get(finding.owner());
+            add(notices, finding.key(), finding.title() + "：" + finding.detail() + " 核对岗位：" + owner
+                    + "；影响包数：" + (finding.affectedCount() == null ? "未知" : finding.affectedCount()) + "。");
+        }
+        var context = new RdPackageAiContext(code, status, quality, source, Instant.now().toString(), config.state(), List.copyOf(notices), diagnosis);
         try {
             // Private identities remain local, including in the snapshot fingerprint; no raw value is cached.
-            var serialized = new ObjectMapper().findAndRegisterModules().writeValueAsBytes(Arrays.asList(trace, members));
+            var serialized = new ObjectMapper().findAndRegisterModules().writeValueAsBytes(Arrays.asList("AI_DIAG_V1", trace, members));
             return new Snapshot(context, HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(serialized)));
         } catch (Exception e) { throw new IllegalStateException("Unable to establish ERP snapshot"); }
     }
 
     public RdGlmClient.Input export(Snapshot snapshot, String question) {
+        RdPackageAiAskReqVO.Question.valueOf(question);
         var c = snapshot.context();
         var source = c.source();
         return new RdGlmClient.Input(c.status(), c.qualityStage(), source.packageCount(),

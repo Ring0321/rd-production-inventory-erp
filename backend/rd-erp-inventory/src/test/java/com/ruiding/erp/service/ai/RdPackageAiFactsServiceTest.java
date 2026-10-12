@@ -107,6 +107,42 @@ class RdPackageAiFactsServiceTest {
         assertNotEquals(first.digest(), facts.read("P1", 1L).digest());
     }
 
+    @Test void diagnosticEvidenceStaysLocalAndModelOnlyReceivesControlledKeys() throws Exception {
+        prepare(5L);
+        var first = unit("P1", "IN_STOCK", "1000", 5L);
+        var second = unit("P2", "VOIDED", "600", 5L);
+        var third = unit("P3", "QC_PENDING", null, 5L);
+        when(packages.getByProductionOutputId(5L)).thenReturn(List.of(first, second, third));
+        var snapshot = facts.read("P1", 1L);
+        var tree = new ObjectMapper().valueToTree(snapshot.context());
+        assertEquals("PRODUCTION_OUTPUT", tree.path("diagnosis").path("scope").asText());
+        assertEquals(3, tree.path("diagnosis").path("inspectedPackages").asInt());
+        assertTrue(tree.path("diagnosis").path("findings").size() >= 3);
+        assertTrue(snapshot.context().notices().stream().anyMatch(n -> n.key().equals("DIAG_VOIDED")));
+        var exported = new ObjectMapper().writeValueAsString(facts.export(snapshot, "RISK_REVIEW"));
+        assertTrue(exported.contains("DIAG_VOIDED"));
+        for (var secret : List.of("P1", "P2", "P3", "diagnosis", "packageCodes", "evidence", "CustomerFixture", "A-PRIVATE")) {
+            assertFalse(exported.contains(secret));
+        }
+        assertEquals(7, new ObjectMapper().readTree(exported).size());
+        assertThrows(IllegalArgumentException.class, () -> facts.export(snapshot, "Please ship this goods now"));
+        verify(packages, never()).generate(anyLong(), anyInt());
+    }
+
+    @Test void pollutedOrDuplicateSourcesProduceUnknownDiagnosticsWithoutSamplingOtherPackages() {
+        prepare(5L);
+        for (var source : List.of(
+                Arrays.asList(unit("P1", "IN_STOCK", "1000", 5L), null),
+                List.of(unit("P1", "IN_STOCK", "1000", 5L), unit("P1", "VOIDED", "600", 5L)),
+                List.of(unit("P1", "IN_STOCK", "1000", 5L), unit("P2", "VOIDED", "600", 6L)))) {
+            when(packages.getByProductionOutputId(5L)).thenReturn(source);
+            var tree = new ObjectMapper().valueToTree(facts.read("P1", 1L).context());
+            assertEquals("UNKNOWN", tree.path("diagnosis").path("state").asText());
+            assertTrue(tree.path("diagnosis").path("inspectedPackages").isNull());
+            assertEquals(0, tree.path("diagnosis").path("findings").get(0).path("packageCodes").size());
+        }
+    }
+
     private RdPackageTraceRespVO prepare(Long output) {
         when(permissionApi.hasAnyPermissions(1L, "rd:package-unit:query")).thenReturn(true);
         var t = new RdPackageTraceRespVO().setPackageCode("P1").setStatus("IN_STOCK").setInternalView(true)

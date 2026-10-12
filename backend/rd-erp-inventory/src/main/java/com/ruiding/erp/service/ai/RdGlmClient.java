@@ -54,6 +54,8 @@ public class RdGlmClient {
                     "response_format", Map.of("type", "json_object"), "request_id", UUID.randomUUID().toString(),
                     "messages", List.of(Map.of("role", "system", "content",
                             "Order the most relevant allowedPoints for the question using the given ERP states and recorded source aggregates. "
+                            + "RISK_REVIEW prioritizes diagnostic gaps and quality/state checks; HANDOVER prioritizes source progress and next responsible checks. "
+                            + "DIAG_ keys are local evidence checks, not dispatch eligibility or final quality decisions. "
                             + "Return ONLY a JSON object {\"points\":[\"KEY\"]}, 1 to 5 unique keys copied from allowedPoints. "
                             + "No text, numbers, decisions, tools, or new keys. IN_STOCK is not available stock. "
                             + "Recorded weights are not scale measurements. Pending quality is not failure."),
