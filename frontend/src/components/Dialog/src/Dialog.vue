@@ -98,7 +98,7 @@ function closedHandler() {
           <Icon
             v-if="fullscreen"
             class="is-hover mr-10px cursor-pointer"
-            :icon="isFullscreen ? 'radix-icons:exit-full-screen' : 'radix-icons:enter-full-screen'"
+            :icon="isFullscreen ? 'fa:compress' : 'fa:expand'"
             color="var(--el-color-info)"
             hover-color="var(--el-color-primary)"
             @click="toggleFull"

@@ -9,9 +9,9 @@ const { getPrefixCls } = useDesign()
 
 const prefixCls = getPrefixCls('theme-switch')
 
-const Sun = useIcon({ icon: 'emojione-monotone:sun', color: '#fde047' })
+const Sun = useIcon({ icon: 'fa:sun-o', color: '#fde047' })
 
-const CrescentMoon = useIcon({ icon: 'emojione-monotone:crescent-moon', color: '#fde047' })
+const CrescentMoon = useIcon({ icon: 'fa:moon-o', color: '#fde047' })
 
 const appStore = useAppStore()
 

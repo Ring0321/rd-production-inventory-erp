@@ -57,6 +57,7 @@ public interface RdStockLotMapper extends BaseMapperX<RdStockLotDO> {
 
     default PageResult<RdStockLotDO> selectPage(RdStockLotPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<RdStockLotDO>()
+                .eqIfPresent(RdStockLotDO::getLocationId, reqVO.getLocationId())
                 .likeIfPresent(RdStockLotDO::getLocationCode, reqVO.getLocationCode())
                 .likeIfPresent(RdStockLotDO::getCustomerName, reqVO.getCustomerName())
                 .likeIfPresent(RdStockLotDO::getProductModel, reqVO.getProductModel())

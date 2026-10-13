@@ -412,6 +412,14 @@
           {{ taskDetail.task.plannedPackageCount }}</el-descriptions-item
         >
       </el-descriptions>
+      <el-collapse v-if="taskVisible" class="mt-16px">
+        <el-collapse-item title="整车任务库位示意" name="map">
+          <RdSpatialLocationMap
+            :locations="locations"
+            :highlighted-codes="taskDetail.lines.map((line) => line.plannedLocationCode)"
+          />
+        </el-collapse-item>
+      </el-collapse>
       <el-table :data="taskDetail.lines" class="mt-16px" max-height="390">
         <el-table-column prop="lineNo" label="序号" width="65" />
         <el-table-column prop="plannedLocationCode" label="库位" width="115" />
@@ -554,6 +562,7 @@ import {
   type PickupSlipLine
 } from '@/api/rd/loading'
 import { RdPutawayTaskApi, type RdPutawayLocationMapVO } from '@/api/rd/stock/putaway'
+import RdSpatialLocationMap from '../location-map/RdSpatialLocationMap.vue'
 
 defineOptions({ name: 'RdLoadingDispatch' })
 const route = useRoute()

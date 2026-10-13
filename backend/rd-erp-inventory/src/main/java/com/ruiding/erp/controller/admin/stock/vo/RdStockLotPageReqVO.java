@@ -8,6 +8,7 @@ import lombok.ToString;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
+import javax.validation.constraints.Min;
 
 import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_MONTH_DAY;
 
@@ -16,6 +17,10 @@ import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class RdStockLotPageReqVO extends PageParam {
+
+    @Schema(description = "精确库位ID，与原货位模糊筛选独立", example = "1")
+    @Min(1)
+    private Long locationId;
 
     @Schema(description = "货位", example = "3-22")
     private String locationCode;

@@ -87,46 +87,16 @@
 
     <ContentWrap title="库位地图">
       <el-empty v-if="!locationLoading && !filteredLocations.length" description="暂无库位数据" />
-      <div v-else v-loading="locationLoading" class="location-grid">
-        <button
-          v-for="location in filteredLocations"
-          :key="location.id"
-          type="button"
-          class="location-tile"
-          :class="[
-            `status-${location.displayStatus.toLowerCase()}`,
-            { selected: selectedLocationId === location.id }
-          ]"
-          :disabled="!isLocationSelectable(location)"
-          @click="selectLocation(location)"
-        >
-          <div class="location-code">
-            <span>{{ location.locationCode }}</span>
-            <el-tag :type="locationTagType(location.displayStatus)" size="small">
-              {{ locationStatusLabel(location.displayStatus) }}
-            </el-tag>
-          </div>
-          <div class="location-meta">
-            {{ location.warehouseName
-            }}<template v-if="location.areaName"> / {{ location.areaName }}</template>
-          </div>
-          <div class="location-meta"> 排列层：{{ coordinateText(location) }} </div>
-          <div class="capacity-line">
-            <span>在库 {{ numberText(location.occupiedPackages) }}</span>
-            <span>预留 {{ numberText(location.reservedPackages) }}</span>
-          </div>
-          <el-progress
-            v-if="location.usagePercent !== undefined && location.usagePercent !== null"
-            :percentage="Math.min(Number(location.usagePercent), 100)"
-            :show-text="false"
-            :stroke-width="6"
-          />
-          <div class="available-line">
-            可用：{{ capacityText(location.availablePackages, '包') }} /
-            {{ capacityText(location.availableWeight, 'kg') }}
-          </div>
-        </button>
-      </div>
+      <RdSpatialLocationMap
+        v-else
+        v-loading="locationLoading"
+        :locations="filteredLocations"
+        :selected-id="selectedLocationId"
+        :can-select="true"
+        :is-selectable="isLocationSelectable"
+        @select="selectLocation"
+        @task="openTaskDetail"
+      />
     </ContentWrap>
 
     <ContentWrap title="待上架货物">
@@ -581,6 +551,17 @@
       }}</el-descriptions-item>
     </el-descriptions>
 
+    <el-collapse v-if="detailVisible && taskDetail" class="mt-16px">
+      <el-collapse-item title="任务库位示意" name="map">
+        <RdSpatialLocationMap
+          :locations="allLocations"
+          :highlighted-ids="[
+            taskDetail.task.plannedLocationId,
+            ...(taskDetail.task.finalLocationId ? [taskDetail.task.finalLocationId] : [])
+          ]"
+        />
+      </el-collapse-item>
+    </el-collapse>
     <el-tabs v-if="taskDetail" class="mt-16px">
       <el-tab-pane :label="`货物明细（${taskDetail.lines.length}）`">
         <el-table :data="taskDetail.lines" border max-height="360">
@@ -616,6 +597,7 @@
 
 <script setup lang="ts">
 import { useStockRefresh } from '../useStockRefresh'
+import RdSpatialLocationMap from '../location-map/RdSpatialLocationMap.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { hasPermission } from '@/directives/permission/hasPermi'
@@ -1119,32 +1101,6 @@ const openTaskDetail = async (id: number) => {
 function isLocationSelectable(location: RdPutawayLocationMapVO) {
   return (
     location.enabled && !location.frozen && ['EMPTY', 'PARTIAL'].includes(location.displayStatus)
-  )
-}
-
-function locationTagType(status: string): TagType {
-  if (status === 'EMPTY') return 'success'
-  if (status === 'PARTIAL') return 'warning'
-  if (status === 'FULL') return 'danger'
-  return 'info'
-}
-
-function locationStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    EMPTY: '空位',
-    PARTIAL: '部分占用',
-    FULL: '已满',
-    FROZEN: '冻结',
-    DISABLED: '停用',
-    MAINTENANCE: '维护中',
-    RESTRICTED: '限制使用'
-  }
-  return labels[status] || status
-}
-
-function coordinateText(location: RdPutawayLocationMapVO) {
-  return (
-    [location.rowCode, location.columnCode, location.levelCode].filter(Boolean).join('/') || '-'
   )
 }
 

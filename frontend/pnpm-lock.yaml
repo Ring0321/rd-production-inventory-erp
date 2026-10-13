@@ -89,6 +89,10 @@ importers:
       web-storage-cache:
         specifier: ^1.1.1
         version: 1.1.1
+
+      leaflet:
+        specifier: 1.9.4
+        version: 1.9.4
     devDependencies:
       '@commitlint/cli':
         specifier: ^20.5.3
@@ -216,6 +220,10 @@ importers:
       vue-tsc:
         specifier: ^3.2.8
         version: 3.2.8(typescript@6.0.3)
+
+      "@types/leaflet":
+        specifier: 1.9.20
+        version: 1.9.20
 
 packages:
 
@@ -3922,6 +3930,24 @@ packages:
 
   zrender@6.0.0:
     resolution: {integrity: sha512-41dFXEEXuJpNecuUQq6JlbybmnHaqqpGlbH1yxnA5V9MMP4SbohSVZsJIwz+zdjQXSSlR1Vc34EgH1zxyTDvhg==}
+
+  leaflet@1.9.4:
+    resolution:
+      {
+        integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==
+      }
+
+  "@types/leaflet@1.9.20":
+    resolution:
+      {
+        integrity: sha512-rooalPMlk61LCaLOvBF2VIf9M47HgMQqi5xQ9QRi7c8PkdIe0WrIi5IxXUXQjAdL0c+vcQ01mYWbthzmp9GHWw==
+      }
+
+  "@types/geojson@7946.0.16":
+    resolution:
+      {
+        integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==
+      }
 
 snapshots:
 
@@ -7836,3 +7862,11 @@ snapshots:
   zrender@6.0.0:
     dependencies:
       tslib: 2.3.0
+
+  leaflet@1.9.4: {}
+
+  "@types/leaflet@1.9.20":
+    dependencies:
+      '@types/geojson': 7946.0.16
+
+  "@types/geojson@7946.0.16": {}

@@ -39,7 +39,7 @@ const setLang = (lang: LocaleType) => {
       :color="color"
       :size="18"
       class="cursor-pointer !p-0"
-      icon="ion:language-sharp"
+      icon="fa:language"
     />
     <template #dropdown>
       <ElDropdownMenu>

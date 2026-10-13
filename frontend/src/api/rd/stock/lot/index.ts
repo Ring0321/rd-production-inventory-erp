@@ -2,6 +2,7 @@ import request from '@/config/axios'
 
 export interface RdStockLotVO {
   id: number
+  locationId?: number
   locationCode?: string
   customerName: string
   productModel: string
