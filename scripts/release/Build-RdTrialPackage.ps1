@@ -88,7 +88,7 @@ try {
     Copy-Item -Path (Join-Path $frontendDist "*") -Destination (Join-Path $stageRoot "frontend") -Recurse
     $trialTarget = Join-Path $stageRoot "deploy\trial"
     New-Item -ItemType Directory -Path $trialTarget -Force | Out-Null
-    foreach ($name in @(".env.example", "application-trial.yaml", "backend-runtime.Dockerfile", "backend.Dockerfile", "compose.runtime.yaml", "compose.yaml", "frontend-runtime.Dockerfile", "frontend.Dockerfile", "nginx.conf", "README.md")) {
+    foreach ($name in @(".env.example", "application-trial.yaml", "backend-runtime.Dockerfile", "backend.Dockerfile", "compose.runtime.yaml", "compose.yaml", "frontend-runtime.Dockerfile", "frontend.Dockerfile", "nginx.conf", "15-validate-public-tenant.sh", "README.md")) {
         Copy-Item -LiteralPath (Join-Path $repoRoot "deploy\trial\$name") -Destination (Join-Path $trialTarget $name)
     }
     Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\backup") -Destination (Join-Path $stageRoot "scripts") -Recurse

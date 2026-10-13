@@ -15,6 +15,16 @@ docker compose --env-file deploy/trial/.env -f deploy/trial/compose.yaml ps
 
 浏览器访问 `http://服务器地址:9000`。只对外开放前端端口，MySQL、Redis 和后端 API 留在 Compose 内网，API 由 Nginx 同源转发。
 
+## 公开二维码入口
+
+`RD_DIGITAL_LINK_BASE_URL` 必须使用本部署实际可达的 HTTP(S) 地址和 `/pkg` 结尾的路径。新路径段只支持字母、数字、下划线和连字符，不带账号、查询或片段；既有包件保存的地址不会被此配置改写。旧域名、HTTPS 证书和手机网络另行验证。
+
+前端必须配置 `RD_PUBLIC_TENANT_ID` 为本独立部署的组织 ID（默认初始化为 1，不是可跨客户共用的默认路由）。容器启动先检查正整数，再只替换此 Nginx 模板变量；缺失/无效时停止启动。公开 `/pkg` 和整个 `/admin-api/rd/package-link` 前缀固定该组织，不接受登录 Cookie、Authorization、访问组织头或查询登录参数。其他内部 API 保持原认证与组织规则，不全局覆盖。
+
+公开链接查询只允许 `resource`、`workMode`、`internal` 的规范 ASCII 参数名和值；不支持把登录凭据、任意跳转地址或编码参数名塞进二维码链接。后台登录仍使用原登录入口。`resource` 只可为 `web`、`passport`、`document`、`links`，重复或非法值拒绝。默认网页由后端选择格式后通过内部 Nginx 路径返回，浏览器原地址不变；机器请求按 `Accept` 返回对应类型，不开放库存写接口。
+
+部署自检须同时验证匿名网页、JSON/JSON-LD/Linkset、HEAD、不同表示的 ETag、非法/重复/编码参数、非规范包路径、组织头伪造和内部接口拒绝。`Verify-RdPackageLinksNginx.mjs` 可对同一模板做本机 Nginx 1.27 验证；它不替代实际 Linux 容器启动、HTTPS、反向代理链和手机实扫。
+
 ## 从发布 ZIP 部署
 
 发布 ZIP 已包含后端 JAR、前端静态文件和数据库初始化脚本，无需在服务器下载 Maven 或 pnpm 依赖。解压后在发布包根目录执行：

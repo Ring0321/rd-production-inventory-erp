@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { resolvePackageRequest, isPublicPackageQuery } from './RdPackageLinkNegotiation.mjs';
 
 const frontendRoot = path.resolve(process.env.FRONTEND_ROOT || '');
 const apiTarget = new URL(process.env.API_TARGET || 'http://127.0.0.1:48080');
@@ -46,10 +47,19 @@ function sendFile(req, res, filePath) {
   });
 }
 
-function proxyApi(req, res) {
-  const target = new URL(req.url || '/', apiTarget);
+function proxyApi(req, res, publicOnly = false) {
+  const incoming = new URL(req.url || '/', 'http://127.0.0.1');
+  const target = new URL(apiTarget);
+  target.pathname = incoming.pathname;
+  target.search = incoming.search;
+  target.hash = '';
   const headers = { ...req.headers, host: target.host };
-  if (!headers['tenant-id']) {
+  if (publicOnly) {
+    delete headers.authorization;
+    delete headers.cookie;
+    delete headers['visit-tenant-id'];
+  }
+  if (publicOnly || !headers['tenant-id']) {
     headers['tenant-id'] = tenantId;
   }
 
@@ -75,12 +85,37 @@ function proxyApi(req, res) {
 
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
+  const representation = resolvePackageRequest(requestUrl, req.headers.accept || '');
+  if (representation?.error) {
+    res.writeHead(representation.error, { 'Content-Type': 'application/problem+json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ status: representation.error, title: 'Unsupported package representation' }));
+    return;
+  }
+  if (representation && representation.resource !== 'web') {
+    if (!['GET', 'HEAD'].includes(req.method || 'GET')) {
+      res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return;
+    }
+    req.url = `/admin-api/rd/package-link/${representation.code}/${representation.resource}`;
+    proxyApi(req, res, true); return;
+  }
+  let decodedPath;
+  try { decodedPath = decodeURIComponent(requestUrl.pathname); }
+  catch { res.writeHead(400); res.end('Invalid path'); return; }
+  if (decodedPath.startsWith('/admin-api/rd/package-link')) {
+    if (!isPublicPackageQuery(requestUrl)) {
+      res.writeHead(400, { 'Content-Type': 'application/problem+json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ status: 400, title: 'Unsupported package representation' })); return;
+    }
+    proxyApi(req, res, true); return;
+  }
   if (requestUrl.pathname.startsWith('/admin-api/')) {
     proxyApi(req, res);
     return;
   }
 
-  const relativePath = decodeURIComponent(requestUrl.pathname).replace(/^[/\\]+/, '');
+  let relativePath;
+  try { relativePath = decodedPath.replace(/^[/\\]+/, ''); }
+  catch { res.writeHead(400); res.end('Invalid path'); return; }
   const requestedFile = path.resolve(frontendRoot, relativePath);
   const rootPrefix = `${frontendRoot}${path.sep}`;
   if (requestedFile !== frontendRoot && !requestedFile.startsWith(rootPrefix)) {

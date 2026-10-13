@@ -71,6 +71,8 @@ services:
       context: ../..
       dockerfile: deploy/trial/frontend-runtime.Dockerfile
     restart: unless-stopped
+    environment:
+      RD_PUBLIC_TENANT_ID: ${RD_PUBLIC_TENANT_ID:?set RD_PUBLIC_TENANT_ID to this deployment organization}
     ports:
       - "${RD_WEB_PORT:-9000}:80"
     depends_on:
