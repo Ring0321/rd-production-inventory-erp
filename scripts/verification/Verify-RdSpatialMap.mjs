@@ -58,8 +58,9 @@ try {
   for(const width of [1440,390,320]){
     await page.setViewportSize({width,height:width<500?844:1000})
     await region.scrollIntoViewIfNeeded()
+    await page.waitForFunction(()=>{const el=document.querySelector('[aria-label="库位空间视图"]');return el&&el.scrollWidth<=el.clientWidth+1},{},{timeout:5000})
     const bounds=await region.evaluate(el=>({w:el.clientWidth,s:el.scrollWidth}))
-    assert.ok(bounds.s<=bounds.w+1)
+    assert.ok(bounds.s<=bounds.w+1,`responsive region overflow at ${width}: ${JSON.stringify(bounds)}`)
     await page.waitForFunction(()=>{
       const host=document.querySelector('.map-surface')?.getBoundingClientRect()
       const paths=[...document.querySelectorAll('.map-surface .leaflet-overlay-pane path')]

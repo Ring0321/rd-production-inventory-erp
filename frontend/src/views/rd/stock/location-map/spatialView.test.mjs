@@ -20,10 +20,11 @@ const setup = (locations, extra = {}) => {
     '@/utils/auth': { getAccessToken: () => true, getAuthContextRevision: () => 0, onAuthContextChange: () => () => {} },
     '@/store/modules/user': { useUserStoreWithOut: () => user },
     './spatialLayout': model,
+    './locationLook': evaluateSource(readFileSync(new URL('./locationLook.ts', import.meta.url), 'utf8')),
     './LocationDetailsPanel.vue': {}
   }
   const globals = { defineProps: () => props, withDefaults: (p) => p, defineEmits: () => (...e) => events.push(e) }
-  return { ...evaluateSource(source + '\nexport { contextValid };', imports, globals), props, events, user }
+  return { ...evaluateSource(source + '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable };', imports, globals), props, events, user }
 }
 const location = (id, warehouseCode = 'W1') => ({ id, warehouseCode, warehouseName: warehouseCode, locationCode: `L-${id}`, rowCode: 'R1', columnCode: `C${id}`, enabled: true, frozen: false, displayStatus: 'EMPTY' })
 
@@ -51,5 +52,15 @@ test('permission changes invalidate the visible map context immediately', () => 
   assert.equal(s.contextValid.value, false)
   assert.equal(s.activeId.value, undefined)
   s.choosePlan()
+  assert.equal(s.events.length, 0)
+})
+test('3D unavailable fallback preserves inspection identity and never emits a plan change', () => {
+  const s = setup([location(1)])
+  s.inspect(1)
+  s.dimension.value = '3d'
+  s.fallbackToPlane()
+  assert.equal(s.dimension.value, '2d')
+  assert.equal(s.threeUnavailable.value, true)
+  assert.equal(s.activeId.value, 1)
   assert.equal(s.events.length, 0)
 })

@@ -13,6 +13,15 @@
           <el-radio-button value="recorded">已登记行列</el-radio-button>
           <el-radio-button value="list">清单</el-radio-button>
         </el-radio-group>
+        <el-radio-group
+          v-if="mode !== 'list'"
+          v-model="dimension"
+          size="small"
+          aria-label="空间维度"
+        >
+          <el-radio-button value="2d">平面</el-radio-button>
+          <el-radio-button value="3d">立体</el-radio-button>
+        </el-radio-group>
         <el-select
           v-if="mode !== 'list' && layout.groups.length"
           v-model="groupKey"
@@ -28,13 +37,23 @@
         </el-select>
         <div v-if="mode !== 'list'" class="map-controls">
           <el-tooltip content="放大"
-            ><el-button circle aria-label="放大库位图" @click="map?.zoomIn(0.5)"
+            ><el-button circle aria-label="放大库位图" @click="zoom(true)"
               ><Icon icon="lucide:plus" /></el-button
           ></el-tooltip>
           <el-tooltip content="缩小"
-            ><el-button circle aria-label="缩小库位图" @click="map?.zoomOut(0.5)"
+            ><el-button circle aria-label="缩小库位图" @click="zoom(false)"
               ><Icon icon="lucide:minus" /></el-button
           ></el-tooltip>
+          <el-tooltip v-if="dimension === '3d'" content="复位立体视角">
+            <el-button circle aria-label="复位立体视角" @click="threeView?.iso()"
+              ><Icon icon="lucide:rotate-ccw"
+            /></el-button>
+          </el-tooltip>
+          <el-tooltip v-if="dimension === '3d'" content="俯视库位">
+            <el-button circle aria-label="俯视库位" @click="threeView?.top()"
+              ><Icon icon="lucide:panel-top"
+            /></el-button>
+          </el-tooltip>
           <el-tooltip content="适配库区"
             ><el-button circle aria-label="适配库区" @click="fit"
               ><Icon icon="lucide:scan" /></el-button
@@ -59,19 +78,37 @@
       </div>
       <el-alert v-if="mapError" :title="mapError" type="warning" :closable="false" />
       <el-alert
+        v-if="threeUnavailable"
+        title="当前设备立体视图不可用，已切回平面"
+        type="warning"
+        :closable="false"
+      />
+      <el-alert
         v-if="unresolvedTargets"
         :title="`${unresolvedTargets} 个任务库位未能唯一对应，仍以原任务明细为准`"
         type="warning"
         :closable="false"
       />
-      <div class="map-workspace" :class="{ 'has-inspector': !!activeLocation }">
+      <div
+        class="map-workspace"
+        :class="{ 'has-inspector': !!activeLocation, 'is-3d': dimension === '3d' }"
+      >
         <div class="map-main">
           <div
-            v-if="mode !== 'list'"
+            v-if="mode !== 'list' && dimension === '2d'"
             ref="mapHost"
             class="map-surface"
             aria-label="二维库位示意图"
           ></div>
+          <RdSpatialLocation3D
+            v-if="mode !== 'list' && dimension === '3d'"
+            ref="threeView"
+            :nodes="group?.nodes || []"
+            :selected-id="activeId"
+            :highlighted-ids="resolvedHighlights"
+            @inspect="inspect"
+            @unavailable="fallbackToPlane"
+          />
           <div v-if="mode !== 'list' && !group?.nodes.length" class="map-empty"
             ><el-empty description="该范围暂无可布置库位" :image-size="70"
           /></div>
@@ -179,7 +216,19 @@
             ? '已登记行列示意，非实测比例或自动定位'
             : '自建示意：图上排布不是现场位置，不写回ERP行列'
         }}</span
-        ><a :href="`${base}licenses/leaflet-LICENSE.txt`" target="_blank" rel="noopener noreferrer"
+        ><span v-if="dimension === '3d' && mode !== 'list'">吨袋为占用图示，非实物数量或堆高</span>
+        <a
+          v-if="dimension === '3d' && mode !== 'list'"
+          :href="`${base}licenses/three-LICENSE.txt`"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Three.js 0.186.1 · MIT</a
+        >
+        <a
+          v-else
+          :href="`${base}licenses/leaflet-LICENSE.txt`"
+          target="_blank"
+          rel="noopener noreferrer"
           >Leaflet 1.9.4 · BSD-2-Clause</a
         ></footer
       >
@@ -212,6 +261,8 @@ import {
   type SpatialNode
 } from './spatialLayout'
 import LocationDetailsPanel from './LocationDetailsPanel.vue'
+import RdSpatialLocation3D from './RdSpatialLocation3D.vue'
+import { LOCATION_STATES, locationLook as status } from './locationLook'
 const props = withDefaults(
   defineProps<{
     locations: RdPutawayLocationMapVO[]
@@ -228,6 +279,9 @@ const base = import.meta.env.BASE_URL
 const user = useUserStoreWithOut()
 const ownerId = user.getUser.id
 const mode = ref<'schematic' | 'recorded' | 'list'>('schematic')
+const dimension = ref<'2d' | '3d'>('2d')
+const threeUnavailable = ref(false)
+const threeView = ref<InstanceType<typeof RdSpatialLocation3D>>()
 const groupKey = ref('')
 const activeId = ref<number>()
 const contextValid = ref(!!getAccessToken())
@@ -258,35 +312,7 @@ const unresolvedTargets = computed(
     props.highlightedIds.filter((id) => props.locations.filter((l) => l.id === id).length !== 1)
       .length
 )
-const states = [
-  { code: 'EMPTY', label: '空闲', fill: '#f8faf9', stroke: '#81958c', tag: 'info' as const },
-  {
-    code: 'PARTIAL',
-    label: '部分占用',
-    fill: '#e2f1e8',
-    stroke: '#3f8f65',
-    tag: 'success' as const
-  },
-  { code: 'FULL', label: '已满', fill: '#fff2cf', stroke: '#b88b2c', tag: 'warning' as const },
-  {
-    code: 'BLOCKED',
-    label: '冻结 / 不可用',
-    fill: '#fce7e7',
-    stroke: '#b85050',
-    tag: 'danger' as const
-  },
-  { code: 'UNKNOWN', label: '状态待核', fill: '#f1f2f4', stroke: '#9097a2', tag: 'info' as const }
-]
-const status = (location: RdPutawayLocationMapVO) =>
-  states.find(
-    (s) =>
-      s.code ===
-      (!location.enabled ||
-      location.frozen ||
-      ['FROZEN', 'DISABLED', 'MAINTENANCE', 'RESTRICTED'].includes(location.displayStatus)
-        ? 'BLOCKED'
-        : location.displayStatus)
-  ) || states[4]
+const states = LOCATION_STATES
 let L: typeof Leaflet | undefined
 let map: Leaflet.Map | undefined
 let layer: Leaflet.LayerGroup | undefined
@@ -303,7 +329,7 @@ const valid = () =>
   getAuthContextRevision() === ownerRevision &&
   user.getUser.id === ownerId &&
   hasPermission(['rd:putaway-task:query'])
-const isMapMode = () => mode.value !== 'list'
+const isMapMode = () => mode.value !== 'list' && dimension.value === '2d'
 const destroy = () => {
   revision++
   observer?.disconnect()
@@ -331,9 +357,26 @@ const choosePlan = () => {
     emit('select', activeLocation.value)
 }
 const fit = () => {
+  if (dimension.value === '3d') {
+    threeView.value?.fit()
+    return
+  }
   if (map && bounds) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 0.5, animate: false })
 }
+const zoom = (inward: boolean) => {
+  if (dimension.value === '3d') threeView.value?.zoom(inward ? 0.8 : 1.25)
+  else if (inward) map?.zoomIn(0.5)
+  else map?.zoomOut(0.5)
+}
+const fallbackToPlane = () => {
+  threeUnavailable.value = true
+  dimension.value = '2d'
+}
 const focusTargets = () => {
+  if (dimension.value === '3d') {
+    threeView.value?.focus(resolvedHighlights.value)
+    return
+  }
   if (!map || !L) return
   const nodes =
     group.value?.nodes.filter((n) => resolvedHighlights.value.includes(n.location.id)) || []
@@ -462,6 +505,12 @@ watch(
 )
 watch([groupKey, mode], async () => {
   activeId.value = undefined
+  destroy()
+  await paint()
+  fit()
+})
+watch(dimension, async () => {
+  if (dimension.value === '3d') threeUnavailable.value = false
   destroy()
   await paint()
   fit()
@@ -623,6 +672,10 @@ onBeforeUnmount(() => {
   border-left: 1px solid var(--el-border-color-light);
 }
 
+.is-3d .map-inspector {
+  max-height: 520px;
+}
+
 .inspector-heading {
   display: flex;
   align-items: flex-start;
@@ -764,6 +817,10 @@ onBeforeUnmount(() => {
     max-height: none;
     border-top: 1px solid var(--el-border-color-light);
     border-left: 0;
+  }
+
+  .is-3d .map-inspector {
+    max-height: none;
   }
 
   .map-surface {
