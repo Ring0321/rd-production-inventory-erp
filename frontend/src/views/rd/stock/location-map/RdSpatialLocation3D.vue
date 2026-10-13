@@ -8,7 +8,7 @@
         type="button"
         class="scene-bin-label"
         :class="{ selected: selectedId === label.id, target: highlightedIds.includes(label.id) }"
-        :style="{ left: `${label.x}px`, top: `${label.y}px` }"
+        :style="{ left: `${label.x}px`, top: `${label.y}px`, width: `${label.width}px` }"
         :data-location-id="label.id"
         :aria-label="`查看库位 ${lookup(label.id)?.code}`"
         :title="`${lookup(label.id)?.code} · ${lookup(label.id)?.state.label} · ${lookup(label.id)?.summary} · ${lookup(label.id)?.reserved}`"
@@ -31,7 +31,12 @@ import { buildWarehouse3D } from './warehouse3DModel'
 import type { WarehouseScene, ProjectedBin } from './warehouseScene'
 
 const props = withDefaults(
-  defineProps<{ nodes: SpatialNode[]; selectedId?: number; highlightedIds?: number[] }>(),
+  defineProps<{
+    nodes: SpatialNode[]
+    selectedId?: number
+    highlightedIds?: number[]
+    matchingIds?: number[]
+  }>(),
   { highlightedIds: () => [] }
 )
 const emit = defineEmits<{ inspect: [id: number]; unavailable: [] }>()
@@ -52,7 +57,13 @@ const stop = () => {
   loading.value = false
 }
 const sync = () => {
-  scene?.setModel(model.value.bins, props.selectedId, props.highlightedIds)
+  scene?.setModel(
+    model.value.bins,
+    props.selectedId,
+    props.highlightedIds,
+    false,
+    props.matchingIds
+  )
 }
 const start = async () => {
   if (!alive || !active || !host.value || scene || loading.value) return
@@ -85,7 +96,15 @@ const start = async () => {
     if (version === sequence) loading.value = false
   }
 }
-watch([model, () => props.selectedId, () => props.highlightedIds.join(',')], sync)
+watch(
+  [
+    model,
+    () => props.selectedId,
+    () => props.highlightedIds.join(','),
+    () => props.matchingIds?.join(',')
+  ],
+  sync
+)
 onMounted(start)
 onActivated(() => {
   active = true
@@ -113,7 +132,7 @@ defineExpose({
   width: 100%;
   height: 520px;
   overflow: hidden;
-  background: #f8faf9;
+  background: #f2f5f5;
 }
 
 .scene-host,
@@ -137,20 +156,18 @@ defineExpose({
   position: absolute;
   display: grid;
   width: 148px;
-  padding: 3px;
+  padding: 4px 6px;
   font-family: inherit;
   font-size: 11px;
   line-height: 15px;
   color: #263d30;
   text-align: center;
-  text-shadow:
-    0 1px 2px #fff,
-    0 -1px 2px #fff;
   pointer-events: auto;
   cursor: pointer;
-  background: transparent;
-  border: 0;
-  transform: translate(-50%, -25%);
+  background: rgb(255 255 255 / 92%);
+  border: 1px solid #cad5d5;
+  border-radius: 3px;
+  transform: translate(-50%, -10%);
   gap: 2px;
 }
 

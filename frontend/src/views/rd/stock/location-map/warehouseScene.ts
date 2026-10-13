@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBinSymbol, disposeSceneObjects } from './warehouse3DAssets'
 import type { Warehouse3DBin } from './warehouse3DModel'
 import { createSceneTap } from './sceneTap'
+import { createWarehouseShell } from './warehouseShell'
+import { warehouseFrameDistance } from './warehouseFraming'
 
 export interface ProjectedBin {
   id: number
@@ -10,6 +12,7 @@ export interface ProjectedBin {
   y: number
   visible: boolean
   compact: boolean
+  width: number
 }
 
 export const createWarehouseScene = (
@@ -51,7 +54,10 @@ export const createWarehouseScene = (
     canvas.setAttribute('aria-label', '立体库位示意画布')
     canvas.tabIndex = 0
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
-    renderer.setClearColor('#f8faf9')
+    renderer.setClearColor('#f2f5f5')
+    // Daylight rendering reference: Xxcool/smart-warehouse 7c4f36b; MIT notice ships locally.
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.1
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     host.appendChild(canvas)
@@ -67,8 +73,8 @@ export const createWarehouseScene = (
     controls.minDistance = 2
     controls.maxDistance = 100
     controls.listenToKeyEvents(canvas)
-    scene.add(new THREE.HemisphereLight('#ffffff', '#aebcb2', 2.6))
-    const light = new THREE.DirectionalLight('#ffffff', 3)
+    scene.add(new THREE.HemisphereLight('#ffffff', '#afbfbe', 2.8))
+    const light = new THREE.DirectionalLight('#fffaf2', 3)
     owned.light = light
     light.position.set(-8, 16, 10)
     light.castShadow = true
@@ -80,6 +86,9 @@ export const createWarehouseScene = (
     let objects = new THREE.Group()
     scene.add(objects)
     let bins: Warehouse3DBin[] = []
+    let visibleIds: Set<number> | undefined
+    let shellBounds = new THREE.Box3()
+    let framedIds: number[] | undefined
     let width = 0
     let height = 0
     const tap = createSceneTap()
@@ -104,17 +113,23 @@ export const createWarehouseScene = (
           ((right.x - left.x) * width) / 2,
           ((right.y - left.y) * height) / 2
         )
+        const labelWidth = Math.min(148, Math.max(72, screenWidth - 10), width - 16)
         return {
           id: bin.id,
-          x: ((anchor.x + 1) * width) / 2,
+          x: Math.max(
+            labelWidth / 2 + 6,
+            Math.min(width - labelWidth / 2 - 6, ((anchor.x + 1) * width) / 2)
+          ),
           y: ((1 - anchor.y) * height) / 2,
           visible:
             anchor.z >= -1 &&
             anchor.z <= 1 &&
             Math.abs(anchor.x) < 0.94 &&
             Math.abs(anchor.y) < 0.94 &&
-            screenWidth >= 60,
-          compact: screenWidth < 155
+            screenWidth >= 38 &&
+            (!visibleIds || visibleIds.has(bin.id)),
+          compact: screenWidth < 155,
+          width: labelWidth
         }
       })
       const visible: ProjectedBin[] = []
@@ -123,7 +138,8 @@ export const createWarehouseScene = (
           projection.visible &&
           visible.some(
             (other) =>
-              Math.abs(other.x - projection.x) < 115 && Math.abs(other.y - projection.y) < 44
+              Math.abs(other.x - projection.x) < (other.width + projection.width) / 2 + 4 &&
+              Math.abs(other.y - projection.y) < 44
           )
         )
           projection.visible = false
@@ -155,7 +171,9 @@ export const createWarehouseScene = (
       if (disposed || !bins.length || width <= 0 || height <= 0) return
       const chosen = ids?.length ? bins.filter((bin) => ids.includes(bin.id)) : bins
       if (!chosen.length) return
-      const sphere = boxFor(chosen).getBoundingSphere(new THREE.Sphere())
+      framedIds = ids?.length ? [...ids] : undefined
+      const bounds = ids?.length ? boxFor(chosen) : shellBounds
+      const sphere = bounds.getBoundingSphere(new THREE.Sphere())
       const direction =
         view === 'iso'
           ? new THREE.Vector3(0.85, 1.1, 1.3)
@@ -163,9 +181,7 @@ export const createWarehouseScene = (
             ? new THREE.Vector3(0.001, 1, 0.001)
             : camera.position.clone().sub(controls.target)
       if (!direction.lengthSq()) direction.set(0.85, 1.1, 1.3)
-      const angle = THREE.MathUtils.degToRad(camera.fov)
-      const horizontalAngle = 2 * Math.atan(Math.tan(angle / 2) * camera.aspect)
-      const distance = (sphere.radius / Math.sin(Math.min(angle, horizontalAngle) / 2)) * 1.18
+      const distance = warehouseFrameDistance(bounds, direction, camera.aspect, camera.fov)
       camera.position.copy(sphere.center).add(direction.normalize().multiplyScalar(distance))
       camera.near = 0.1
       camera.far = Math.max(200, distance + sphere.radius * 6)
@@ -186,7 +202,7 @@ export const createWarehouseScene = (
       renderer.setSize(width, height, false)
       camera.aspect = width / height
       camera.updateProjectionMatrix()
-      fit()
+      fit(framedIds)
       render()
     }
     const select = (event: PointerEvent) => {
@@ -197,11 +213,15 @@ export const createWarehouseScene = (
         (-(event.clientY - rect.top) / rect.height) * 2 + 1
       )
       raycaster.setFromCamera(position, camera)
-      const hit = raycaster.intersectObjects(objects.children, true)[0]
-      let object: THREE.Object3D | null | undefined = hit?.object
-      while (object && !object.userData.locationId) object = object.parent
-      const id = object?.userData.locationId
-      if (Number.isSafeInteger(id) && bins.some((bin) => bin.id === id)) callbacks.select(id)
+      for (const hit of raycaster.intersectObjects(objects.children, true)) {
+        let object: THREE.Object3D | null = hit.object
+        while (object && !object.userData.locationId) object = object.parent
+        const id = object?.userData.locationId
+        if (!Number.isSafeInteger(id)) continue
+        if ((!visibleIds || visibleIds.has(id)) && bins.some((bin) => bin.id === id))
+          callbacks.select(id)
+        break
+      }
     }
     const start = (event: PointerEvent) => {
       tap.start(event)
@@ -237,7 +257,8 @@ export const createWarehouseScene = (
         next: Warehouse3DBin[],
         selectedId?: number,
         highlightedIds: number[] = [],
-        reframe = false
+        reframe = false,
+        matchingIds?: number[]
       ) {
         if (disposed) return
         const shapeKey = (values: Warehouse3DBin[]) =>
@@ -253,27 +274,36 @@ export const createWarehouseScene = (
           )
         const shapeChanged = shapeKey(next) !== shapeKey(bins)
         bins = next
+        visibleIds = matchingIds ? new Set(matchingIds) : undefined
         disposeSceneObjects(objects)
         scene.remove(objects)
         objects = new THREE.Group()
         scene.add(objects)
         for (const bin of bins)
-          objects.add(createBinSymbol(bin, bin.id === selectedId, highlightedIds.includes(bin.id)))
+          objects.add(
+            createBinSymbol(
+              bin,
+              bin.id === selectedId,
+              highlightedIds.includes(bin.id),
+              !!visibleIds && !visibleIds.has(bin.id)
+            )
+          )
         if (bins.length) {
           const bounds = boxFor(bins)
-          const size = bounds.getSize(new THREE.Vector3())
-          const center = bounds.getCenter(new THREE.Vector3())
-          const floor = new THREE.Mesh(
-            new THREE.PlaneGeometry(size.x + 2, size.z + 2),
-            new THREE.MeshStandardMaterial({ color: '#f0f3f1', roughness: 1 })
-          )
-          floor.rotation.x = -Math.PI / 2
-          floor.position.set(center.x, -0.02, center.z)
-          floor.receiveShadow = true
-          objects.add(floor)
-          const grid = new THREE.GridHelper(Math.max(size.x, size.z) + 2, 12, '#d0d9d3', '#e0e7e2')
-          grid.position.set(center.x, -0.005, center.z)
-          objects.add(grid)
+          const shell = createWarehouseShell(bounds)
+          objects.add(shell)
+          shellBounds = new THREE.Box3().setFromObject(shell).union(bounds)
+          const sphere = shellBounds.getBoundingSphere(new THREE.Sphere())
+          light.position
+            .copy(sphere.center)
+            .add(new THREE.Vector3(-sphere.radius, sphere.radius * 2, sphere.radius))
+          light.target.position.copy(sphere.center)
+          scene.add(light.target)
+          const shadowRadius = sphere.radius * 1.2
+          light.shadow.camera.left = light.shadow.camera.bottom = -shadowRadius
+          light.shadow.camera.right = light.shadow.camera.top = shadowRadius
+          light.shadow.camera.far = Math.max(50, sphere.radius * 6)
+          light.shadow.camera.updateProjectionMatrix()
         }
         if (shapeChanged || reframe) fit(undefined, 'iso')
         render()

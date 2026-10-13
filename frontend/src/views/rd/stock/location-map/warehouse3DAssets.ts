@@ -27,23 +27,35 @@ const wovenMaterial = () => {
 
 export const createTonBagSymbol = () => {
   const group = new THREE.Group()
-  const body = new THREE.Mesh(new RoundedBoxGeometry(1.15, 1.05, 1.02, 2, 0.12), wovenMaterial())
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.2, 1.15, 1.08, 3, 0.2), wovenMaterial())
   body.position.y = 0.69
   body.castShadow = true
   body.receiveShadow = true
   group.add(body)
-  const strap = new THREE.MeshStandardMaterial({ color: '#697d72', roughness: 1 })
+  const strap = new THREE.MeshStandardMaterial({ color: '#82949a', roughness: 1 })
   for (const x of [-0.39, 0.39]) {
     for (const z of [-0.32, 0.32]) {
       const loop = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.025, 4, 12, Math.PI), strap)
-      loop.position.set(x, 1.16, z)
+      loop.position.set(x, 1.25, z)
       loop.castShadow = true
       group.add(loop)
     }
   }
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.25, 0.15, 10), strap)
-  neck.position.y = 1.25
+  neck.position.y = 1.35
   group.add(neck)
+  const seams = new THREE.MeshStandardMaterial({ color: '#d4ddd8', roughness: 1 })
+  for (const x of [-0.47, 0.47]) {
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.75, 0.025), seams)
+    seam.position.set(x, 0.68, 0.53)
+    group.add(seam)
+  }
+  const tag = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.19, 0.012),
+    new THREE.MeshStandardMaterial({ color: '#f9faf8', roughness: 1 })
+  )
+  tag.position.set(0.22, 0.78, 0.55)
+  group.add(tag)
   return group
 }
 
@@ -64,7 +76,12 @@ const ringGeometry = (width: number, depth: number) => {
   return new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false })
 }
 
-export const createBinSymbol = (bin: Warehouse3DBin, selected: boolean, highlighted: boolean) => {
+export const createBinSymbol = (
+  bin: Warehouse3DBin,
+  selected: boolean,
+  highlighted: boolean,
+  muted = false
+) => {
   const group = new THREE.Group()
   group.position.set(bin.center.x, 0, bin.center.z)
   group.userData.locationId = bin.id
@@ -95,6 +112,18 @@ export const createBinSymbol = (bin: Warehouse3DBin, selected: boolean, highligh
     )
     unknown.position.y = 0.5
     group.add(unknown)
+  }
+  if (muted) {
+    group.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      for (const material of materials) {
+        material.transparent = true
+        material.opacity = 0.16
+        material.depthWrite = false
+      }
+      child.castShadow = false
+    })
   }
   return group
 }

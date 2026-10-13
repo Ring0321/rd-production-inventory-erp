@@ -34,7 +34,9 @@ test('partial scene initialization rolls back canvas, controls, listeners and re
   const imports = {
     three: { ...three, WebGLRenderer: Renderer },
     'three/examples/jsm/controls/OrbitControls.js': { OrbitControls: Controls },
-    './warehouse3DAssets': { createBinSymbol() {}, disposeSceneObjects() {} }
+    './warehouse3DAssets': { createBinSymbol() {}, disposeSceneObjects() {} },
+    './warehouseShell': { createWarehouseShell() {} },
+    './warehouseFraming': { warehouseFrameDistance() {} }
   }
   if (existsSync(new URL('./sceneTap.ts', import.meta.url))) imports['./sceneTap'] = evaluateSource(readFileSync(new URL('./sceneTap.ts', import.meta.url), 'utf8'))
   const { createWarehouseScene } = evaluateSource(source, imports, {

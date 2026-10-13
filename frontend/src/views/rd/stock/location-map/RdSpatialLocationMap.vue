@@ -8,7 +8,7 @@
     />
     <template v-else>
       <header class="map-toolbar">
-        <el-radio-group v-model="mode" size="small" aria-label="库位视图">
+        <el-radio-group v-model="mode" size="small" aria-label="库位视图" @change="cancelLookup">
           <el-radio-button value="schematic">自建示意</el-radio-button>
           <el-radio-button value="recorded">已登记行列</el-radio-button>
           <el-radio-button value="list">清单</el-radio-button>
@@ -18,6 +18,7 @@
           v-model="dimension"
           size="small"
           aria-label="空间维度"
+          @change="cancelLookup"
         >
           <el-radio-button value="2d">平面</el-radio-button>
           <el-radio-button value="3d">立体</el-radio-button>
@@ -27,6 +28,7 @@
           v-model="groupKey"
           class="group-select"
           aria-label="仓库区域与库位层级"
+          @change="cancelLookup"
         >
           <el-option
             v-for="option in layout.groups"
@@ -35,6 +37,23 @@
             :value="option.key"
           />
         </el-select>
+        <form
+          v-if="canLookupPackage"
+          class="package-search"
+          @submit.prevent="packageLookup.lookup()"
+        >
+          <el-input
+            v-model="packageQuery"
+            placeholder="包码 / 二维码内容"
+            aria-label="包码或二维码内容"
+            clearable
+          />
+          <el-tooltip content="定位登记库位">
+            <el-button native-type="submit" :loading="lookupBusy" circle aria-label="定位货物库位"
+              ><Icon icon="lucide:locate-fixed"
+            /></el-button>
+          </el-tooltip>
+        </form>
         <div v-if="mode !== 'list'" class="map-controls">
           <el-tooltip content="放大"
             ><el-button circle aria-label="放大库位图" @click="zoom(true)"
@@ -68,6 +87,66 @@
           ></el-tooltip>
         </div>
       </header>
+      <div class="map-querybar">
+        <el-select
+          :model-value="activeId"
+          filterable
+          clearable
+          class="location-search"
+          placeholder="查找库位"
+          aria-label="查找并定位库位"
+          @change="selectLocation"
+          @clear="closeInspector"
+        >
+          <el-option
+            v-for="location in validLocations"
+            :key="location.id"
+            :label="`${location.locationCode} · ${location.warehouseName}`"
+            :value="location.id"
+          />
+        </el-select>
+        <el-radio-group
+          v-model="filter"
+          size="small"
+          aria-label="库位状态筛选"
+          class="map-filters"
+          @change="cancelLookup"
+        >
+          <el-radio-button value="ALL">全部</el-radio-button>
+          <el-radio-button value="EMPTY">空闲</el-radio-button>
+          <el-radio-button value="OCCUPIED">占用</el-radio-button>
+          <el-radio-button value="RESERVED">预留</el-radio-button>
+          <el-radio-button value="BLOCKED">不可用</el-radio-button>
+          <el-radio-button value="UNKNOWN">待核</el-radio-button>
+        </el-radio-group>
+      </div>
+      <dl class="map-summary" aria-label="当前范围库位统计">
+        <div
+          ><dt>库位</dt><dd>{{ summary.total }}</dd></div
+        >
+        <div
+          ><dt>匹配</dt><dd>{{ matchingLocations.length }}</dd></div
+        >
+        <div
+          ><dt>空闲</dt><dd>{{ summary.empty }}</dd></div
+        >
+        <div
+          ><dt>预留库位</dt><dd>{{ summary.reserved }}</dd></div
+        >
+        <div
+          ><dt>在库包数</dt><dd>{{ metricText(summary.packages) }}</dd></div
+        >
+        <div
+          ><dt>登记吨数</dt><dd>{{ metricText(summary.weight, 1000) }}</dd></div
+        >
+      </dl>
+      <el-alert
+        v-if="lookupFeedback"
+        :title="lookupFeedback"
+        type="info"
+        :closable="false"
+        class="lookup-feedback"
+      />
       <div class="map-legend">
         <span v-for="state in states" :key="state.code"
           ><i :style="{ background: state.fill, borderColor: state.stroke }"></i
@@ -106,6 +185,7 @@
             :nodes="group?.nodes || []"
             :selected-id="activeId"
             :highlighted-ids="resolvedHighlights"
+            :matching-ids="matchingIds"
             @inspect="inspect"
             @unavailable="fallbackToPlane"
           />
@@ -114,7 +194,7 @@
           /></div>
           <div v-if="mode === 'list'" class="bin-list">
             <button
-              v-for="location in locations"
+              v-for="location in matchingLocations"
               :key="location.id"
               type="button"
               :class="{
@@ -130,7 +210,17 @@
                 {{ metricText(location.reservedPackages) }} 包</span
               >
             </button>
-            <el-empty v-if="!locations.length" description="暂无库位" :image-size="70" />
+            <el-empty
+              v-if="!matchingLocations.length"
+              description="当前条件无匹配库位"
+              :image-size="70"
+            />
+          </div>
+          <div
+            v-if="mode !== 'list' && group?.nodes.length && !matchingLocations.length"
+            class="map-empty filter-empty"
+          >
+            <span>当前条件无匹配库位</span>
           </div>
         </div>
         <aside
@@ -140,7 +230,7 @@
         >
           <div class="inspector-heading"
             ><h3>{{ activeLocation.locationCode }}</h3
-            ><el-button circle aria-label="关闭库位资料" @click="activeId = undefined"
+            ><el-button circle aria-label="关闭库位资料" @click="closeInspector"
               ><Icon icon="lucide:x" /></el-button
           ></div>
           <p
@@ -193,12 +283,13 @@
           />
         </aside>
       </div>
-      <details v-if="mode === 'recorded' && layout.unplaced.length" class="unplaced-list"
-        ><summary>位置待核库位（{{ layout.unplaced.length }}）</summary
+      <details v-if="mode === 'recorded' && scopedUnplaced.length" class="unplaced-list"
+        ><summary>位置待核库位（{{ scopedUnplaced.length }}）</summary
         ><button
-          v-for="(entry, index) in layout.unplaced"
+          v-for="(entry, index) in scopedUnplaced"
           :key="index"
           type="button"
+          :disabled="!matchingIds.includes(entry.location.id)"
           @click="inspect(entry.location.id)"
           >{{ entry.location.locationCode }} ·
           {{
@@ -223,6 +314,13 @@
           target="_blank"
           rel="noopener noreferrer"
           >Three.js 0.186.1 · MIT</a
+        >
+        <a
+          v-if="dimension === '3d' && mode !== 'list'"
+          :href="`${base}licenses/smart-warehouse-LICENSE.txt`"
+          target="_blank"
+          rel="noopener noreferrer"
+          >视觉参考 · MIT</a
         >
         <a
           v-else
@@ -258,11 +356,14 @@ import {
   metricText,
   capacityText,
   isLocationIdentityValid,
+  spatialGroupKey,
   type SpatialNode
 } from './spatialLayout'
 import LocationDetailsPanel from './LocationDetailsPanel.vue'
 import RdSpatialLocation3D from './RdSpatialLocation3D.vue'
 import { LOCATION_STATES, locationLook as status } from './locationLook'
+import { matchesLocationFilter, summarizeLocations, type LocationFilter } from './warehouseMapQuery'
+import { useMapPackageLookup } from './useMapPackageLookup'
 const props = withDefaults(
   defineProps<{
     locations: RdPutawayLocationMapVO[]
@@ -283,6 +384,7 @@ const dimension = ref<'2d' | '3d'>('2d')
 const threeUnavailable = ref(false)
 const threeView = ref<InstanceType<typeof RdSpatialLocation3D>>()
 const groupKey = ref('')
+const filter = ref<LocationFilter>('ALL')
 const activeId = ref<number>()
 const contextValid = ref(!!getAccessToken())
 const ownerRevision = getAuthContextRevision()
@@ -292,6 +394,24 @@ const layout = computed(() =>
   buildSpatialLayout(props.locations, mode.value === 'recorded' ? 'recorded' : 'schematic')
 )
 const group = computed(() => layout.value.groups.find((g) => g.key === groupKey.value))
+const validLocations = computed(() =>
+  props.locations.filter((l) => isLocationIdentityValid(props.locations, l.id))
+)
+const rangeLocations = computed(() =>
+  mode.value === 'list'
+    ? validLocations.value
+    : validLocations.value.filter((l) => !!group.value && spatialGroupKey(l) === group.value.key)
+)
+const matchingLocations = computed(() =>
+  rangeLocations.value.filter((l) => matchesLocationFilter(l, filter.value))
+)
+const matchingIds = computed(() => matchingLocations.value.map((l) => l.id))
+const summary = computed(() => summarizeLocations(rangeLocations.value))
+const scopedUnplaced = computed(() =>
+  layout.value.unplaced.filter(
+    ({ location: l }) => !group.value || spatialGroupKey(l) === group.value.key
+  )
+)
 const activeLocation = computed(() =>
   activeId.value && isLocationIdentityValid(props.locations, activeId.value)
     ? props.locations.find((l) => l.id === activeId.value)
@@ -341,9 +461,59 @@ const destroy = () => {
   markers.length = 0
 }
 const inspect = (id: number) => {
-  if (valid() && isLocationIdentityValid(props.locations, id)) {
+  if (valid() && matchingIds.value.includes(id) && isLocationIdentityValid(props.locations, id)) {
+    cancelLookup()
     activeId.value = id
   }
+}
+let focusSequence = 0
+const focusLocation = async (id: number, guard: () => boolean = valid) => {
+  const version = ++focusSequence
+  if (!valid() || !guard() || !isLocationIdentityValid(props.locations, id)) return
+  filter.value = 'ALL'
+  if (!layout.value.groups.some((g) => g.nodes.some((n) => n.location.id === id)))
+    mode.value = 'schematic'
+  await nextTick()
+  if (!valid() || !guard() || version !== focusSequence) return
+  const target = layout.value.groups.find((g) => g.nodes.some((n) => n.location.id === id))
+  if (!target) return
+  groupKey.value = target.key
+  await nextTick()
+  if (!valid() || !guard() || version !== focusSequence) return
+  activeId.value = id
+  await nextTick()
+  if (!valid() || !guard() || version !== focusSequence) return
+  if (dimension.value === '3d') threeView.value?.focus([id])
+  else if (map && L) {
+    const node = group.value?.nodes.find((n) => n.location.id === id)
+    if (node)
+      map.fitBounds(L.latLngBounds(nodeBounds(node)), {
+        padding: [30, 30],
+        maxZoom: 0.5,
+        animate: false
+      })
+  }
+}
+const canLookupPackage = computed(
+  () => valid() && hasPermission(['rd:package-unit:query']) && hasPermission(['rd:stock-lot:query'])
+)
+const packageLookup = useMapPackageLookup({
+  allowed: () => canLookupPackage.value,
+  locations: () => props.locations,
+  locate: focusLocation
+})
+const { raw: packageQuery, busy: lookupBusy, feedback: lookupFeedback } = packageLookup
+const cancelLookup = () => {
+  focusSequence++
+  packageLookup.clear()
+}
+const selectLocation = (id: number) => {
+  cancelLookup()
+  void focusLocation(id)
+}
+const closeInspector = () => {
+  cancelLookup()
+  activeId.value = undefined
 }
 const choosePlan = () => {
   if (
@@ -450,15 +620,20 @@ const paint = async () => {
       const highlighted = resolvedHighlights.value.includes(node.location.id)
       const chosen = activeId.value === node.location.id
       const look = status(node.location)
+      const matching = matchingIds.value.includes(node.location.id)
       L.rectangle(nodeBounds(node), {
         color: chosen ? '#111827' : highlighted ? '#216fba' : look.stroke,
         weight: chosen || highlighted ? 3 : 1.5,
         fillColor: look.fill,
-        fillOpacity: 1,
+        fillOpacity: matching ? 1 : 0.12,
+        opacity: matching ? 1 : 0.2,
         dashArray: highlighted ? '6 3' : undefined
       })
-        .on('click', () => inspect(node.location.id))
+        .on('click', () => {
+          if (matching) inspect(node.location.id)
+        })
         .addTo(layer!)
+      if (!matching) continue
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'spatial-bin-label'
@@ -542,7 +717,12 @@ watch(
 watch(activeId, () => {
   void paint()
 })
+watch(filter, () => {
+  activeId.value = undefined
+  void paint()
+})
 const invalidateContext = () => {
+  cancelLookup()
   contextValid.value = false
   activeId.value = undefined
   destroy()
@@ -558,6 +738,7 @@ onMounted(async () => {
   fit()
 })
 onDeactivated(() => {
+  cancelLookup()
   active = false
   activeId.value = undefined
   destroy()
@@ -570,6 +751,7 @@ onActivated(async () => {
   }
 })
 onBeforeUnmount(() => {
+  cancelLookup()
   alive = false
   destroy()
   stopAuth()
@@ -613,6 +795,70 @@ onBeforeUnmount(() => {
   color: var(--el-text-color-secondary);
   flex-wrap: wrap;
   gap: 8px 16px;
+}
+
+.map-querybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.location-search {
+  width: 250px;
+  max-width: 100%;
+}
+
+.package-search {
+  display: flex;
+  width: 260px;
+  max-width: 100%;
+  gap: 6px;
+}
+
+.package-search :deep(.el-button) {
+  flex-shrink: 0;
+  margin-left: 0;
+}
+
+.lookup-feedback {
+  margin-bottom: 10px;
+}
+
+.map-filters {
+  flex-wrap: wrap;
+}
+
+.map-summary {
+  display: flex;
+  padding: 10px 0;
+  margin: 0 0 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.map-summary div {
+  min-width: 48px;
+}
+
+.map-summary dt {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.map-summary dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.filter-empty {
+  align-items: end;
+  padding-bottom: 20px;
+  font-size: 12px;
 }
 
 .map-legend span {
@@ -828,6 +1074,14 @@ onBeforeUnmount(() => {
   }
 
   .group-select {
+    width: 100%;
+  }
+
+  .location-search {
+    width: 100%;
+  }
+
+  .package-search {
     width: 100%;
   }
 

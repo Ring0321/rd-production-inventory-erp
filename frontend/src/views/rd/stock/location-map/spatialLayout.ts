@@ -21,6 +21,8 @@ export interface UnplacedLocation {
   reason: 'IDENTITY_INVALID' | 'POSITION_MISSING' | 'POSITION_CONFLICT'
 }
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+export const spatialGroupKey = (location: RdPutawayLocationMapVO) =>
+  JSON.stringify([text(location.warehouseCode), text(location.areaCode), text(location.levelCode)])
 const order = (a: string, b: string) => a.localeCompare(b, 'zh-CN', { numeric: true })
 const hasIdentity = (location: RdPutawayLocationMapVO) =>
   Number.isSafeInteger(location.id) &&
@@ -46,15 +48,7 @@ export const buildSpatialLayout = (
       unplaced.push({ location, reason: 'IDENTITY_INVALID' })
       continue
     }
-    if (mode === 'recorded' && (!text(location.rowCode) || !text(location.columnCode))) {
-      unplaced.push({ location, reason: 'POSITION_MISSING' })
-      continue
-    }
-    const key = JSON.stringify([
-      text(location.warehouseCode),
-      text(location.areaCode),
-      text(location.levelCode)
-    ])
+    const key = spatialGroupKey(location)
     records.set(key, [...(records.get(key) || []), location])
   }
   const groups: SpatialGroup[] = []
@@ -82,10 +76,18 @@ export const buildSpatialLayout = (
       cells.set(cell, (cells.get(cell) || 0) + 1)
     }
     group.rows =
-      mode === 'recorded' ? [...new Set(items.map((i) => text(i.rowCode)))].sort(order) : []
+      mode === 'recorded'
+        ? [...new Set(items.map((i) => text(i.rowCode)).filter(Boolean))].sort(order)
+        : []
     group.columns =
-      mode === 'recorded' ? [...new Set(items.map((i) => text(i.columnCode)))].sort(order) : []
+      mode === 'recorded'
+        ? [...new Set(items.map((i) => text(i.columnCode)).filter(Boolean))].sort(order)
+        : []
     items.forEach((location, index) => {
+      if (mode === 'recorded' && (!text(location.rowCode) || !text(location.columnCode))) {
+        unplaced.push({ location, reason: 'POSITION_MISSING' })
+        return
+      }
       const cell = JSON.stringify([text(location.rowCode), text(location.columnCode)])
       if (mode === 'recorded' && cells.get(cell) !== 1) {
         unplaced.push({ location, reason: 'POSITION_CONFLICT' })

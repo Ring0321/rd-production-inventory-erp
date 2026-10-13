@@ -21,10 +21,12 @@ const setup = (locations, extra = {}) => {
     '@/store/modules/user': { useUserStoreWithOut: () => user },
     './spatialLayout': model,
     './locationLook': evaluateSource(readFileSync(new URL('./locationLook.ts', import.meta.url), 'utf8')),
+    './warehouseMapQuery': evaluateSource(readFileSync(new URL('./warehouseMapQuery.ts', import.meta.url), 'utf8'), { './spatialLayout': model, './locationLook': evaluateSource(readFileSync(new URL('./locationLook.ts', import.meta.url), 'utf8')) }),
+    './useMapPackageLookup': { useMapPackageLookup: () => ({ raw: vue.ref(''), busy: vue.ref(false), feedback: vue.ref(''), clear() {} }) },
     './LocationDetailsPanel.vue': {}
   }
   const globals = { defineProps: () => props, withDefaults: (p) => p, defineEmits: () => (...e) => events.push(e) }
-  return { ...evaluateSource(source + '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable };', imports, globals), props, events, user }
+  return { ...evaluateSource(source + '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable, filter, matchingIds, focusLocation, selectLocation, summary, mode, scopedUnplaced };', imports, globals), props, events, user }
 }
 const location = (id, warehouseCode = 'W1') => ({ id, warehouseCode, warehouseName: warehouseCode, locationCode: `L-${id}`, rowCode: 'R1', columnCode: `C${id}`, enabled: true, frozen: false, displayStatus: 'EMPTY' })
 
@@ -63,4 +65,51 @@ test('3D unavailable fallback preserves inspection identity and never emits a pl
   assert.equal(s.threeUnavailable.value, true)
   assert.equal(s.activeId.value, 1)
   assert.equal(s.events.length, 0)
+})
+test('nonmatching locations cannot be inspected or selected as plans', async () => {
+  const s = setup([location(1), { ...location(2), displayStatus: 'FULL' }])
+  s.filter.value = 'EMPTY'
+  await vue.nextTick()
+  assert.deepEqual([...s.matchingIds.value], [1])
+  s.inspect(2)
+  s.choosePlan()
+  assert.equal(s.activeId.value, undefined)
+  assert.equal(s.events.length, 0)
+})
+test('precise location search switches scope and cancelled focus never changes inspection', async () => {
+  const s = setup([location(1), location(2, 'W2')])
+  await s.focusLocation(2)
+  assert.equal(s.activeId.value, 2)
+  assert.equal(s.layout.value.groups.find(g => g.key === s.groupKey.value).warehouseCode, 'W2')
+  s.activeId.value = undefined
+  let live = true
+  const pending = s.focusLocation(1, () => live)
+  live = false
+  await pending
+  assert.equal(s.activeId.value, undefined)
+  assert.equal(s.events.length, 0)
+})
+test('recorded scope includes identity-valid pending locations and preserves unknown totals', async () => {
+  const missing = { ...location(2), rowCode: undefined, displayStatus: 'UNKNOWN', occupiedPackages: undefined, occupiedWeight: undefined }
+  const s = setup([{ ...location(1), occupiedPackages: 0, occupiedWeight: 0 }, missing])
+  s.mode.value = 'recorded'
+  await vue.nextTick()
+  assert.equal(s.summary.value.total, 2)
+  assert.equal(s.summary.value.packages, undefined)
+  s.inspect(2)
+  assert.equal(s.activeId.value, 2)
+  s.filter.value = 'UNKNOWN'
+  await vue.nextTick()
+  assert.deepEqual([...s.matchingIds.value], [2])
+  assert.equal(s.layout.value.groups[0].nodes.length, 1, 'pending records receive no invented coordinates')
+})
+test('pending-list scope shares the layout normalization of legacy warehouse metadata', async () => {
+  const s = setup([location(1), { ...location(2, ' W1 '), rowCode: undefined }])
+  s.mode.value = 'recorded'
+  await vue.nextTick()
+  assert.equal(s.summary.value.total, 2)
+  assert.deepEqual([...s.matchingIds.value], [1, 2])
+  assert.equal(s.scopedUnplaced.value.length, 1)
+  s.inspect(2)
+  assert.equal(s.activeId.value, 2)
 })
