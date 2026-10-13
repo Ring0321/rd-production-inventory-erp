@@ -213,6 +213,8 @@
           :facts-revision="aiFactsRevision"
         />
 
+        <PackagePassportPanel :package-code="packageCode" :facts-revision="aiFactsRevision" />
+
         <section
           v-if="trace.internalView"
           v-loading="batchLoading"
@@ -366,6 +368,7 @@ import { getAccessToken } from '@/utils/auth'
 import { formatDate } from '@/utils/formatTime'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import PackageAiPanel from './PackageAiPanel.vue'
+import PackagePassportPanel from './PackagePassportPanel.vue'
 import { usePackageAiAccess } from './usePackageAi'
 
 defineOptions({ name: 'RdPackageTrace' })
