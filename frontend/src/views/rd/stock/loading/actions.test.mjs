@@ -47,6 +47,7 @@ const setup = (dispatch = true) => {
     route: { fullPath: '/rd/stock/loading?taskId=1' },
     batchScanLoading: ref(false),
     batchScanConfirming: ref(false),
+    batchGuard: { locked: ref(false) },
     outboundConfirming: ref(false),
     batchSelectedLineIds: ref([]),
     batchPreviewRevision: 0,
@@ -111,6 +112,13 @@ test('Web final dialog cannot post another same-version task loaded during confi
     h.calls.some(([name]) => name === 'outbound'),
     false
   )
+})
+test('Web pending guard blocks ordinary preview and final outbound without dropping the original request', async () => {
+  const h = setup()
+  h.context.batchGuard.locked.value = true
+  await actual('previewBatchScan', h.context)()
+  await actual('confirmOutbound', h.context)()
+  assert.equal(h.calls.length, 0)
 })
 
 test('Web final confirmation belongs to the original login and is not reusable after context expiry', async () => {

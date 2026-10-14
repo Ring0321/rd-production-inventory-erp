@@ -15,6 +15,13 @@ import { useLoadingWork } from './useLoadingWork'
 import TaskPackages from './TaskPackages.vue'
 import LoadingExceptions from './LoadingExceptions.vue'
 import LoadingReductionPanel from '../../stock/loading/LoadingReductionPanel.vue'
+import ScanWorkbench from '../../stock/scan/ScanWorkbench.vue'
+import { RdLoadingApi } from '@/api/rd/loading'
+import {
+  loadingSnapshot,
+  verifyScanSelection,
+  type ScanSelection
+} from '../../stock/scan/scanSnapshots'
 
 const props = defineProps<{
   session: WarehouseSession
@@ -65,6 +72,18 @@ const labels: Record<string, string> = {
   OUTBOUNDED: '已出库',
   EXCEPTION_PENDING: '异常待处理',
   CANCELLED: '已取消'
+}
+const applyScanSelection = (value: ScanSelection) => {
+  if (
+    !detail.value ||
+    locked.value ||
+    !canDispatch.value ||
+    !props.session.current() ||
+    !verifyScanSelection(loadingSnapshot(detail.value), value)
+  )
+    return
+  selected.value = [...value.lineIds]
+  input.value = value.packageCodes[0]
 }
 onMounted(async () => {
   await loadList()
@@ -127,6 +146,20 @@ onMounted(async () => {
               ><el-icon><Search /></el-icon></el-button></el-tooltip></div
       ></form>
       <template v-if="detail">
+        <ScanWorkbench
+          v-if="canDispatch"
+          :snapshot="loadingSnapshot(detail)"
+          :scope="{
+            ownerId: session.ownerId,
+            tenant: session.tenant,
+            kind: 'loading',
+            taskId: detail.task.id
+          }"
+          :disabled="locked"
+          :is-current="session.current"
+          :read-snapshot="async () => loadingSnapshot(await RdLoadingApi.getTask(detail!.task.id))"
+          @apply="applyScanSelection"
+        />
         <header class="task-header"
           ><h2>{{ detail.task.taskNo }}</h2
           ><el-tooltip content="重新读取装车任务"

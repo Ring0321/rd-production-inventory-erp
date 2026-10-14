@@ -119,10 +119,10 @@ const scan = async (page, detail) => {
   await page.getByRole("tab", { name: "扫码复核", exact: true }).click();
   await page
     .getByPlaceholder(
-      "扫描任意一包，支持 LD... 或 https://id.tjldsic.com/pkg/LD...",
+      "扫描包件二维码，或输入完整包号",
     )
     .fill(detail.lines[0].packageCode);
-  await page.getByPlaceholder("扫描任意一包，支持 LD... 或 https://id.tjldsic.com/pkg/LD...").press("Enter");
+  await page.getByPlaceholder("扫描包件二维码，或输入完整包号").press("Enter");
   await page.getByText(detail.task.taskNo, { exact: true }).first().waitFor();
   await page
     .getByRole("button", { name: "确认出库过账", exact: true })
@@ -326,10 +326,9 @@ try {
           .getByRole("tab", { name: "扫码复核", exact: true })
           .click();
         const input = restricted.page.getByPlaceholder(
-          "扫描任意一包，支持 LD... 或 https://id.tjldsic.com/pkg/LD...",
+          "扫描包件二维码，或输入完整包号",
         );
-        await input.fill(race.lines[0].packageCode);
-        await input.press("Enter");
+        assert.equal(await input.isDisabled(), true, 'query-only account cannot edit a dispatch scan');
         await restricted.page
           .getByRole("heading", { name: "出库装车", exact: true })
           .waitFor();

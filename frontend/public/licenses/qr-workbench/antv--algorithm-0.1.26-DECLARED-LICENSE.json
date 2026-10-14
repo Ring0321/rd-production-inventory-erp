@@ -1,0 +1,11 @@
+{
+  "name": "@antv/algorithm",
+  "version": "0.1.26",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antvis/algorithm"
+  },
+  "author": "https://github.com/orgs/antvis/people",
+  "notice": "This published package declares the license above but ships no separate LICENSE/NOTICE file. Original package metadata and README are retained. This is not a legal compliance certification."
+}

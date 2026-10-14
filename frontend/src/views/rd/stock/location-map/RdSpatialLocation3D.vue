@@ -49,12 +49,14 @@ let scene: WarehouseScene | undefined
 let alive = true
 let active = true
 let sequence = 0
+let requestedFocus: number[] | undefined
 const stop = () => {
   sequence++
   scene?.dispose()
   scene = undefined
   labels.value = []
   loading.value = false
+  requestedFocus = undefined
 }
 const sync = () => {
   scene?.setModel(
@@ -64,6 +66,17 @@ const sync = () => {
     false,
     props.matchingIds
   )
+  if (scene && requestedFocus) {
+    scene.fit(requestedFocus)
+    requestedFocus = undefined
+  }
+}
+const focus = (ids: number[]) => {
+  if (!alive || !active) return
+  const existing = ids.filter((id) => lookup(id))
+  if (!existing.length) return
+  requestedFocus = [...existing]
+  if (scene) sync()
 }
 const start = async () => {
   if (!alive || !active || !host.value || scene || loading.value) return
@@ -120,7 +133,7 @@ onBeforeUnmount(() => {
 })
 defineExpose({
   fit: () => scene?.fit(),
-  focus: (ids: number[]) => scene?.fit(ids),
+  focus,
   zoom: (factor: number) => scene?.zoom(factor),
   iso: () => scene?.fit(undefined, 'iso'),
   top: () => scene?.fit(undefined, 'top')

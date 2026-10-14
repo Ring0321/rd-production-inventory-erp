@@ -289,13 +289,14 @@
             clearable
             class="!w-420px"
             placeholder="扫描包件二维码，或输入完整包号"
+            :disabled="batchGuard.locked.value || batchScanConfirming || outboundConfirming"
           />
         </el-form-item>
         <el-form-item>
           <el-button
             type="primary"
             :loading="batchScanLoading"
-            :disabled="!batchScanForm.packageCode"
+            :disabled="!batchScanForm.packageCode || batchGuard.locked.value"
             v-hasPermi="['rd:loading-task:dispatch']"
             @click="previewBatchScan"
           >
@@ -303,6 +304,21 @@
           </el-button>
         </el-form-item>
       </el-form>
+      <el-alert
+        v-if="batchGuardError || batchStorageError"
+        :title="batchStorageError || batchGuardError"
+        type="warning"
+        :closable="false"
+      />
+      <div v-if="batchPending" class="scan-actions">
+        <el-tag type="warning">原装车请求待核</el-tag>
+        <el-button :loading="batchScanConfirming" @click="confirmBatchScan"
+          >重试原核验请求</el-button
+        >
+        <el-button :disabled="batchScanConfirming" @click="reconcileBatchScan"
+          >核定原装车请求</el-button
+        >
+      </div>
       <el-alert
         v-if="batchScanResp"
         class="mb-12px"
@@ -315,6 +331,23 @@
         "
       />
       <template v-if="batchScanResp">
+        <ScanWorkbench
+          :snapshot="loadingSnapshot(batchScanResp)"
+          :scope="{
+            ownerId: warehouseSession.ownerId,
+            tenant: warehouseSession.tenant,
+            kind: 'loading',
+            taskId: batchScanResp.task.id
+          }"
+          :disabled="
+            batchScanLoading || batchScanConfirming || outboundConfirming || batchGuard.locked.value
+          "
+          :is-current="warehouseSession.current"
+          :read-snapshot="
+            async () => loadingSnapshot(await RdLoadingApi.getTask(batchScanResp!.task.id))
+          "
+          @apply="applyVisualScanSelection"
+        />
         <el-descriptions :column="4" border>
           <el-descriptions-item label="任务号">{{
             batchScanResp.task.taskNo
@@ -350,6 +383,7 @@
             type="success"
             :loading="batchScanConfirming"
             :disabled="
+              batchGuard.locked.value ||
               !batchSelectedLineIds.length ||
               !['ASSIGNED', 'LOADING'].includes(batchScanResp.task.status)
             "
@@ -361,7 +395,7 @@
           <el-button
             type="danger"
             :loading="outboundConfirming"
-            :disabled="batchScanResp.task.status !== 'PENDING_REVIEW'"
+            :disabled="batchGuard.locked.value || batchScanResp.task.status !== 'PENDING_REVIEW'"
             v-hasPermi="['rd:loading-task:dispatch']"
             @click="confirmOutbound"
           >
@@ -545,6 +579,9 @@ import { ElMessageBox } from 'element-plus'
 import { useWarehouseSession } from '../../pda/warehouse/useWarehouseSession'
 import LoadingReplacementEditor from './LoadingReplacementEditor.vue'
 import LoadingReductionPanel from './LoadingReductionPanel.vue'
+import ScanWorkbench from '../scan/ScanWorkbench.vue'
+import { loadingSnapshot, verifyScanSelection, type ScanSelection } from '../scan/scanSnapshots'
+import { useWebBatchGuard } from '../scan/useWebBatchGuard'
 import { useLoadingReplacements } from './useLoadingReplacements'
 import {
   buildLoadingReplacements,
@@ -633,6 +670,50 @@ const outboundConfirming = ref(false)
 const batchScanResp = ref<LoadingBatchScanResp>()
 const batchSelectedLineIds = ref<number[]>([])
 const batchLineTableRef = ref()
+const batchGuard = useWebBatchGuard<LoadingBatchScanResp>(warehouseSession, 'loading', {
+  confirm: (original) => {
+    if (original.kind !== 'loading') throw new Error('原请求业务不一致')
+    return RdLoadingApi.confirmBatchScan(original.request)
+  },
+  status: (original) => {
+    if (original.kind !== 'loading') throw new Error('原请求业务不一致')
+    return RdLoadingApi.getBatchStatus(original.request)
+  },
+  read: (original) => {
+    if (original.kind !== 'loading') throw new Error('原请求业务不一致')
+    return RdLoadingApi.previewBatchScan({
+      taskId: original.request.taskId,
+      packageCode: original.request.representativePackageCode,
+      deviceCode: 'WEB_KEEPER'
+    })
+  },
+  confirmStale: () =>
+    message.confirm(
+      '服务器确认原请求未执行且旧版已不可执行。结束旧版待核后须重新核对当前任务和包件。'
+    )
+})
+const {
+  pending: batchPending,
+  storageError: batchStorageError,
+  error: batchGuardError
+} = batchGuard
+const applyVisualScanSelection = (value: ScanSelection) => {
+  if (
+    !batchScanResp.value ||
+    batchScanLoading.value ||
+    batchScanConfirming.value ||
+    outboundConfirming.value ||
+    batchGuard.locked.value ||
+    !warehouseSession.allowed('rd:loading-task:dispatch') ||
+    !verifyScanSelection(loadingSnapshot(batchScanResp.value), value)
+  )
+    return
+  batchLineTableRef.value?.clearSelection?.()
+  for (const line of batchScanResp.value.lines)
+    if (value.lineIds.includes(line.id)) batchLineTableRef.value?.toggleRowSelection?.(line, true)
+  batchSelectedLineIds.value = [...value.lineIds]
+  batchScanForm.packageCode = value.packageCodes[0]
+}
 const statusOptions = [
   { value: 'ASSIGNED', label: '已派单' },
   { value: 'LOADING', label: '装车中' },
@@ -691,7 +772,8 @@ const replaceableTaskLines = computed(
     taskDetail.value?.lines.filter((line) => ['PLANNED', 'EXCEPTION'].includes(line.lineStatus)) ||
     []
 )
-const batchLineSelectable = (row: LoadingTaskLine) => row.lineStatus === 'PLANNED'
+const batchLineSelectable = (row: LoadingTaskLine) =>
+  !batchGuard.locked.value && row.lineStatus === 'PLANNED'
 const createIdempotencyKey = () =>
   globalThis.crypto?.randomUUID?.() ||
   `loading-batch-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -942,6 +1024,7 @@ const resolveLoadingException = async () => {
   }
 }
 const onBatchLineSelection = (rows: LoadingTaskLine[]) => {
+  if (batchGuard.locked.value) return
   batchSelectedLineIds.value = rows.map((row) => row.id)
 }
 const applyDefaultBatchSelection = async () => {
@@ -957,7 +1040,8 @@ const previewBatchScan = async () => {
     !warehouseSession.allowed('rd:loading-task:dispatch') ||
     !batchScanForm.packageCode ||
     batchScanConfirming.value ||
-    outboundConfirming.value
+    outboundConfirming.value ||
+    batchGuard.locked.value
   )
     return
   const requestGeneration = ++batchPreviewRevision
@@ -1001,30 +1085,66 @@ const confirmBatchScan = async () => {
     batchScanLoading.value ||
     batchScanConfirming.value ||
     outboundConfirming.value ||
-    !batchScanResp.value ||
-    !batchSelectedLineIds.value.length
+    (!batchPending.value && (!batchScanResp.value || !batchSelectedLineIds.value.length))
   )
     return
-  const version = batchScanResp.value.task.version
-  if (typeof version !== 'number' || !Number.isSafeInteger(version))
-    return message.warning('任务版本缺失，请重新读取任务')
   batchScanConfirming.value = true
   try {
-    batchScanResp.value = await RdLoadingApi.confirmBatchScan({
-      taskId: batchScanResp.value.task.id,
-      version,
-      representativePackageCode:
-        batchScanResp.value.representativePackageCode || batchScanForm.packageCode.trim(),
-      idempotencyKey: createIdempotencyKey(),
-      taskLineIds: batchSelectedLineIds.value,
-      deviceCode: 'WEB_KEEPER',
-      deviceTime: new Date().toISOString()
-    })
-    message.success(batchScanResp.value.message || '装车扫码已确认')
+    let original
+    if (!batchPending.value) {
+      const snapshot = loadingSnapshot(batchScanResp.value!)
+      const lineIds = [...batchSelectedLineIds.value]
+      const packageCodes = lineIds.map(
+        (id) => snapshot.lines.find((line) => line.lineId === id)?.packageCode || ''
+      )
+      const selection = {
+        taskId: snapshot.taskId,
+        version: snapshot.version,
+        lineIds,
+        packageCodes
+      }
+      if (!verifyScanSelection(snapshot, selection)) throw new Error('所选装车包件或任务版本无效')
+      await message.confirm(`确认任务 ${snapshot.taskNo} 所选 ${lineIds.length} 包已实际装车？`)
+      warehouseSession.assertCurrent()
+      if (
+        !batchScanResp.value ||
+        !verifyScanSelection(loadingSnapshot(batchScanResp.value), selection)
+      )
+        throw new Error('任务已变化，请重新核对')
+      original = {
+        kind: 'loading' as const,
+        ownerId: warehouseSession.ownerId,
+        tenant: warehouseSession.tenant,
+        uncertain: false,
+        request: {
+          taskId: snapshot.taskId,
+          version: snapshot.version,
+          representativePackageCode: packageCodes[0],
+          taskLineIds: lineIds,
+          idempotencyKey: createIdempotencyKey(),
+          deviceCode: 'WEB_KEEPER'
+        }
+      }
+    }
+    const result = await batchGuard.submit(original)
+    if (!result) return
+    warehouseSession.assertCurrent()
+    batchScanResp.value = result
+    message.success(result.message || '原装车核验已确认')
     await applyDefaultBatchSelection()
     await loadTasks()
+  } catch (cause) {
+    if (cause !== 'cancel' && cause !== 'close')
+      message.warning(cause instanceof Error ? cause.message : '请保留原核验请求')
   } finally {
     batchScanConfirming.value = false
+  }
+}
+const reconcileBatchScan = async () => {
+  const response = await batchGuard.reconcile()
+  if (response && warehouseSession.current()) {
+    batchScanResp.value = response
+    await applyDefaultBatchSelection()
   }
 }
 const confirmOutbound = async () => {
@@ -1033,6 +1153,7 @@ const confirmOutbound = async () => {
     batchScanLoading.value ||
     batchScanConfirming.value ||
     outboundConfirming.value ||
+    batchGuard.locked.value ||
     !batchScanResp.value ||
     batchScanResp.value.task.status !== 'PENDING_REVIEW'
   )
@@ -1105,6 +1226,10 @@ const getRouteString = (key: string) => {
   return Array.isArray(value) ? value[0] || '' : String(value || '')
 }
 const applyRouteScanQuery = async () => {
+  if (batchPending.value || batchStorageError.value) {
+    tab.value = 'batchScan'
+    return
+  }
   const packageCode = getRouteString('packageCode')
   const locationCode = getRouteString('locationCode')
   const taskId = Number(getRouteString('taskId'))

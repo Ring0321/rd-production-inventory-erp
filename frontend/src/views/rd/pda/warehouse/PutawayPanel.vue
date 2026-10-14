@@ -13,6 +13,13 @@ import type { WarehouseSession } from './useWarehouseSession'
 import type { useWarehouseLocations } from './useWarehouseLocations'
 import { usePutawayWork } from './usePutawayWork'
 import TaskPackages from './TaskPackages.vue'
+import ScanWorkbench from '../../stock/scan/ScanWorkbench.vue'
+import { RdPutawayTaskApi } from '@/api/rd/stock/putaway'
+import {
+  putawaySnapshot,
+  verifyScanSelection,
+  type ScanSelection
+} from '../../stock/scan/scanSnapshots'
 
 const props = defineProps<{
   session: WarehouseSession
@@ -60,6 +67,18 @@ const labels: Record<string, string> = {
   PUTAWAY_COMPLETED: '已入库',
   EXCEPTION_PENDING: '异常待处理',
   CANCELLED: '已取消'
+}
+const applyScanSelection = (value: ScanSelection) => {
+  if (
+    !detail.value ||
+    locked.value ||
+    !canConfirm.value ||
+    !props.session.current() ||
+    !verifyScanSelection(putawaySnapshot(detail.value), value)
+  )
+    return
+  selected.value = [...value.lineIds]
+  input.value = value.packageCodes[0]
 }
 onMounted(async () => {
   await loadList()
@@ -126,6 +145,20 @@ onMounted(async () => {
         ></div>
       </form>
       <template v-if="detail">
+        <ScanWorkbench
+          v-if="canConfirm"
+          :snapshot="putawaySnapshot(detail)"
+          :scope="{
+            ownerId: session.ownerId,
+            tenant: session.tenant,
+            kind: 'putaway',
+            taskId: detail.task.id
+          }"
+          :disabled="locked"
+          :is-current="session.current"
+          :read-snapshot="async () => putawaySnapshot(await RdPutawayTaskApi.get(detail!.task.id))"
+          @apply="applyScanSelection"
+        />
         <header class="task-header"
           ><h2>{{ detail.task.taskNo }}</h2
           ><el-tooltip content="重新读取上架任务"

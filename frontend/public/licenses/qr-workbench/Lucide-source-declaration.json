@@ -1,0 +1,51 @@
+{
+  "source": "@iconify/json@2.2.470/json/lucide.json",
+  "licenseFile": "../lucide-LICENSE.txt",
+  "license": {
+    "title": "ISC",
+    "spdx": "ISC",
+    "url": "https://github.com/lucide-icons/lucide/blob/main/LICENSE"
+  },
+  "author": {
+    "name": "Lucide Contributors",
+    "url": "https://github.com/lucide-icons/lucide"
+  },
+  "originalIconsSha256": "a65919c35f0f0a3c58c7e304f84e74db9e17ecb285860954ceb4411fc0dbcded",
+  "selectedIconsSha256": "35b523bbdef64ea0ba5c7e9a2c37885ef4eb0ec282532c1e22aa0453d6b79e99",
+  "icons": [
+    "workflow",
+    "git-fork",
+    "plus",
+    "minus",
+    "scan",
+    "refresh-cw",
+    "arrow-up-right",
+    "scan-line",
+    "camera-off",
+    "camera",
+    "image-up",
+    "trash-2",
+    "check",
+    "inbox",
+    "boxes",
+    "circle-check",
+    "clipboard-check",
+    "database",
+    "file-check-2",
+    "folder-open",
+    "history",
+    "link-2",
+    "list-filter",
+    "message-square-text",
+    "package-check",
+    "printer",
+    "send",
+    "server-cog",
+    "shield-check",
+    "copy",
+    "download",
+    "file-json",
+    "list-tree",
+    "log-in"
+  ]
+}

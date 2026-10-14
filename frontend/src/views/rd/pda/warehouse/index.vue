@@ -7,6 +7,7 @@ import LocationPanel from './LocationPanel.vue'
 import PutawayPanel from './PutawayPanel.vue'
 import LoadingPanel from './LoadingPanel.vue'
 import { useStockRefresh } from '../../stock/useStockRefresh'
+import PendingScanBoxOverview from '../../stock/scan/PendingScanBoxOverview.vue'
 
 defineOptions({ name: 'PdaWarehouse' })
 const session = useWarehouseSession()
@@ -30,6 +31,7 @@ useStockRefresh(
 <template>
   <div class="warehouse-pda">
     <h1>仓管工作台</h1>
+    <PendingScanBoxOverview :session="session" />
     <el-result v-if="!canQuery" icon="warning" title="无仓管查询权限" />
     <el-tabs v-else v-model="active">
       <el-tab-pane label="库位" name="locations"

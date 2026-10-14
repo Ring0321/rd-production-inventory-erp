@@ -214,6 +214,11 @@
         />
 
         <PackagePassportPanel :package-code="packageCode" :facts-revision="aiFactsRevision" />
+        <PackageRelationsPanel
+          v-if="trace.internalView && canViewInternal && trace.packageCode === packageCode"
+          :package-code="packageCode"
+          :facts-revision="aiFactsRevision"
+        />
 
         <section
           v-if="trace.internalView"
@@ -369,6 +374,7 @@ import { formatDate } from '@/utils/formatTime'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import PackageAiPanel from './PackageAiPanel.vue'
 import PackagePassportPanel from './PackagePassportPanel.vue'
+import PackageRelationsPanel from './PackageRelationsPanel.vue'
 import { usePackageAiAccess } from './usePackageAi'
 
 defineOptions({ name: 'RdPackageTrace' })

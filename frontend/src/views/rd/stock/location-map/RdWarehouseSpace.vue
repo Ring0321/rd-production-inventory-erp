@@ -90,12 +90,19 @@
         :closable="false"
       />
       <el-skeleton v-if="!updatedAt && busy" :rows="6" animated />
+      <el-alert
+        v-if="updatedAt && ['INVALID', 'MISSING'].includes(linkedLocation.state)"
+        title="链接中的库位标识或当前登记状态待核，未自动聚焦其他库位"
+        type="warning"
+        :closable="false"
+      />
       <RdSpatialLocationMap
         v-else-if="updatedAt"
         :key="warehouseCode"
         ref="mapView"
         :locations="visibleLocations"
         :snapshot-version="snapshotVersion"
+        :selected-id="linkedLocation.state === 'FOUND' ? linkedLocation.id : undefined"
         overview
         showcase
         retain-selection-on-refresh
@@ -108,8 +115,8 @@
   </section>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { productBrand } from '@/config/brand'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import RdSpatialLocationMap from './RdSpatialLocationMap.vue'
@@ -118,10 +125,12 @@ import { buildSpatialLayout, isLocationIdentityValid, type SpatialGroup } from '
 import { warehouseScopes, OVERVIEW_KEY } from './warehouseOverview'
 import { useUserStore } from '@/store/modules/user'
 import { canViewWarehouseSpace } from './warehouseSpaceAccess'
+import { resolveWarehouseSpaceLink } from './warehouseSpaceLink'
 
 defineProps<{ embedded?: boolean }>()
 defineOptions({ name: 'RdWarehouseSpace' })
 const router = useRouter()
+const route = useRoute()
 const user = useUserStore()
 const allowed = computed(() => canViewWarehouseSpace(user.getRoles, user.getPermissions))
 const { locations, busy, updatedAt, snapshotVersion, contextValid, error, refresh } =
@@ -140,6 +149,25 @@ const visibleLocations = computed(() =>
   )
 )
 const invalidCount = computed(() => locations.value.length - validLocations.value.length)
+const linkedLocation = computed(() =>
+  resolveWarehouseSpaceLink(locations.value, route.query.locationId)
+)
+let linkedKey = ''
+watch([mapView, () => route.query.locationId, updatedAt], async () => {
+  if (!allowed.value || !contextValid.value || !updatedAt.value) return
+  const linked = linkedLocation.value
+  if (linked.state !== 'FOUND') {
+    linkedKey = ''
+    return
+  }
+  const key = String(route.query.locationId)
+  if (linkedKey === key || !mapView.value) return
+  linkedKey = key
+  warehouseCode.value = linked.warehouseCode
+  await nextTick()
+  if (allowed.value && contextValid.value && linkedKey === key)
+    await mapView.value?.focusLocation(linked.id)
+})
 const groups = computed(() => buildSpatialLayout(visibleLocations.value, 'schematic').groups)
 const timeText = computed(() =>
   updatedAt.value ? new Date(updatedAt.value).toLocaleTimeString('zh-CN', { hour12: false }) : ''

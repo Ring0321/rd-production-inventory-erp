@@ -1,0 +1,10 @@
+{
+  "name": "@antv/event-emitter",
+  "version": "0.1.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:antvis/event-emitter.git"
+  },
+  "notice": "This published package declares the license above but ships no separate LICENSE/NOTICE file. Original package metadata and README are retained. This is not a legal compliance certification."
+}

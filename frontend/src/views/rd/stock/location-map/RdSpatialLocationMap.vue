@@ -800,6 +800,9 @@ onBeforeUnmount(() => {
   stopScope()
 })
 defineExpose({
+  focusLocation: async (id: number) => {
+    if (valid() && isLocationIdentityValid(props.locations, id)) await focusLocation(id)
+  },
   showGroup: async (key: string) => {
     if (
       !valid() ||

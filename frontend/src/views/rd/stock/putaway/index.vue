@@ -307,7 +307,31 @@
         >
       </el-form-item>
     </el-form>
+    <el-alert
+      v-if="scanGuardError || scanStorageError"
+      :title="scanStorageError || scanGuardError"
+      type="warning"
+      :closable="false"
+    />
+    <div v-if="pendingBatchRequest" class="mb-12px">
+      <el-tag type="warning">原上架请求待核</el-tag>
+      <el-button :loading="scanSubmitting" @click="confirmSelectedScan">重试原核验请求</el-button>
+      <el-button :disabled="scanSubmitting" @click="refreshScanState">核定原上架请求</el-button>
+    </div>
     <template v-if="scanResp">
+      <ScanWorkbench
+        :snapshot="putawaySnapshot(scanResp)"
+        :scope="{
+          ownerId: warehouseSession.ownerId,
+          tenant: warehouseSession.tenant,
+          kind: 'putaway',
+          taskId: scanResp.task.id
+        }"
+        :disabled="scanLoading || scanSubmitting || scanGuard.locked.value"
+        :is-current="warehouseSession.current"
+        :read-snapshot="async () => putawaySnapshot(await RdPutawayTaskApi.get(scanResp!.task.id))"
+        @apply="applyVisualScanSelection"
+      />
       <el-descriptions :column="2" border class="mb-16px">
         <el-descriptions-item label="上架任务">{{ scanResp.task.taskNo }}</el-descriptions-item>
         <el-descriptions-item label="计划库位">{{
@@ -597,6 +621,10 @@
 
 <script setup lang="ts">
 import { useStockRefresh } from '../useStockRefresh'
+import { useWarehouseSession } from '../../pda/warehouse/useWarehouseSession'
+import ScanWorkbench from '../scan/ScanWorkbench.vue'
+import { useWebBatchGuard } from '../scan/useWebBatchGuard'
+import { putawaySnapshot, verifyScanSelection, type ScanSelection } from '../scan/scanSnapshots'
 import RdSpatialLocationMap from '../location-map/RdSpatialLocationMap.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRoute } from 'vue-router'
@@ -612,8 +640,7 @@ import {
   type RdPutawayTaskStatus,
   type RdPutawayTaskVO,
   type RdPutawayTaskLineVO,
-  type RdPutawayBatchScanRespVO,
-  type RdPutawayBatchConfirmReqVO
+  type RdPutawayBatchScanRespVO
 } from '@/api/rd/stock/putaway'
 
 defineOptions({ name: 'RdPutawayWorkbench' })
@@ -634,6 +661,7 @@ const taskStatusMap = Object.fromEntries(
 
 const route = useRoute()
 const message = useMessage()
+const warehouseSession = useWarehouseSession()
 const activeTab = ref('dispatch')
 const refreshing = ref(false)
 const scanForm = reactive<{ id?: number; packageCode: string }>({ packageCode: '' })
@@ -642,12 +670,52 @@ const scanSubmitting = ref(false)
 const scanResp = ref<RdPutawayBatchScanRespVO>()
 const scanTableRef = ref()
 const selectedScanLines = ref<RdPutawayTaskLineVO[]>([])
-const pendingBatchRequest = ref<RdPutawayBatchConfirmReqVO>()
+const scanGuard = useWebBatchGuard<RdPutawayBatchScanRespVO>(warehouseSession, 'putaway', {
+  confirm: (original) => {
+    if (original.kind !== 'putaway') throw new Error('原请求业务不一致')
+    return RdPutawayTaskApi.confirmBatchScan(original.request)
+  },
+  status: (original) => {
+    if (original.kind !== 'putaway') throw new Error('原请求业务不一致')
+    return RdPutawayTaskApi.getBatchStatus(original.request)
+  },
+  read: (original) => {
+    if (original.kind !== 'putaway') throw new Error('原请求业务不一致')
+    return RdPutawayTaskApi.previewBatchScan({
+      id: original.request.id,
+      packageCode: original.request.packageCode
+    })
+  },
+  confirmStale: () =>
+    message.confirm(
+      '服务器确认原请求未执行且旧版已不可执行。结束旧版待核后须重新核对当前任务和包件。'
+    )
+})
+const pendingBatchRequest = computed(() =>
+  scanGuard.pending.value?.kind === 'putaway' ? scanGuard.pending.value.request : undefined
+)
+const { error: scanGuardError, storageError: scanStorageError } = scanGuard
+const applyVisualScanSelection = (value: ScanSelection) => {
+  if (
+    !scanResp.value ||
+    scanLoading.value ||
+    scanSubmitting.value ||
+    scanGuard.locked.value ||
+    !warehouseSession.allowed('rd:putaway-task:confirm') ||
+    !verifyScanSelection(putawaySnapshot(scanResp.value), value)
+  )
+    return
+  scanTableRef.value?.clearSelection?.()
+  for (const line of scanResp.value.lines)
+    if (value.lineIds.includes(line.id)) scanTableRef.value?.toggleRowSelection?.(line, true)
+  selectedScanLines.value = scanResp.value.lines.filter((line) => value.lineIds.includes(line.id))
+  scanForm.packageCode = value.packageCodes[0]
+}
 const scanSelectedWeight = computed(() =>
   selectedScanLines.value.reduce((sum, line) => sum + Number(line.packageWeight), 0)
 )
 const canSelectScanLine = (line: RdPutawayTaskLineVO) =>
-  !pendingBatchRequest.value &&
+  !scanGuard.locked.value &&
   ['ASSIGNED', 'MOVING'].includes(scanResp.value?.task.status || '') &&
   line.lineStatus === 'PENDING' &&
   Number(line.scanCount) === 0
@@ -668,7 +736,7 @@ const applyScanResponse = async (response: RdPutawayBatchScanRespVO) => {
   }
 }
 const loadScanPreview = async () => {
-  if (pendingBatchRequest.value) return
+  if (scanGuard.locked.value) return
   const code = extractPackageCode(scanForm.packageCode)
   if (!code) return message.warning('请输入或扫描代表包码')
   scanLoading.value = true
@@ -684,37 +752,71 @@ const loadScanPreview = async () => {
   }
 }
 const refreshScanState = async () => {
+  if (scanSubmitting.value || scanLoading.value) return
+  if (pendingBatchRequest.value) {
+    const response = await scanGuard.reconcile()
+    if (response && warehouseSession.current()) await applyScanResponse(response)
+    return
+  }
+  if (scanGuard.locked.value) return
   scanLoading.value = true
   try {
     const response = await RdPutawayTaskApi.previewBatchScan({
       id: scanForm.id,
       packageCode: extractPackageCode(scanForm.packageCode)
     })
-    pendingBatchRequest.value = undefined
     await applyScanResponse(response)
   } finally {
     scanLoading.value = false
   }
 }
 const confirmSelectedScan = async () => {
-  if (!scanResp.value || !canConfirmScan.value || scanSubmitting.value) return
-  if (!pendingBatchRequest.value) {
-    await message.confirm(
-      `请核对所选 ${selectedScanLines.value.length} 包已经实际摆放到计划库位 ${scanResp.value.task.plannedLocationCode}。`
-    )
-    pendingBatchRequest.value = {
-      id: scanResp.value.task.id,
-      version: scanResp.value.task.version,
-      packageCode: extractPackageCode(scanForm.packageCode),
-      idempotencyKey: crypto.randomUUID(),
-      taskLineIds: selectedScanLines.value.map((line) => line.id),
-      deviceCode: 'WAREHOUSE-WEB'
-    }
-  }
+  if (
+    (!pendingBatchRequest.value && (!scanResp.value || !canConfirmScan.value)) ||
+    scanSubmitting.value ||
+    !warehouseSession.allowed('rd:putaway-task:confirm')
+  )
+    return
   scanSubmitting.value = true
   try {
-    const response = await RdPutawayTaskApi.confirmBatchScan(pendingBatchRequest.value)
-    pendingBatchRequest.value = undefined
+    let original
+    if (!pendingBatchRequest.value) {
+      const snapshot = putawaySnapshot(scanResp.value!)
+      const lineIds = selectedScanLines.value.map((line) => line.id)
+      const packageCodes = lineIds.map(
+        (id) => snapshot.lines.find((line) => line.lineId === id)?.packageCode || ''
+      )
+      const selection = {
+        taskId: snapshot.taskId,
+        version: snapshot.version,
+        lineIds,
+        packageCodes
+      }
+      if (!verifyScanSelection(snapshot, selection)) throw new Error('所选上架包件或任务版本无效')
+      await message.confirm(
+        `确认所选 ${lineIds.length} 包已实际摆放到计划库位 ${scanResp.value!.task.plannedLocationCode}？`
+      )
+      warehouseSession.assertCurrent()
+      if (!scanResp.value || !verifyScanSelection(putawaySnapshot(scanResp.value), selection))
+        throw new Error('任务已变化，请重新核对')
+      original = {
+        kind: 'putaway' as const,
+        ownerId: warehouseSession.ownerId,
+        tenant: warehouseSession.tenant,
+        uncertain: false,
+        request: {
+          id: snapshot.taskId,
+          version: snapshot.version,
+          packageCode: packageCodes[0],
+          taskLineIds: lineIds,
+          idempotencyKey: crypto.randomUUID(),
+          deviceCode: 'WAREHOUSE-WEB'
+        }
+      }
+    }
+    const response = await scanGuard.submit(original)
+    if (!response) return
+    warehouseSession.assertCurrent()
     await applyScanResponse(response)
     message.success(
       response.replayed
@@ -916,6 +1018,10 @@ const getRouteString = (key: string) => {
 }
 
 const prepareRouteScanQuery = () => {
+  if (pendingBatchRequest.value || scanStorageError.value) {
+    activeTab.value = 'scan'
+    return
+  }
   const taskId = Number(getRouteString('taskId'))
   const packageCode = getRouteString('packageCode')
   if (packageCode && getRouteString('mode') === 'scan') {

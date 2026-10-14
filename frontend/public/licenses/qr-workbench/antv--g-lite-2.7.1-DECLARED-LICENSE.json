@@ -1,0 +1,12 @@
+{
+  "name": "@antv/g-lite",
+  "version": "2.7.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antvis/g.git",
+    "directory": "packages/g-lite"
+  },
+  "author": "https://github.com/orgs/antvis/people",
+  "notice": "This published package declares the license above but ships no separate LICENSE/NOTICE file. Original package metadata and README are retained. This is not a legal compliance certification."
+}
