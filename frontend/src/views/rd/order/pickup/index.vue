@@ -182,12 +182,14 @@
         <el-table-column prop="requestedPackageCount" label="包数" width="90" />
         <el-table-column prop="requestedWeight" label="重量 kg" width="110" />
       </el-table>
+      <LoadingReductionPanel :pickup-slip-id="detail.slip.id" :active="detailVisible" />
     </template>
   </Dialog>
 </template>
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import LoadingReductionPanel from '../../stock/loading/LoadingReductionPanel.vue'
 import { RdSaleOrderApi, type RdSaleOrderVO } from '@/api/rd/order/sale'
 import {
   RdLoadingApi,

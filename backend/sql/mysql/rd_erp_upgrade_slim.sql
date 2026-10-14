@@ -629,6 +629,28 @@ CREATE TABLE IF NOT EXISTS `rd_loading_exception` (
   KEY `idx_rd_loading_exception_package` (`tenant_id`,`package_id`,`deleted`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='RD loading field exception';
 
+CREATE TABLE IF NOT EXISTS `rd_loading_reduction` (
+  `id` bigint NOT NULL AUTO_INCREMENT, `tenant_id` bigint NOT NULL DEFAULT '1',
+  `task_id` bigint NOT NULL, `pickup_slip_id` bigint NOT NULL,
+  `task_no` varchar(64) NOT NULL, `pickup_slip_no` varchar(64) NOT NULL,
+  `customer_name` varchar(128) NOT NULL, `status` varchar(32) NOT NULL DEFAULT 'PENDING',
+  `task_version` int NOT NULL, `plan_version` int NOT NULL, `slip_version` int NOT NULL,
+  `version` int NOT NULL DEFAULT '0', `idempotency_key` varchar(64) COLLATE utf8mb4_bin NOT NULL,
+  `request_digest` char(64) NOT NULL, `plan_digest` char(64) NOT NULL, `slip_digest` char(64) NOT NULL,
+  `plan_lines_json` longtext NOT NULL,
+  `original_package_count` int NOT NULL, `reduced_package_count` int NOT NULL, `remaining_package_count` int NOT NULL,
+  `original_weight` decimal(24,6) NOT NULL, `reduced_weight` decimal(24,6) NOT NULL, `remaining_weight` decimal(24,6) NOT NULL,
+  `reason` varchar(1000) NOT NULL, `proposer_id` bigint NOT NULL, `proposer_name` varchar(64) DEFAULT NULL,
+  `proposed_time` datetime(6) NOT NULL, `reviewer_id` bigint DEFAULT NULL, `reviewer_name` varchar(64) DEFAULT NULL,
+  `review_time` datetime(6) DEFAULT NULL, `review_remark` varchar(1000) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '', `create_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updater` varchar(64) DEFAULT '', `update_time` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `deleted` bit(1) NOT NULL DEFAULT b'0', PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rd_loading_reduction_key` (`tenant_id`,`task_id`,`idempotency_key`,`deleted`),
+  KEY `idx_rd_loading_reduction_task` (`tenant_id`,`task_id`,`deleted`,`id`),
+  KEY `idx_rd_loading_reduction_slip` (`tenant_id`,`pickup_slip_id`,`deleted`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Loading reduction commercial review, no stock posting';
+
 SET @stock_idem_index = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE()
   AND table_name = 'rd_stock_transaction' AND index_name = 'uk_rd_stock_txn_idempotency');
 SET @stock_idem_sql = IF(@stock_idem_index = 0,
@@ -980,13 +1002,14 @@ INSERT INTO `system_menu`
 (600282,'出库装车','rd:loading-task:query',2,40,600200,'loading','ep:van','rd/stock/loading/index','RdLoadingDispatch',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
 (600283,'装车派单','rd:loading-task:dispatch',3,10,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
 (600284,'执行装车任务','rd:loading-task:execute',3,20,600282,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
-(600285,'叉车装车','rd:loading-task:execute',2,41,600200,'driver-loading','lucide:truck','rd/pda/loading/index','RdDriverLoading',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
+(600285,'叉车装车','rd:loading-task:execute',2,41,600200,'driver-loading','lucide:truck','rd/pda/loading/index','RdDriverLoading',0,b'1',b'1',b'1','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0'),
+(600286,'少装商务核定','rd:pickup-slip:approve-reduction',3,20,600280,'','','',NULL,0,b'0',b'0',b'0','rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`permission`=VALUES(`permission`),`type`=VALUES(`type`),
 `sort`=VALUES(`sort`),`parent_id`=VALUES(`parent_id`),`path`=VALUES(`path`),`icon`=VALUES(`icon`),
 `component`=VALUES(`component`),`component_name`=VALUES(`component_name`),`status`=0,
 `visible`=VALUES(`visible`),`deleted`=b'0',`update_time`=NOW();
 INSERT IGNORE INTO `system_role_menu` (`role_id`,`menu_id`,`creator`,`create_time`,`updater`,`update_time`,`deleted`,`tenant_id`)
-SELECT 600003,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600281)
+SELECT 600003,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600281,600286)
 UNION ALL SELECT 600002,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600280,600282,600283)
 UNION ALL SELECT 600004,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id BETWEEN 600280 AND 600285
 UNION ALL SELECT 600008,id,'rd-slim-migration',NOW(),'rd-slim-migration',NOW(),b'0',1 FROM system_menu WHERE id IN (600284,600285);

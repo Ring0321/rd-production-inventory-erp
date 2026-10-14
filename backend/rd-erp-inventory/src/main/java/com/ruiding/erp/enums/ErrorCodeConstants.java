@@ -199,6 +199,14 @@ public interface ErrorCodeConstants {
     ErrorCode LOADING_REPLACEMENT_REQUIRED = new ErrorCode(1_080_530_021, "换货处理必须选择原任务包和替换包码");
     ErrorCode LOADING_REPLACEMENT_LINE_INVALID = new ErrorCode(1_080_530_022, "只能替换未出库且未完成扫码的任务包件");
     ErrorCode LOADING_SCAN_KEY_CONFLICT = new ErrorCode(1_080_530_023, "装车扫码幂等键已被其他请求使用或原请求无法核验，请刷新后重试");
+    ErrorCode LOADING_REDUCTION_INVALID = new ErrorCode(1_080_530_024, "少装申请须选择1-100个不同的未核验包、保留至少一包并填写说明");
+    ErrorCode LOADING_REDUCTION_STALE = new ErrorCode(1_080_530_025, "原装车计划、提货单或包件状态已变化，请重新核对少装清单");
+    ErrorCode LOADING_REDUCTION_KEY_CONFLICT = new ErrorCode(1_080_530_026, "少装申请幂等键已用于其他内容或操作人");
+    ErrorCode LOADING_REDUCTION_ACTIVE = new ErrorCode(1_080_530_027, "当前计划已有待核定或已通过的少装申请");
+    ErrorCode LOADING_REDUCTION_NOT_EXISTS = new ErrorCode(1_080_530_028, "少装申请不存在");
+    ErrorCode LOADING_REDUCTION_SELF_REVIEW = new ErrorCode(1_080_530_029, "申请人不能核定本人提交的少装申请");
+    ErrorCode LOADING_REDUCTION_REVIEW_CONFLICT = new ErrorCode(1_080_530_030, "少装核定已更新或结论冲突，请刷新后核对");
+    ErrorCode LOADING_REDUCTION_FORBIDDEN = new ErrorCode(1_080_530_031, "当前岗位无少装申请或核定权限");
 
     // ========== RD Excel import 1-080-600-000 ==========
     ErrorCode EXCEL_IMPORT_TASK_NOT_EXISTS = new ErrorCode(1_080_600_000, "Excel 导入任务不存在");

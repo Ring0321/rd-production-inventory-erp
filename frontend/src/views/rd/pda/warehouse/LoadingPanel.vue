@@ -14,6 +14,7 @@ import type { useWarehouseLocations } from './useWarehouseLocations'
 import { useLoadingWork } from './useLoadingWork'
 import TaskPackages from './TaskPackages.vue'
 import LoadingExceptions from './LoadingExceptions.vue'
+import LoadingReductionPanel from '../../stock/loading/LoadingReductionPanel.vue'
 
 const props = defineProps<{
   session: WarehouseSession
@@ -212,6 +213,11 @@ onMounted(async () => {
           @replacement-rows="replacementRows = $event"
           @inspect-replacements="inspectReplacements"
           @resolve="act('resolve')"
+        />
+        <LoadingReductionPanel
+          :task-detail="detail"
+          :active="!writing && !reading && !pending && !storageError"
+          :session-current="session.current"
         />
         <el-button :disabled="writing || !!pending" @click="reset"
           ><el-icon><ArrowLeft /></el-icon>返回装车任务列表</el-button

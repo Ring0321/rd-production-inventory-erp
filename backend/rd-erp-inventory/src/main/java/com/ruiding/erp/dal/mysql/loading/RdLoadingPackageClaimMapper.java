@@ -18,4 +18,6 @@ public interface RdLoadingPackageClaimMapper extends BaseMapperX<RdLoadingPackag
 
     @Select("SELECT * FROM rd_loading_package_claim WHERE task_id = #{taskId} FOR UPDATE")
     List<RdLoadingPackageClaimDO> selectListByTaskIdForUpdate(Long taskId);
+    @Select("SELECT * FROM rd_loading_package_claim WHERE task_id = #{taskId} AND tenant_id = #{tenantId}")
+    List<RdLoadingPackageClaimDO> selectTaskList(@Param("taskId") Long taskId, @Param("tenantId") Long tenantId);
 }

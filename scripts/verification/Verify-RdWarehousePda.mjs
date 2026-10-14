@@ -175,6 +175,16 @@ try {
     .getByRole("button", { name: "入库扫码核验", exact: true })
     .click();
   await mapPage.getByRole("tab", { name: "库位与派单", exact: true }).click();
+  await openSelect(mapPage, "查找并定位库位");
+  await mapPage
+    .getByRole("combobox", { name: "查找并定位库位", exact: true })
+    .fill(`D4-${taskId}-A`);
+  await mapPage
+    .getByRole("option", {
+      name: `D4-${taskId}-A · 仓管验证仓库-${taskId}（非现场）`,
+      exact: true,
+    })
+    .click();
   await mapPage.getByText(`D4-${taskId}-A`, { exact: true }).first().waitFor();
   const mapResponses = [];
   mapPage.on("response", async (response) => {
@@ -307,11 +317,15 @@ try {
       ),
     ),
   );
-  const mapTile = mapPage
-    .locator(".location-tile")
+  const mapRegion = mapPage.getByRole("region", {
+    name: "库位空间视图",
+    exact: true,
+  });
+  await mapRegion.getByText("清单", { exact: true }).click();
+  const mapTile = mapRegion
+    .getByRole("button")
     .filter({ has: mapPage.getByText(`D4-${taskId}-A`, { exact: true }) });
-  await mapTile.getByText("在库 6", { exact: true }).waitFor();
-  await mapTile.getByText("预留 0", { exact: true }).waitFor();
+  await mapTile.getByText(/在库\s+6\s+·\s+预留\s+0\s+包/).waitFor();
   const ledgerPage = await actor.context.newPage();
   ledgerPage.on("pageerror", (error) => pageErrors.push(error.message));
   await ledgerPage.setViewportSize({ width: 1440, height: 1000 });

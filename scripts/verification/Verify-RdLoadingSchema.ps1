@@ -18,7 +18,7 @@ $upgradeDatabase = "rd_erp_c2_upgrade_test_$suffix"
 $createdDatabases = [System.Collections.Generic.List[string]]::new()
 $tables = @(
     "rd_pickup_slip", "rd_pickup_slip_line", "rd_loading_task", "rd_loading_task_line",
-    "rd_loading_package_claim", "rd_loading_scan_record", "rd_loading_exception"
+    "rd_loading_package_claim", "rd_loading_scan_record", "rd_loading_exception", "rd_loading_reduction"
 )
 $tableListSql = ($tables | ForEach-Object { "'$_'" }) -join ","
 
@@ -118,19 +118,34 @@ try {
     Invoke-MySqlFile $upgradeDatabase $cleanSql
     [void](Invoke-MySql $upgradeDatabase "UPDATE system_tenant SET name='BrandCustomOrganization' WHERE id=1; UPDATE system_dept SET name='BrandCustomRoot' WHERE id=1 AND tenant_id=1;")
     [void](Invoke-MySql $upgradeDatabase @"
-DROP TABLE IF EXISTS rd_loading_package_claim, rd_loading_exception, rd_loading_scan_record,
+DROP TABLE IF EXISTS rd_loading_reduction, rd_loading_package_claim, rd_loading_exception, rd_loading_scan_record,
   rd_loading_task_line, rd_loading_task, rd_pickup_slip_line, rd_pickup_slip;
 "@)
     Invoke-MySqlFile $upgradeDatabase $upgradeSql
     Assert-Equal "custom organization after upgrade" "BrandCustomOrganization" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_tenant WHERE id=1"))[0]
     Assert-Equal "custom root after upgrade" "BrandCustomRoot" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_dept WHERE id=1 AND tenant_id=1"))[0]
     $firstUpgradeFingerprint = Get-SchemaFingerprint $upgradeDatabase
+    [void](Invoke-MySql $upgradeDatabase @"
+INSERT INTO rd_loading_reduction
+(task_id,pickup_slip_id,task_no,pickup_slip_no,customer_name,status,task_version,plan_version,slip_version,
+ idempotency_key,request_digest,plan_digest,slip_digest,plan_lines_json,
+ original_package_count,reduced_package_count,remaining_package_count,original_weight,reduced_weight,remaining_weight,
+ reason,proposer_id,proposed_time)
+VALUES (9001,9002,'LOCAL-SCHEMA-TASK','LOCAL-SCHEMA-SLIP','LOCAL-SCHEMA','PENDING',1,1,1,
+ 'local-schema-reduction0001',REPEAT('a',64),REPEAT('b',64),REPEAT('c',64),'[]',
+ 2,1,1,1000.123456,0.123456,1000,'LOCAL-SCHEMA-NOT-FIELD',1,NOW(6));
+"@)
     Invoke-MySqlFile $upgradeDatabase $upgradeSql
     $secondUpgradeFingerprint = Get-SchemaFingerprint $upgradeDatabase
     Assert-Equal "custom organization after repeated upgrade" "BrandCustomOrganization" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_tenant WHERE id=1"))[0]
     Assert-Equal "custom root after repeated upgrade" "BrandCustomRoot" @((Invoke-MySql $upgradeDatabase "SELECT name FROM system_dept WHERE id=1 AND tenant_id=1"))[0]
     Assert-Equal "clean versus upgraded" $cleanFingerprint $firstUpgradeFingerprint
     Assert-Equal "first versus repeated upgrade" $firstUpgradeFingerprint $secondUpgradeFingerprint
+    Assert-Equal "reduction record survives repeated upgrade" "1|0.123456" @((Invoke-MySql $upgradeDatabase "SELECT CONCAT(COUNT(*),'|',MIN(reduced_weight)) FROM rd_loading_reduction WHERE idempotency_key='local-schema-reduction0001'"))[0]
+    foreach ($database in @($cleanDatabase, $upgradeDatabase)) {
+        Assert-Equal "commercial review granted only to sales in $database" "600003" @((Invoke-MySql $database "SELECT GROUP_CONCAT(role_id ORDER BY role_id) FROM system_role_menu WHERE menu_id=600286 AND deleted=0"))[0]
+        Assert-Equal "six-decimal reduction weight in $database" "6" @((Invoke-MySql $database "SELECT NUMERIC_SCALE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='rd_loading_reduction' AND column_name='reduced_weight'"))[0]
+    }
 
     [void](Invoke-MySql $cleanDatabase @"
 INSERT INTO rd_pickup_slip (id,tenant_id,slip_no,customer_name)

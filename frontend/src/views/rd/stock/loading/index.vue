@@ -473,6 +473,11 @@
           取消任务并释放占用
         </el-button>
       </div>
+      <LoadingReductionPanel
+        :task-detail="taskDetail"
+        :active="taskVisible && !exceptionResolving && !resolutionNeedsCheck"
+        :session-current="warehouseSession.current"
+      />
     </template>
   </Dialog>
 
@@ -539,6 +544,7 @@
 import { ElMessageBox } from 'element-plus'
 import { useWarehouseSession } from '../../pda/warehouse/useWarehouseSession'
 import LoadingReplacementEditor from './LoadingReplacementEditor.vue'
+import LoadingReductionPanel from './LoadingReductionPanel.vue'
 import { useLoadingReplacements } from './useLoadingReplacements'
 import {
   buildLoadingReplacements,
