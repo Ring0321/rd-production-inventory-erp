@@ -38,6 +38,25 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/warehouse-space',
+    component: Layout,
+    name: 'WarehouseSpaceRoot',
+    meta: { title: '仓储空间', icon: 'ep:office-building' },
+    children: [
+      {
+        path: '',
+        name: 'RdWarehouseSpace',
+        component: () => import('@/views/rd/stock/location-map/RdWarehouseSpace.vue'),
+        meta: {
+          title: '仓储空间总览',
+          icon: 'ep:office-building',
+          canTo: true,
+          noCache: true
+        }
+      }
+    ]
+  },
+  {
     path: '/user',
     component: Layout,
     name: 'UserInfo',

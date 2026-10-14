@@ -1,5 +1,6 @@
 <template>
   <div class="erp-workbench">
+    <RdWarehouseSpace v-if="canViewSpace" embedded />
     <ContentWrap>
       <div class="workbench-heading">
         <div>
@@ -33,12 +34,24 @@
 import { checkPermi } from '@/utils/permission'
 import { useUserStore } from '@/store/modules/user'
 import RdInventoryDashboard from '@/views/rd/dashboard/index.vue'
+import RdWarehouseSpace from '@/views/rd/stock/location-map/RdWarehouseSpace.vue'
+import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
 
 defineOptions({ name: 'Index' })
 
 const router = useRouter()
 const userStore = useUserStore()
+const canViewSpace = computed(() =>
+  canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)
+)
 const shortcuts = [
+  {
+    label: '仓储空间',
+    description: '全仓库存与库区',
+    icon: 'ep:office-building',
+    path: '/warehouse-space',
+    permission: 'rd:putaway-task:query'
+  },
   {
     label: '生产录入',
     description: '登记炉号与炉层产额',
@@ -84,11 +97,17 @@ const shortcuts = [
 ]
 
 const visibleShortcuts = computed(() =>
-  shortcuts.filter((item) => checkPermi([item.permission]))
+  shortcuts.filter((item) =>
+    item.path === '/warehouse-space' ? canViewSpace.value : checkPermi([item.permission])
+  )
 )
 </script>
 
 <style scoped>
+.erp-workbench > .warehouse-space {
+  margin-bottom: 16px;
+}
+
 .workbench-heading {
   display: flex;
   align-items: center;
@@ -106,13 +125,13 @@ const visibleShortcuts = computed(() =>
 
 .workbench-heading p {
   margin: 3px 0 0;
-  color: var(--el-text-color-secondary);
   font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .operator {
-  color: var(--el-text-color-secondary);
   font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .quick-actions {
@@ -127,13 +146,13 @@ const visibleShortcuts = computed(() =>
   min-width: 0;
   min-height: 74px;
   padding: 12px 14px;
+  color: var(--el-text-color-primary);
+  text-align: left;
+  cursor: pointer;
+  background: var(--el-bg-color);
   border: 0;
   border-right: 1px solid var(--el-border-color-lighter);
   border-bottom: 1px solid var(--el-border-color-lighter);
-  color: var(--el-text-color-primary);
-  text-align: left;
-  background: var(--el-bg-color);
-  cursor: pointer;
   grid-template-columns: 36px minmax(0, 1fr) 18px;
   align-items: center;
   gap: 10px;
@@ -149,11 +168,11 @@ const visibleShortcuts = computed(() =>
   display: flex;
   width: 36px;
   height: 36px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
   color: #13795b;
   background: #e8f5ef;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
 }
 
 .quick-actions strong,
@@ -172,8 +191,8 @@ const visibleShortcuts = computed(() =>
 
 .quick-actions small,
 .arrow {
-  color: var(--el-text-color-secondary);
   font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 @media (width <= 900px) {

@@ -8,7 +8,13 @@
     />
     <template v-else>
       <header class="map-toolbar">
-        <el-radio-group v-model="mode" size="small" aria-label="库位视图" @change="cancelLookup">
+        <el-radio-group
+          v-if="!showcase || queryExpanded"
+          v-model="mode"
+          size="small"
+          aria-label="库位视图"
+          @change="cancelLookup"
+        >
           <el-radio-button value="schematic">自建示意</el-radio-button>
           <el-radio-button value="recorded">已登记行列</el-radio-button>
           <el-radio-button value="list">清单</el-radio-button>
@@ -24,12 +30,13 @@
           <el-radio-button value="3d">立体</el-radio-button>
         </el-radio-group>
         <el-select
-          v-if="mode !== 'list' && layout.groups.length"
+          v-if="mode !== 'list' && layout.groups.length && (!showcase || queryExpanded)"
           v-model="groupKey"
           class="group-select"
           aria-label="仓库区域与库位层级"
           @change="cancelLookup"
         >
+          <el-option v-if="overview" label="全仓总览" :value="OVERVIEW_KEY" />
           <el-option
             v-for="option in layout.groups"
             :key="option.key"
@@ -38,7 +45,7 @@
           />
         </el-select>
         <form
-          v-if="canLookupPackage"
+          v-if="canLookupPackage && (!showcase || queryExpanded)"
           class="package-search"
           @submit.prevent="packageLookup.lookup()"
         >
@@ -55,11 +62,11 @@
           </el-tooltip>
         </form>
         <div v-if="mode !== 'list'" class="map-controls">
-          <el-tooltip content="放大"
+          <el-tooltip v-if="!showcase || queryExpanded" content="放大"
             ><el-button circle aria-label="放大库位图" @click="zoom(true)"
               ><Icon icon="lucide:plus" /></el-button
           ></el-tooltip>
-          <el-tooltip content="缩小"
+          <el-tooltip v-if="!showcase || queryExpanded" content="缩小"
             ><el-button circle aria-label="缩小库位图" @click="zoom(false)"
               ><Icon icon="lucide:minus" /></el-button
           ></el-tooltip>
@@ -77,7 +84,7 @@
             ><el-button circle aria-label="适配库区" @click="fit"
               ><Icon icon="lucide:scan" /></el-button
           ></el-tooltip>
-          <el-tooltip content="定位任务库位"
+          <el-tooltip v-if="!showcase || resolvedHighlights.length" content="定位任务库位"
             ><el-button
               circle
               :disabled="!resolvedHighlights.length"
@@ -86,8 +93,17 @@
               ><Icon icon="lucide:locate-fixed" /></el-button
           ></el-tooltip>
         </div>
+        <el-tooltip v-if="showcase" :content="queryExpanded ? '收起筛选与查货' : '筛选与查货'">
+          <el-button
+            circle
+            aria-label="筛选与查货"
+            :aria-expanded="queryExpanded"
+            @click="toggleQuery"
+            ><Icon icon="ep:filter"
+          /></el-button>
+        </el-tooltip>
       </header>
-      <div class="map-querybar">
+      <div v-if="!showcase || queryExpanded" class="map-querybar">
         <el-select
           :model-value="activeId"
           filterable
@@ -277,7 +293,7 @@
             ><Icon icon="lucide:map-pin" class="mr-6px" />设为计划库位</el-button
           >
           <LocationDetailsPanel
-            :key="activeLocation.id"
+            :key="`${activeLocation.id}:${snapshotVersion || 0}`"
             :location-id="activeLocation.id"
             @task="$emit('task', $event)"
           />
@@ -303,9 +319,11 @@
       >
       <footer class="map-note"
         ><span>{{
-          mode === 'recorded'
-            ? '已登记行列示意，非实测比例或自动定位'
-            : '自建示意：图上排布不是现场位置，不写回ERP行列'
+          overview && groupKey === OVERVIEW_KEY
+            ? '全仓自建示意，库区间距非实测，不写回库位'
+            : mode === 'recorded'
+              ? '已登记行列示意，非实测比例或自动定位'
+              : '自建示意：图上排布不是现场位置，不写回ERP行列'
         }}</span
         ><span v-if="dimension === '3d' && mode !== 'list'">吨袋为占用图示，非实物数量或堆高</span>
         <a
@@ -364,6 +382,7 @@ import RdSpatialLocation3D from './RdSpatialLocation3D.vue'
 import { LOCATION_STATES, locationLook as status } from './locationLook'
 import { matchesLocationFilter, summarizeLocations, type LocationFilter } from './warehouseMapQuery'
 import { useMapPackageLookup } from './useMapPackageLookup'
+import { buildWarehouseOverview, OVERVIEW_KEY } from './warehouseOverview'
 const props = withDefaults(
   defineProps<{
     locations: RdPutawayLocationMapVO[]
@@ -372,19 +391,29 @@ const props = withDefaults(
     highlightedCodes?: string[]
     canSelect?: boolean
     isSelectable?: (location: RdPutawayLocationMapVO) => boolean
+    overview?: boolean
+    showcase?: boolean
+    initialDimension?: '2d' | '3d'
+    snapshotVersion?: number
+    retainSelectionOnRefresh?: boolean
   }>(),
   { highlightedIds: () => [], highlightedCodes: () => [], canSelect: false }
 )
-const emit = defineEmits<{ select: [location: RdPutawayLocationMapVO]; task: [id: number] }>()
+const emit = defineEmits<{
+  select: [location: RdPutawayLocationMapVO]
+  task: [id: number]
+  scope: [key: string]
+}>()
 const base = import.meta.env.BASE_URL
 const user = useUserStoreWithOut()
 const ownerId = user.getUser.id
 const mode = ref<'schematic' | 'recorded' | 'list'>('schematic')
-const dimension = ref<'2d' | '3d'>('2d')
+const dimension = ref<'2d' | '3d'>(props.initialDimension || '2d')
 const threeUnavailable = ref(false)
 const threeView = ref<InstanceType<typeof RdSpatialLocation3D>>()
-const groupKey = ref('')
+const groupKey = ref(props.overview ? OVERVIEW_KEY : '')
 const filter = ref<LocationFilter>('ALL')
+const queryExpanded = ref(!props.showcase)
 const activeId = ref<number>()
 const contextValid = ref(!!getAccessToken())
 const ownerRevision = getAuthContextRevision()
@@ -393,12 +422,16 @@ const mapError = ref('')
 const layout = computed(() =>
   buildSpatialLayout(props.locations, mode.value === 'recorded' ? 'recorded' : 'schematic')
 )
-const group = computed(() => layout.value.groups.find((g) => g.key === groupKey.value))
+const group = computed(() =>
+  props.overview && groupKey.value === OVERVIEW_KEY
+    ? buildWarehouseOverview(layout.value.groups)
+    : layout.value.groups.find((g) => g.key === groupKey.value)
+)
 const validLocations = computed(() =>
   props.locations.filter((l) => isLocationIdentityValid(props.locations, l.id))
 )
 const rangeLocations = computed(() =>
-  mode.value === 'list'
+  mode.value === 'list' || (props.overview && groupKey.value === OVERVIEW_KEY)
     ? validLocations.value
     : validLocations.value.filter((l) => !!group.value && spatialGroupKey(l) === group.value.key)
 )
@@ -409,7 +442,8 @@ const matchingIds = computed(() => matchingLocations.value.map((l) => l.id))
 const summary = computed(() => summarizeLocations(rangeLocations.value))
 const scopedUnplaced = computed(() =>
   layout.value.unplaced.filter(
-    ({ location: l }) => !group.value || spatialGroupKey(l) === group.value.key
+    ({ location: l }) =>
+      !group.value || groupKey.value === OVERVIEW_KEY || spatialGroupKey(l) === group.value.key
   )
 )
 const activeLocation = computed(() =>
@@ -506,6 +540,10 @@ const { raw: packageQuery, busy: lookupBusy, feedback: lookupFeedback } = packag
 const cancelLookup = () => {
   focusSequence++
   packageLookup.clear()
+}
+const toggleQuery = () => {
+  cancelLookup()
+  queryExpanded.value = !queryExpanded.value
 }
 const selectLocation = (id: number) => {
   cancelLookup()
@@ -669,6 +707,7 @@ const paint = async () => {
 watch(
   () => layout.value.groups,
   (groups) => {
+    if (props.overview && groupKey.value === OVERVIEW_KEY) return
     if (!groups.some((g) => g.key === groupKey.value))
       groupKey.value =
         groups.find((g) => g.nodes.some((n) => resolvedHighlights.value.includes(n.location.id)))
@@ -679,6 +718,7 @@ watch(
   { immediate: true }
 )
 watch([groupKey, mode], async () => {
+  if (props.overview) emit('scope', groupKey.value)
   activeId.value = undefined
   destroy()
   await paint()
@@ -693,12 +733,14 @@ watch(dimension, async () => {
 watch(
   () => props.locations,
   async () => {
-    activeId.value = undefined
+    if (!props.retainSelectionOnRefresh || !matchingIds.value.includes(activeId.value || 0))
+      activeId.value = undefined
     await paint()
-    fit()
+    if (!props.retainSelectionOnRefresh) fit()
   },
   { deep: true }
 )
+watch(() => props.snapshotVersion, cancelLookup, { flush: 'sync' })
 watch(
   () => resolvedHighlights.value.join(','),
   () => {
@@ -756,6 +798,20 @@ onBeforeUnmount(() => {
   destroy()
   stopAuth()
   stopScope()
+})
+defineExpose({
+  showGroup: async (key: string) => {
+    if (
+      !valid() ||
+      (!layout.value.groups.some((g) => g.key === key) && !(props.overview && key === OVERVIEW_KEY))
+    )
+      return
+    cancelLookup()
+    activeId.value = undefined
+    groupKey.value = key
+    await nextTick()
+    fit()
+  }
 })
 </script>
 <style scoped lang="scss">

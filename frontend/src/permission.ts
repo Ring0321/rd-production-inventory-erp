@@ -9,6 +9,7 @@ import { useDictStoreWithOut } from '@/store/modules/dict'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { parseRouteLocation } from '@/utils/routeParams'
+import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
 
 const { start, done } = useNProgress()
 
@@ -51,6 +52,13 @@ router.beforeEach(async (to, from, next) => {
         permissionStore.getAddRouters.forEach((route) => {
           router.addRoute(route as unknown as RouteRecordRaw) // 动态添加可访问路由表
         })
+        if (
+          to.name === 'RdWarehouseSpace' &&
+          !canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)
+        ) {
+          next('/403')
+          return
+        }
         const redirectPath = from.query.redirect
         // 修复跳转时不带参数的问题
         const redirect = typeof redirectPath === 'string' ? redirectPath : to.fullPath
@@ -59,6 +67,13 @@ router.beforeEach(async (to, from, next) => {
         // 不能继续复用旧的 route name/matched，否则刷新业务页会停在 404。
         next({ ...redirectLocation, replace: true })
       } else {
+        if (
+          to.name === 'RdWarehouseSpace' &&
+          !canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)
+        ) {
+          next('/403')
+          return
+        }
         next()
       }
     }

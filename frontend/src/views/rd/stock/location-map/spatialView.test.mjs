@@ -20,13 +20,14 @@ const setup = (locations, extra = {}) => {
     '@/utils/auth': { getAccessToken: () => true, getAuthContextRevision: () => 0, onAuthContextChange: () => () => {} },
     '@/store/modules/user': { useUserStoreWithOut: () => user },
     './spatialLayout': model,
+    './warehouseOverview': evaluateSource(readFileSync(new URL('./warehouseOverview.ts', import.meta.url), 'utf8'), { './spatialLayout': model }),
     './locationLook': evaluateSource(readFileSync(new URL('./locationLook.ts', import.meta.url), 'utf8')),
     './warehouseMapQuery': evaluateSource(readFileSync(new URL('./warehouseMapQuery.ts', import.meta.url), 'utf8'), { './spatialLayout': model, './locationLook': evaluateSource(readFileSync(new URL('./locationLook.ts', import.meta.url), 'utf8')) }),
     './useMapPackageLookup': { useMapPackageLookup: () => ({ raw: vue.ref(''), busy: vue.ref(false), feedback: vue.ref(''), clear() {} }) },
     './LocationDetailsPanel.vue': {}
   }
-  const globals = { defineProps: () => props, withDefaults: (p) => p, defineEmits: () => (...e) => events.push(e) }
-  return { ...evaluateSource(source + '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable, filter, matchingIds, focusLocation, selectLocation, summary, mode, scopedUnplaced };', imports, globals), props, events, user }
+  const globals = { defineProps: () => props, withDefaults: (p) => p, defineEmits: () => (...e) => events.push(e), defineExpose: () => {} }
+  return { ...evaluateSource(source + '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable, filter, matchingIds, focusLocation, selectLocation, summary, mode, scopedUnplaced, queryExpanded, toggleQuery };', imports, globals), props, events, user }
 }
 const location = (id, warehouseCode = 'W1') => ({ id, warehouseCode, warehouseName: warehouseCode, locationCode: `L-${id}`, rowCode: 'R1', columnCode: `C${id}`, enabled: true, frozen: false, displayStatus: 'EMPTY' })
 
@@ -112,4 +113,37 @@ test('pending-list scope shares the layout normalization of legacy warehouse met
   assert.equal(s.scopedUnplaced.value.length, 1)
   s.inspect(2)
   assert.equal(s.activeId.value, 2)
+})
+
+test('primary overview is opt-in 3D and retains all actual areas without changing IDs', async () => {
+  const s = setup([location(1), location(2, 'W2')], { overview: true, initialDimension: '3d', canSelect: false })
+  assert.equal(s.dimension.value, '3d')
+  assert.equal(s.summary.value.total, 2)
+  assert.deepEqual([...s.matchingIds.value], [1, 2])
+  s.inspect(2)
+  s.choosePlan()
+  assert.equal(s.events.filter(e => e[0] === 'select').length, 0)
+  assert.equal(setup([location(1)]).dimension.value, '2d', 'original workbench remains 2D')
+})
+
+test('overview refresh retains only a valid visible selection and rejects a removed ID', async () => {
+  const s = setup([location(1), location(2)], { overview: true, retainSelectionOnRefresh: true, snapshotVersion: 1 })
+  s.inspect(1)
+  s.props.locations = [location(1), location(2)]
+  s.props.snapshotVersion++
+  await vue.nextTick()
+  assert.equal(s.activeId.value, 1)
+  s.props.locations = [location(2)]
+  s.props.snapshotVersion++
+  await vue.nextTick()
+  assert.equal(s.activeId.value, undefined)
+  assert.match(component, /:key="`\$\{activeLocation.id\}:\$\{snapshotVersion \|\| 0\}`"/, 'every accepted read remounts details rather than retaining stale rows')
+})
+
+test('primary showcase starts with a compact toolbar while original map keeps all query controls', () => {
+  const showcase = setup([location(1)], { showcase: true })
+  assert.equal(showcase.queryExpanded.value, false)
+  showcase.toggleQuery()
+  assert.equal(showcase.queryExpanded.value, true)
+  assert.equal(setup([location(1)]).queryExpanded.value, true)
 })

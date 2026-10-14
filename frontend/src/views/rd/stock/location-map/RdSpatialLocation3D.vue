@@ -130,7 +130,7 @@ defineExpose({
 .warehouse-3d {
   position: relative;
   width: 100%;
-  height: 520px;
+  height: var(--rd-space-height, 520px);
   overflow: hidden;
   background: #f2f5f5;
 }
@@ -205,7 +205,7 @@ defineExpose({
 
 @media (width <= 760px) {
   .warehouse-3d {
-    height: 380px;
+    height: var(--rd-space-mobile-height, 380px);
   }
 }
 </style>

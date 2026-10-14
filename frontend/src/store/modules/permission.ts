@@ -4,6 +4,8 @@ import { cloneDeep } from 'lodash-es'
 import remainingRouter from '@/router/modules/remaining'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
+import { useUserStore } from './user'
+import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
 
 const { wsCache } = useCache()
 
@@ -23,13 +25,23 @@ export const usePermissionStore = defineStore('permission', {
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      return this.routers
+      const user = useUserStore()
+      return this.routers.filter(
+        (route) =>
+          route.name !== 'WarehouseSpaceRoot' ||
+          canViewWarehouseSpace(user.getRoles, user.getPermissions)
+      )
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
-      return this.menuTabRouters
+      const user = useUserStore()
+      return this.menuTabRouters.filter(
+        (route) =>
+          route.name !== 'RdWarehouseSpace' ||
+          canViewWarehouseSpace(user.getRoles, user.getPermissions)
+      )
     },
     getMenuRootPath(): string {
       return this.menuRootPath
