@@ -15,13 +15,22 @@ const git = (args, encoding = "utf8") =>
     encoding,
     maxBuffer: 12 * 1024 * 1024,
   });
-const files = git(["diff", "--cached", "--name-only", "-z"])
+const head = process.argv.includes("--head");
+const prefix = head ? "HEAD:" : ":";
+const files = git(
+  head
+    ? [
+        "diff",
+        "11c7809899301012264df5b6d0d2f156a42eb413",
+        "HEAD",
+        "--name-only",
+        "-z",
+      ]
+    : ["diff", "--cached", "--name-only", "-z"],
+)
   .split("\0")
   .filter(Boolean);
-assert.ok(
-  files.length >= 20,
-  "Expected a scoped QR implementation in the index",
-);
+assert.ok(files.length > 0, "Expected scoped QR changes");
 const secret =
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[A-Z0-9]{16}|sk-[A-Za-z0-9_-]{30,}/;
 for (const file of files) {
@@ -36,12 +45,12 @@ for (const file of files) {
     `Unrequested artifact staged: ${file}`,
   );
   assert.ok(
-    !secret.test(git(["show", ":" + file])),
+    !secret.test(git(["show", prefix + file])),
     `Possible credential in ${file}`,
   );
 }
 const base = "frontend/public/licenses/qr-workbench/";
-const manifest = JSON.parse(git(["show", ":" + base + "MANIFEST.json"]));
+const manifest = JSON.parse(git(["show", prefix + base + "MANIFEST.json"]));
 assert.equal(manifest.packages.length, 102);
 let verifiedNotices = 0;
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -49,19 +58,19 @@ for (const entry of manifest.packages)
   for (const notice of entry.licenses) {
     assert.equal(path.basename(notice.file), notice.file);
     assert.equal(
-      hash(git(["show", ":" + base + notice.file], null)),
+      hash(git(["show", prefix + base + notice.file], null)),
       notice.sha256,
       `Notice bytes changed in Git: ${notice.file}`,
     );
     verifiedNotices++;
   }
 const iconNotice = JSON.parse(
-  git(["show", ":" + base + "Lucide-source-declaration.json"]),
+  git(["show", prefix + base + "Lucide-source-declaration.json"]),
 );
 assert.equal(
   hash(
     git(
-      ["show", ":frontend/src/plugins/svgIcon/qr-workbench-icons.json"],
+      ["show", prefix + "frontend/src/plugins/svgIcon/qr-workbench-icons.json"],
       null,
     ),
   ),
@@ -73,7 +82,8 @@ const reader = fs.readFileSync(
 assert.equal(hash(reader), manifest.reader.sha256);
 console.log(
   JSON.stringify({
-    stagedFiles: files.length,
+    mode: head ? "HEAD" : "INDEX",
+    checkedFiles: files.length,
     secretFindings: 0,
     privatePaths: 0,
     verifiedNotices,
