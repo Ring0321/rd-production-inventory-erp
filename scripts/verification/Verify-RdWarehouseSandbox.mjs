@@ -87,14 +87,22 @@ try {
   }
   await shot('warehouse-filter.png')
   await filters.getByText('全部', { exact: true }).click()
-  const readyMap = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rd/putaway-task/location-map'))
-  await page.getByRole('button', { name: '刷新', exact: true }).first().click()
-  await readyMap
+  // Manual refresh does not restart polling. Use the next natural response as the close-action window.
+  const readyMap = await page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rd/putaway-task/location-map'))
+  await readyMap.finished()
   await page.waitForFunction(() => ![...document.querySelectorAll('.el-loading-mask')].some(el => getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden' && el.getBoundingClientRect().width > 0))
-  await search(unit.packageCode)
-  await region.getByRole('complementary', { name: `库位资料 ${location.locationCode}`, exact: true }).waitFor()
+  // The legacy workbench invalidates inspectors on polling; test closing independently of triple-read lookup.
+  const closeBin = region.locator('.scene-bin-label').first()
+  const closeId = Number(await closeBin.getAttribute('data-location-id'))
+  const closeLocation = before.find(l => l.id === closeId)
+  assert.ok(closeLocation, 'fresh rendered bin retains registered identity')
+  await closeBin.click()
+  await region.getByRole('complementary', { name: `库位资料 ${closeLocation.locationCode}`, exact: true }).waitFor()
   await region.getByRole('button', { name: '关闭库位资料', exact: true }).click({ timeout: 8000 })
   assert.equal(await region.getByRole('complementary').count(), 0, 'reachable close control removes the location inspector')
+  await search(unit.packageCode)
+  await region.getByText(`已定位登记库位 ${location.locationCode}，以仓管确认记录为准`, { exact: true }).waitFor()
+  await region.getByRole('complementary', { name: `库位资料 ${location.locationCode}`, exact: true }).waitFor()
   await search(`https://legacy.example/pkg/${encodeURIComponent(unit.packageCode)}?internal=1`)
   await region.getByText(`已定位登记库位 ${location.locationCode}，以仓管确认记录为准`, { exact: true }).waitFor()
   await region.getByRole('complementary', { name: `库位资料 ${location.locationCode}`, exact: true }).waitFor()
