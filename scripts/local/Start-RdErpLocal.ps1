@@ -6,6 +6,7 @@ param(
     [ValidateSet("Auto", "Docker", "Local")]
     [string]$InfrastructureMode = "Auto",
     [string]$InstanceName = "",
+    [string]$MySqlDataDirectory = "",
     [int]$DbPort = 3307,
     [int]$RedisPort = 6379,
     [int]$BackendPort = 48080,
@@ -28,6 +29,14 @@ $mysqlPidFile = Join-Path $runtimeRoot "mysql.pid"
 $redisPidFile = Join-Path $runtimeRoot "redis.pid"
 $infraModeFile = Join-Path $runtimeRoot "infrastructure-mode.txt"
 $mysqlDataRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) $(if ($InstanceName) { "RdErp\mysql-data-$InstanceName" } else { "RdErp\mysql-data" })
+$mysqlDataPointer = Join-Path $runtimeRoot "mysql-data-directory.txt"
+if (-not $MySqlDataDirectory -and (Test-Path -LiteralPath $mysqlDataPointer)) {
+    $MySqlDataDirectory = (Get-Content -Raw -Encoding UTF8 -LiteralPath $mysqlDataPointer).Trim()
+}
+if ($MySqlDataDirectory) {
+    if (-not [IO.Path]::IsPathRooted($MySqlDataDirectory)) { throw "MySQL data directory must be an absolute path" }
+    $mysqlDataRoot = [IO.Path]::GetFullPath($MySqlDataDirectory)
+}
 $garnetToolRoot = Join-Path $runtimeRoot "garnet"
 $garnetDataRoot = Join-Path $runtimeRoot "garnet-data"
 
@@ -268,6 +277,9 @@ function Start-LocalMySql([int]$port) {
 
     $schemaMarker = Join-Path $mysqlDataRoot ".rd-erp-schema-ready"
     if (-not (Test-Path -LiteralPath $schemaMarker)) {
+        if (-not $isFresh) {
+            throw "Existing MySQL data has no verified schema marker; refusing clean initialization. Preserve and verify the data first."
+        }
         $passwordReady = Test-MySqlLogin $tools.Client $port $env:RD_DB_PASSWORD
         if (-not $passwordReady) {
             if (-not (Test-MySqlLogin $tools.Client $port "")) {
