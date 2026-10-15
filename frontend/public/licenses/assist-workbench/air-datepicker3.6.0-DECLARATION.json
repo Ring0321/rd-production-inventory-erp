@@ -1,0 +1,11 @@
+{
+  "name": "air-datepicker",
+  "version": "3.6.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/t1m0n/air-datepicker.git"
+  },
+  "author": "t1m0n <t1m0n.tr@gmail.com>",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

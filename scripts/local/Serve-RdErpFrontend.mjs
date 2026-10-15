@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { resolvePackageRequest, isPublicPackageQuery } from './RdPackageLinkNegotiation.mjs';
+import { readOcrUpload } from './RdOcrUploadGate.mjs';
 
 const frontendRoot = path.resolve(process.env.FRONTEND_ROOT || '');
 const apiTarget = new URL(process.env.API_TARGET || 'http://127.0.0.1:48080');
@@ -25,6 +26,7 @@ const mimeTypes = new Map([
   ['.svg', 'image/svg+xml'],
   ['.woff', 'font/woff'],
   ['.woff2', 'font/woff2'],
+  ['.ttf', 'font/ttf'],
 ]);
 
 function sendFile(req, res, filePath) {
@@ -47,13 +49,17 @@ function sendFile(req, res, filePath) {
   });
 }
 
-function proxyApi(req, res, publicOnly = false) {
+function proxyApi(req, res, publicOnly = false, body) {
   const incoming = new URL(req.url || '/', 'http://127.0.0.1');
   const target = new URL(apiTarget);
   target.pathname = incoming.pathname;
   target.search = incoming.search;
   target.hash = '';
   const headers = { ...req.headers, host: target.host };
+  if (body !== undefined) {
+    delete headers['transfer-encoding'];
+    headers['content-length'] = String(body.length);
+  }
   if (publicOnly) {
     delete headers.authorization;
     delete headers.cookie;
@@ -77,13 +83,16 @@ function proxyApi(req, res, publicOnly = false) {
     },
   );
   proxyRequest.on('error', (error) => {
+    if (res.headersSent || res.destroyed) { res.destroy(); return; }
     res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ code: 502, msg: `Backend unavailable: ${error.message}` }));
   });
-  req.pipe(proxyRequest);
+  if (body !== undefined) proxyRequest.end(body);
+  else req.pipe(proxyRequest);
 }
 
-const server = http.createServer((req, res) => {
+let ocrUploads = 0;
+const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
   const representation = resolvePackageRequest(requestUrl, req.headers.accept || '');
   if (representation?.error) {
@@ -109,6 +118,22 @@ const server = http.createServer((req, res) => {
     proxyApi(req, res, true); return;
   }
   if (requestUrl.pathname.startsWith('/admin-api/')) {
+    if (decodedPath === '/admin-api/rd/document-ocr/recognize' && req.method === 'POST') {
+      if (ocrUploads >= 2) {
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ code: 429, msg: 'OCR_BUSY' })); req.resume(); return;
+      }
+      ocrUploads++;
+      try { proxyApi(req, res, false, await readOcrUpload(req)); }
+      catch (error) {
+        if (!res.headersSent && !res.destroyed) {
+          const status = error.status || 400;
+          res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ code: status, msg: error.message }));
+        }
+      } finally { ocrUploads--; }
+      return;
+    }
     proxyApi(req, res);
     return;
   }

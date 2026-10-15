@@ -11,6 +11,7 @@ import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { parseRouteLocation } from '@/utils/routeParams'
 import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
 import { canViewBusinessFlow } from '@/views/rd/flow/flowFacts'
+import { canViewAssist } from '@/views/rd/assist/assistAccess'
 
 const { start, done } = useNProgress()
 
@@ -39,6 +40,9 @@ router.beforeEach(async (to, from, next) => {
       const dictStore = useDictStoreWithOut()
       const userStore = useUserStoreWithOut()
       const permissionStore = usePermissionStoreWithOut()
+      const assistDenied = () =>
+        to.name === 'RdOperationsAssist' &&
+        !canViewAssist(userStore.getRoles, userStore.getPermissions)
       // 异步加载字典
       // 动态路由加载完成后重试当前导航。
       if (!dictStore.getIsSetDict) {
@@ -72,9 +76,17 @@ router.beforeEach(async (to, from, next) => {
         const redirect = typeof redirectPath === 'string' ? redirectPath : to.fullPath
         const redirectLocation = parseRouteLocation(redirect)
         // 当前导航可能已被静态 404 路由匹配；动态路由注册后必须按原地址重新匹配，
+        if (assistDenied()) {
+          next('/403')
+          return
+        }
         // 不能继续复用旧的 route name/matched，否则刷新业务页会停在 404。
         next({ ...redirectLocation, replace: true })
       } else {
+        if (assistDenied()) {
+          next('/403')
+          return
+        }
         if (
           to.name === 'RdWarehouseSpace' &&
           !canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)

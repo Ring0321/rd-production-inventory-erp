@@ -1,0 +1,7 @@
+# Tested CPU-only Windows/Python 3.12; do not install in the business runtime.
+paddlepaddle==3.2.2
+paddleocr==3.3.2
+paddlex[ocr]==3.3.2
+numpy==2.2.6
+Pillow==12.3.0
+pypdfium2==5.14.0

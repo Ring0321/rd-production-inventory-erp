@@ -39,6 +39,8 @@ export const resetRouter = (): void => {
     'RdWarehouseSpace',
     'BusinessFlowRoot',
     'RdBusinessFlow',
+    'OperationsAssistRoot',
+    'RdOperationsAssist',
     'NoAccess',
     'NoFound',
     'Home',

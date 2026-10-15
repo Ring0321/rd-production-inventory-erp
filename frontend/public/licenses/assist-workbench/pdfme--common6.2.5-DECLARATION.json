@@ -1,0 +1,11 @@
+{
+  "name": "@pdfme/common",
+  "version": "6.2.5",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:pdfme/pdfme.git"
+  },
+  "author": "hand-dot",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

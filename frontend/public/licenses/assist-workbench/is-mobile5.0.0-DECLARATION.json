@@ -1,0 +1,15 @@
+{
+  "name": "is-mobile",
+  "version": "5.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/juliangruber/is-mobile.git"
+  },
+  "author": {
+    "name": "Julian Gruber",
+    "email": "julian@juliangruber.com",
+    "url": "http://juliangruber.com"
+  },
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

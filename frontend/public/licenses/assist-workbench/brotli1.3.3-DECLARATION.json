@@ -1,0 +1,11 @@
+{
+  "name": "brotli",
+  "version": "1.3.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devongovett/brotli.js.git"
+  },
+  "author": "Devon Govett <devongovett@gmail.com>",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

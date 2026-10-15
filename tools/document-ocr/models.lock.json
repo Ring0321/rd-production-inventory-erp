@@ -1,0 +1,24 @@
+{
+  "source": "https://huggingface.co/PaddlePaddle",
+  "license": "Apache-2.0",
+  "models": {
+    "PP-OCRv5_mobile_det": {
+      "revision": "0d63e78e2b680928f6b1747d76a08db6e645efb7",
+      "files": {
+        "inference.json": {"gitBlob": "6cd678f39460a27372f8fe570e4e12e7a383418f", "sha256": "05feef1acb00aa4cd7362b15f7f501fc4f99d7b1fa73c1c871e0c7b1504b0f5c"},
+        "inference.yml": {"gitBlob": "579d10695d2dd6e85c5ecba02d151ae5c077aa49", "sha256": "98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699"},
+        "inference.pdiparams": {"sha256": "afa1820cb16c1fd0dad589d0f8b389139061c1ef6d68019685fd07be997dda5b"},
+        "README.md": {"gitBlob": "6ed97ac58de2375d7010fa6b7562b762d5e804f9"}
+      }
+    },
+    "PP-OCRv5_mobile_rec": {
+      "revision": "682f20538d8c086cb2128e5cfac775e6c4904e85",
+      "files": {
+        "inference.json": {"gitBlob": "90f76a83768033cbd2bc9aa4d10aaa08e7bf25f7", "sha256": "24587345250c7332d0fc6f9a44e794d078cdaeb64c302fef906f325619de2569"},
+        "inference.yml": {"gitBlob": "176f6d552a120e6fa0a812089fb36c1bb983ce28", "sha256": "5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e"},
+        "inference.pdiparams": {"sha256": "2460da90875937c94db97eba74ae3d9e5d4c4c57c42f1f41531c09a26bcc771a"},
+        "README.md": {"gitBlob": "07d22daf5a4654c6a60f7447337cd3ccd38ac179"}
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+SPDX-FileCopyrightText: 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+SPDX-License-Identifier: OFL-1.1
+
+Derived from the official notofonts/noto-cjk source at commit
+f8d157532fbfaeda587e826d4cd5b21a49186f7c, Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf.
+fontTools 4.63.0 instantiated wght=400 without glyph subsetting.
+Internal family: Warehouse Assist SC. PostScript: WarehouseAssistSC-Regular.
+The filename is an application compatibility alias for this modified version.
+
+Complete original license, copyright notice, transformation metadata and source
+URLs: ../../licenses/assist-fonts/OFL.txt, NOTICE.txt and provenance.json.

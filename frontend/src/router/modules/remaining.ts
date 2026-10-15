@@ -38,6 +38,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/operations-assist',
+    component: Layout,
+    name: 'OperationsAssistRoot',
+    meta: { title: '作业智助', icon: 'ep:operation' },
+    children: [
+      {
+        path: '',
+        name: 'RdOperationsAssist',
+        component: () => import('@/views/rd/assist/index.vue'),
+        meta: { title: '作业智助', icon: 'ep:operation', canTo: true, noCache: true }
+      }
+    ]
+  },
+  {
     path: '/business-flow',
     component: Layout,
     name: 'BusinessFlowRoot',

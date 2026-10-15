@@ -1,0 +1,11 @@
+{
+  "name": "dfa",
+  "version": "1.2.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/devongovett/dfa.git"
+  },
+  "author": "Devon Govett <devongovett@gmail.com>",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

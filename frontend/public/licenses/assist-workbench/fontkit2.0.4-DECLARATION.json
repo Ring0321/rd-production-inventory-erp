@@ -1,0 +1,11 @@
+{
+  "name": "fontkit",
+  "version": "2.0.4",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/foliojs/fontkit.git"
+  },
+  "author": "Devon Govett <devongovett@gmail.com>",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

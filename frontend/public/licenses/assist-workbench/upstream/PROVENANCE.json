@@ -1,0 +1,1093 @@
+{
+  "schemaVersion": 1,
+  "task": "REUSE-6 bounded upstream-notice recovery",
+  "generatedAt": "2026-10-15T13:36:27.272Z",
+  "legalStatus": "Evidence recovery only; not a legal certification, dependency audit, license compatibility decision, or commercial-use clearance.",
+  "writeScope": [
+    "frontend/public/licenses/assist-workbench/upstream/**",
+    "temp/reuse-license-handoff.md (ignored by .gitignore:45 temp/)"
+  ],
+  "inputManifest": {
+    "path": "../MANIFEST.json",
+    "sha256": "fe84e33d66aad9cbf361cf339236fa23f3a85ba09d911af686a888baea504606",
+    "packageVersions": 214,
+    "metadataOnlyPackageVersions": 15,
+    "originalRetainedNoticeFiles": 250,
+    "unchanged": true
+  },
+  "summary": {
+    "originalSourceFilesSaved": 8,
+    "newStandaloneSoftwareLicenseFiles": 4,
+    "newStandaloneSoftwareLicensePackageVersions": 8,
+    "releaseTagAssociatedNewStandalonePackageVersions": 6,
+    "sameVersionCommitOnlyNewStandalonePackageVersions": 2,
+    "alreadyRetainedByteIdenticalFullLicenseREADMEs": 2,
+    "packageVersionsWithFullLicenseTextRecoveredOrConfirmed": 10,
+    "packagesStillWithoutRecoveredOriginalFullText": 5,
+    "fontNoticeFiles": 2
+  },
+  "verificationMethod": "Only installed package metadata/source-map/font records, exact parent manifest/notices, the named font note, and official GitHub API/web evidence used. Git-blob JSON base64 decoded without newline, Unicode, encoding or copyright rewriting. Each saved original checked against source byte length, Git blob SHA-1, SHA-256 and disk bytes. Git blob hash computed over blob + ASCII space + byte length + NUL + bytes. No third-party product/service or dependency installed. No raw.githubusercontent.com route used.",
+  "files": [
+    {
+      "file": "pdfme-6.2.5/LICENSE.md",
+      "bytes": 1064,
+      "sha256": "d43121abfdaebee1e0d24ce91805811627df2cd27419cc86a13fae6a4e5d9069",
+      "gitBlobSha1": "06cb86eba75360e09a97c1359bbf79a3e3fa5218",
+      "repository": "pdfme/pdfme",
+      "tag": "6.2.5",
+      "commit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "sourcePath": "LICENSE.md",
+      "sourceUrl": "https://github.com/pdfme/pdfme/blob/4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796/LICENSE.md",
+      "copyright": "Copyright (c) 2020 HandDot",
+      "appliesTo": [
+        "@pdfme/common@6.2.5",
+        "@pdfme/converter@6.2.5",
+        "@pdfme/generator@6.2.5",
+        "@pdfme/schemas@6.2.5",
+        "@pdfme/ui@6.2.5"
+      ],
+      "apiUrl": "https://api.github.com/repos/pdfme/pdfme/git/blobs/06cb86eba75360e09a97c1359bbf79a3e3fa5218",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked.",
+      "kind": "original-standalone-software-license"
+    },
+    {
+      "file": "air-datepicker-3.6.0/LICENSE.md",
+      "bytes": 1079,
+      "sha256": "a397e2a7f45f596cced15a89e88185248da9f895febcb87e393ebd14933568ff",
+      "gitBlobSha1": "b0eb7025d9dff0fe96a72ec905708f9725488c70",
+      "repository": "t1m0n/air-datepicker",
+      "tag": "v3.6.0",
+      "commit": "7031158c6c89b8c95b229748d913aa82639e74e8",
+      "sourcePath": "LICENSE.md",
+      "sourceUrl": "https://github.com/t1m0n/air-datepicker/blob/7031158c6c89b8c95b229748d913aa82639e74e8/LICENSE.md",
+      "copyright": "Copyright (c) Timofey Marochkin",
+      "appliesTo": [
+        "air-datepicker@3.6.0"
+      ],
+      "apiUrl": "https://api.github.com/repos/t1m0n/air-datepicker/git/blobs/b0eb7025d9dff0fe96a72ec905708f9725488c70",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked.",
+      "kind": "original-standalone-software-license"
+    },
+    {
+      "file": "ant-design-icons-svg-4.6.0/LICENSE",
+      "bytes": 1099,
+      "sha256": "5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70",
+      "gitBlobSha1": "dfe5c2183e82554ef991024afb81baac82c7e10a",
+      "repository": "ant-design/ant-design-icons",
+      "tag": null,
+      "commit": "7f2516ac91226d2b41f93b35cb5197c8d94f7189",
+      "sourcePath": "LICENSE",
+      "sourceUrl": "https://github.com/ant-design/ant-design-icons/blob/7f2516ac91226d2b41f93b35cb5197c8d94f7189/LICENSE",
+      "copyright": "Copyright (c) 2018-present Ant UED, https://xtech.antfin.com/",
+      "appliesTo": [
+        "@ant-design/icons-svg@4.6.0"
+      ],
+      "versionLinkStrength": "source-same-version; npm publication commit not established",
+      "apiUrl": "https://api.github.com/repos/ant-design/ant-design-icons/git/blobs/dfe5c2183e82554ef991024afb81baac82c7e10a",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked.",
+      "kind": "original-standalone-software-license"
+    },
+    {
+      "file": "css-styled-1.0.8/LICENSE",
+      "bytes": 1064,
+      "sha256": "77f98221f8531e87aa227c0a8d63c17c903dd4d36daf24bdc48296b09e06a25e",
+      "gitBlobSha1": "ba63dfff1a73df120bb652aa8dc695c3323cc13a",
+      "repository": "daybrush/css-styled",
+      "tag": null,
+      "commit": "51fb10e66da6c8e2ca3c121b614a54e527617f08",
+      "sourcePath": "LICENSE",
+      "sourceUrl": "https://github.com/daybrush/css-styled/blob/51fb10e66da6c8e2ca3c121b614a54e527617f08/LICENSE",
+      "copyright": "Copyright (c) 2019 Daybrush",
+      "appliesTo": [
+        "css-styled@1.0.8"
+      ],
+      "versionLinkStrength": "source-same-version; npm publication commit not established",
+      "apiUrl": "https://api.github.com/repos/daybrush/css-styled/git/blobs/ba63dfff1a73df120bb652aa8dc695c3323cc13a",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked.",
+      "kind": "original-standalone-software-license"
+    },
+    {
+      "file": "egjs-component-3.0.5/README.md",
+      "bytes": 4641,
+      "sha256": "4ba5e5b536b5e55ed46aa62177fd6663104ef9bd6f0d5b942bde38c48e340313",
+      "gitBlobSha1": "5abd61a52a2bc3a9e0d7e83b5806f8ad51e30ef5",
+      "repository": "naver/egjs-component",
+      "tag": "3.0.5",
+      "commit": "231c6f945714222a3bda1b85545eabe6eb677804",
+      "sourcePath": "README.md",
+      "sourceUrl": "https://github.com/naver/egjs-component/blob/231c6f945714222a3bda1b85545eabe6eb677804/README.md",
+      "copyright": "Copyright (c) 2015 NAVER Corp.",
+      "appliesTo": [
+        "@egjs/component@3.0.5"
+      ],
+      "kind": "complete-source-README-containing-full-license",
+      "licenseLocation": "## License through end of file; original markdown, HTML entities and code fences preserved without extraction/reformatting",
+      "apiUrl": "https://api.github.com/repos/naver/egjs-component/git/blobs/5abd61a52a2bc3a9e0d7e83b5806f8ad51e30ef5",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked."
+    },
+    {
+      "file": "is-mobile-5.0.0/README.md",
+      "bytes": 2475,
+      "sha256": "1f1f35b6a103d7b010f51a6d7d61e3e47dbc71db2c69cbb7c0ffd40c641b04e2",
+      "gitBlobSha1": "74b3b263d598ae96df0bce9cbc477cdd99fb8acd",
+      "repository": "juliangruber/is-mobile",
+      "tag": "v5.0.0",
+      "commit": "2708dd8f07d91f354a46b8dff3053abb6b840067",
+      "sourcePath": "README.md",
+      "sourceUrl": "https://github.com/juliangruber/is-mobile/blob/2708dd8f07d91f354a46b8dff3053abb6b840067/README.md",
+      "copyright": "Copyright (c) 2013 Julian Gruber &lt;julian@juliangruber.com&gt;",
+      "appliesTo": [
+        "is-mobile@5.0.0"
+      ],
+      "kind": "complete-source-README-containing-full-license",
+      "licenseLocation": "## License through end of file; original markdown, HTML entities and code fences preserved without extraction/reformatting",
+      "apiUrl": "https://api.github.com/repos/juliangruber/is-mobile/git/blobs/74b3b263d598ae96df0bce9cbc477cdd99fb8acd",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked."
+    },
+    {
+      "file": "roboto-2.137/LICENSE.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "gitBlobSha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "repository": "google/fonts",
+      "tag": null,
+      "commit": "724bf98e9f5cb98a1d3d5044f45a2e286b817401",
+      "sourcePath": "apache/roboto/LICENSE.txt",
+      "sourceUrl": "https://github.com/google/fonts/blob/724bf98e9f5cb98a1d3d5044f45a2e286b817401/apache/roboto/LICENSE.txt",
+      "appliesTo": [
+        "Roboto 2.137 historical license/copyright provenance for pdfme inline font; binary identity not established"
+      ],
+      "kind": "original-font-license",
+      "apiUrl": "https://api.github.com/repos/google/fonts/git/blobs/d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked."
+    },
+    {
+      "file": "roboto-2.137/COPYRIGHT.txt",
+      "bytes": 47,
+      "sha256": "48133474d1a2371d22b7a2b10c92431998e0cb7cf121895003e17902fc346031",
+      "gitBlobSha1": "a7ef69930cbf0443dadde55288eff550c7929925",
+      "repository": "google/fonts",
+      "tag": null,
+      "commit": "724bf98e9f5cb98a1d3d5044f45a2e286b817401",
+      "sourcePath": "apache/roboto/COPYRIGHT.txt",
+      "sourceUrl": "https://github.com/google/fonts/blob/724bf98e9f5cb98a1d3d5044f45a2e286b817401/apache/roboto/COPYRIGHT.txt",
+      "appliesTo": [
+        "Roboto 2.137 historical license/copyright provenance for pdfme inline font; binary identity not established"
+      ],
+      "kind": "original-font-copyright",
+      "apiUrl": "https://api.github.com/repos/google/fonts/git/blobs/a7ef69930cbf0443dadde55288eff550c7929925",
+      "verification": "Original GitHub Git-blob base64 decoded without edits; byte length, Git blob SHA-1, SHA-256, and saved-file bytes checked."
+    }
+  ],
+  "packageNoticeRelationships": [
+    {
+      "name": "@pdfme/common",
+      "version": "6.2.5",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/@pdfme/common/package.json",
+      "installedMetadataSha256": "a43790a76c9a700278f8c0deceb32818b6333e7bed21699c2378542d9a1a36f4",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/common/package.json",
+        "gitBlobSha1": "64056ee4db196dcb935d852c9f00432c97819229",
+        "sha256": "a68e5419f6baec712312c58847baf5e1f01c01256f010db3f554735d62f3112d",
+        "name": "@pdfme/common",
+        "version": "0.0.0",
+        "license": "MIT"
+      },
+      "noticeFile": "pdfme-6.2.5/LICENSE.md",
+      "releaseTag": "6.2.5",
+      "sourceCommit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "versionLink": "Exact upstream 6.2.5 release tag. Source package version is 0.0.0; pinned publish workflow derives VERSION from GITHUB_REF and stamps all workspaces using npm version before npm publish. Installed name/license match; no installed npm gitHead present.",
+      "publishWorkflow": {
+        "path": ".github/workflows/publish.yml",
+        "gitBlobSha1": "b6d51e79d46b0dc533e6f84849b60dfd3a463216",
+        "sha256": "caf4091afdb9ffb3338148ca1a748486b1da42692231de4579e0593550272f5e"
+      },
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "@pdfme/converter",
+      "version": "6.2.5",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/.pnpm/@pdfme+converter@6.2.5_supports-color@10.2.2/node_modules/@pdfme/converter/package.json",
+      "installedMetadataSha256": "56585bface9138dce41884d30d6b4e6af5fe3b9f595dcd653113080217b34b49",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/converter/package.json",
+        "gitBlobSha1": "e8372d096497949d340b038bdab6730c527b99dc",
+        "sha256": "278cc2e25a09a129f29d54e4f8b310c8220a04242b60c2cd25f4793405b85195",
+        "name": "@pdfme/converter",
+        "version": "0.0.0",
+        "license": "MIT"
+      },
+      "noticeFile": "pdfme-6.2.5/LICENSE.md",
+      "releaseTag": "6.2.5",
+      "sourceCommit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "versionLink": "Exact upstream 6.2.5 release tag. Source package version is 0.0.0; pinned publish workflow derives VERSION from GITHUB_REF and stamps all workspaces using npm version before npm publish. Installed name/license match; no installed npm gitHead present.",
+      "publishWorkflow": {
+        "path": ".github/workflows/publish.yml",
+        "gitBlobSha1": "b6d51e79d46b0dc533e6f84849b60dfd3a463216",
+        "sha256": "caf4091afdb9ffb3338148ca1a748486b1da42692231de4579e0593550272f5e"
+      },
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "@pdfme/generator",
+      "version": "6.2.5",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/@pdfme/generator/package.json",
+      "installedMetadataSha256": "fa03576ae6148c2d016ea5e12116a58bbef6f114626de1c7228e3b749b6f2029",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/generator/package.json",
+        "gitBlobSha1": "32388372d6c527fe3c962cd83cd1c74fd98564cd",
+        "sha256": "78e14ac5f47143815a8a92d6ef0406c85455dcba88e64362651e3e9679eaa839",
+        "name": "@pdfme/generator",
+        "version": "0.0.0",
+        "license": "MIT"
+      },
+      "noticeFile": "pdfme-6.2.5/LICENSE.md",
+      "releaseTag": "6.2.5",
+      "sourceCommit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "versionLink": "Exact upstream 6.2.5 release tag. Source package version is 0.0.0; pinned publish workflow derives VERSION from GITHUB_REF and stamps all workspaces using npm version before npm publish. Installed name/license match; no installed npm gitHead present.",
+      "publishWorkflow": {
+        "path": ".github/workflows/publish.yml",
+        "gitBlobSha1": "b6d51e79d46b0dc533e6f84849b60dfd3a463216",
+        "sha256": "caf4091afdb9ffb3338148ca1a748486b1da42692231de4579e0593550272f5e"
+      },
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "@pdfme/schemas",
+      "version": "6.2.5",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/@pdfme/schemas/package.json",
+      "installedMetadataSha256": "fd78df78a1df9976a2fad811598094760f72a0be4b309aa2f09aeab408d69348",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/schemas/package.json",
+        "gitBlobSha1": "fc57882099ceb031b38a5da2f05fc83436df85c8",
+        "sha256": "671d74e7212515e229739a1bdf9a1e04d6b6a83ead3e78a4cf2325e8d2f0dadf",
+        "name": "@pdfme/schemas",
+        "version": "0.0.0",
+        "license": "MIT"
+      },
+      "noticeFile": "pdfme-6.2.5/LICENSE.md",
+      "releaseTag": "6.2.5",
+      "sourceCommit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "versionLink": "Exact upstream 6.2.5 release tag. Source package version is 0.0.0; pinned publish workflow derives VERSION from GITHUB_REF and stamps all workspaces using npm version before npm publish. Installed name/license match; no installed npm gitHead present.",
+      "publishWorkflow": {
+        "path": ".github/workflows/publish.yml",
+        "gitBlobSha1": "b6d51e79d46b0dc533e6f84849b60dfd3a463216",
+        "sha256": "caf4091afdb9ffb3338148ca1a748486b1da42692231de4579e0593550272f5e"
+      },
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "@pdfme/ui",
+      "version": "6.2.5",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/@pdfme/ui/package.json",
+      "installedMetadataSha256": "9748f8fc711f00f1e1014acc7de5030e100919ab626b372ae2f59a5fd0d4704e",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/ui/package.json",
+        "gitBlobSha1": "4a2f7d5ff62415c962d0754d29617f735477d21b",
+        "sha256": "8e671692df39d56ec1a989ece6b0db17aab4d9402f511a1816ff6c32dfb7fb86",
+        "name": "@pdfme/ui",
+        "version": "0.0.0",
+        "license": "MIT"
+      },
+      "noticeFile": "pdfme-6.2.5/LICENSE.md",
+      "releaseTag": "6.2.5",
+      "sourceCommit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "versionLink": "Exact upstream 6.2.5 release tag. Source package version is 0.0.0; pinned publish workflow derives VERSION from GITHUB_REF and stamps all workspaces using npm version before npm publish. Installed name/license match; no installed npm gitHead present.",
+      "publishWorkflow": {
+        "path": ".github/workflows/publish.yml",
+        "gitBlobSha1": "b6d51e79d46b0dc533e6f84849b60dfd3a463216",
+        "sha256": "caf4091afdb9ffb3338148ca1a748486b1da42692231de4579e0593550272f5e"
+      },
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "air-datepicker",
+      "version": "3.6.0",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/.pnpm/air-datepicker@3.6.0/node_modules/air-datepicker/package.json",
+      "installedMetadataSha256": "b3ec9139697521a7c3d392f7cdf0adf8e8e3cc786b2d38c2c60758efd9233650",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "package.json",
+        "gitBlobSha1": "0ef579a54dcf4aa6ce425c10b7467b21f7e323e5",
+        "sha256": "a23485e274cf5ee5c9d0d53e0b96245d4f804606aeaeecacaadd7184e2e463e4",
+        "name": "air-datepicker",
+        "version": "3.6.0",
+        "license": "MIT"
+      },
+      "noticeFile": "air-datepicker-3.6.0/LICENSE.md",
+      "releaseTag": "v3.6.0",
+      "sourceCommit": "7031158c6c89b8c95b229748d913aa82639e74e8",
+      "versionLink": "Exact v3.6.0 upstream release tag and source package name/version/license match; no installed npm gitHead present.",
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "@ant-design/icons-svg",
+      "version": "4.6.0",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/.pnpm/@ant-design+icons-svg@4.6.0/node_modules/@ant-design/icons-svg/package.json",
+      "installedMetadataSha256": "ee6d61cc698f7649028257b112de70fa972c2df0e88b25611ec88be2f1f6d32d",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/icons-svg/package.json",
+        "gitBlobSha1": "c94669dc6c6653159cefece9188b409c7b9b81ab",
+        "sha256": "ee6d61cc698f7649028257b112de70fa972c2df0e88b25611ec88be2f1f6d32d",
+        "name": "@ant-design/icons-svg",
+        "version": "4.6.0",
+        "license": "MIT"
+      },
+      "noticeFile": "ant-design-icons-svg-4.6.0/LICENSE",
+      "releaseTag": null,
+      "sourceCommit": "7f2516ac91226d2b41f93b35cb5197c8d94f7189",
+      "versionLink": "Pinned default-branch commit whose source package name/version/license match installed package; no exact version tag found and no installed npm gitHead. This is source-same-version provenance, not proof of the npm publication commit.",
+      "provenanceStrength": "source-same-version only; no exact release tag or npm gitHead"
+    },
+    {
+      "name": "css-styled",
+      "version": "1.0.8",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/.pnpm/css-styled@1.0.8/node_modules/css-styled/package.json",
+      "installedMetadataSha256": "b68fc052fde0193408cb793a57fd77e6a8b3967799e0aa14260279f8496bb00f",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "packages/css-styled/package.json",
+        "gitBlobSha1": "96eb873d243b726962fbf4d67f218ee495a805d9",
+        "sha256": "b68fc052fde0193408cb793a57fd77e6a8b3967799e0aa14260279f8496bb00f",
+        "name": "css-styled",
+        "version": "1.0.8",
+        "license": "MIT"
+      },
+      "noticeFile": "css-styled-1.0.8/LICENSE",
+      "releaseTag": null,
+      "sourceCommit": "51fb10e66da6c8e2ca3c121b614a54e527617f08",
+      "versionLink": "Pinned default-branch commit whose source package name/version/license match installed package; no exact version tag found and no installed npm gitHead. This is source-same-version provenance, not proof of the npm publication commit.",
+      "provenanceStrength": "source-same-version only; no exact release tag or npm gitHead"
+    },
+    {
+      "name": "@egjs/component",
+      "version": "3.0.5",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/.pnpm/@egjs+component@3.0.5/node_modules/@egjs/component/package.json",
+      "installedMetadataSha256": "63ffa1af614985c22f6116bba8bac1eb7402e1c277fbf4dad7e55416e45ff5a7",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "package.json",
+        "gitBlobSha1": "b32dae618f8cefa561061180ab0e1334782803b2",
+        "sha256": "63ffa1af614985c22f6116bba8bac1eb7402e1c277fbf4dad7e55416e45ff5a7",
+        "name": "@egjs/component",
+        "version": "3.0.5",
+        "license": "MIT"
+      },
+      "noticeFile": "egjs-component-3.0.5/README.md",
+      "releaseTag": "3.0.5",
+      "sourceCommit": "231c6f945714222a3bda1b85545eabe6eb677804",
+      "versionLink": "Exact upstream release tag and source package name/version/license match; full original MIT copyright/permission/disclaimer body is embedded in README, not a standalone LICENSE file.",
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    },
+    {
+      "name": "is-mobile",
+      "version": "5.0.0",
+      "declaredLicense": "MIT",
+      "installedMetadataPath": "frontend/node_modules/.pnpm/is-mobile@5.0.0/node_modules/is-mobile/package.json",
+      "installedMetadataSha256": "147ae5e4ee2926b02a7087a77e1e4665d85d30f59df20149912f817b43ed9313",
+      "installedGitHead": null,
+      "sourcePackageMetadata": {
+        "path": "package.json",
+        "gitBlobSha1": "217e0663671bae59ed8e4e499059be3251b46a55",
+        "sha256": "147ae5e4ee2926b02a7087a77e1e4665d85d30f59df20149912f817b43ed9313",
+        "name": "is-mobile",
+        "version": "5.0.0",
+        "license": "MIT"
+      },
+      "noticeFile": "is-mobile-5.0.0/README.md",
+      "releaseTag": "v5.0.0",
+      "sourceCommit": "2708dd8f07d91f354a46b8dff3053abb6b840067",
+      "versionLink": "Exact upstream release tag and source package name/version/license match; full original MIT copyright/permission/disclaimer body is embedded in README, not a standalone LICENSE file.",
+      "provenanceStrength": "release-tag-associated; installed npm gitHead unavailable"
+    }
+  ],
+  "alreadyRetainedReadmeLicenseConfirmations": [
+    {
+      "package": "@egjs/component@3.0.5",
+      "manifestReadmeFile": "egjs--component3.0.5-README.md",
+      "manifestSha256": "4ba5e5b536b5e55ed46aa62177fd6663104ef9bd6f0d5b942bde38c48e340313",
+      "sourceReadmeSha256": "4ba5e5b536b5e55ed46aa62177fd6663104ef9bd6f0d5b942bde38c48e340313",
+      "alreadyIncludedByteIdentically": true
+    },
+    {
+      "package": "is-mobile@5.0.0",
+      "manifestReadmeFile": "is-mobile5.0.0-README.md",
+      "manifestSha256": "1f1f35b6a103d7b010f51a6d7d61e3e47dbc71db2c69cbb7c0ffd40c641b04e2",
+      "sourceReadmeSha256": "1f1f35b6a103d7b010f51a6d7d61e3e47dbc71db2c69cbb7c0ffd40c641b04e2",
+      "alreadyIncludedByteIdentically": true
+    }
+  ],
+  "unrecoveredPackages": [
+    {
+      "name": "fontkit",
+      "version": "2.0.4",
+      "repository": "foliojs/fontkit",
+      "tag": "v2.0.4",
+      "annotatedTagObject": "880e666374848e431ebb078ec94b872cdeda6911",
+      "commit": "fbf3b9ef21eebd219eb73e666faed573af0fba09",
+      "status": "No standalone project LICENSE/NOTICE/COPYING/COPYRIGHT file in complete pinned release tree. README License section says MIT only; test font licenses are not the fontkit software license. Full original copyright/permission notice not recovered.",
+      "readmeGitBlobSha1": "027b61ce4e1f2e3aa97474c028dcec821475b769",
+      "readmeSha256": "8a1cf12d8ae7277f047c3000af7677927f2da9243627223ba5715d40df4979d6",
+      "upstreamIssue": "https://github.com/foliojs/fontkit/issues/255",
+      "sourcePackageMetadata": {
+        "path": "package.json",
+        "gitBlobSha1": "dff6f0f847f299c3be576644b4339d2220a31885",
+        "sha256": "49c60605b92316a5d5fe57b9a3bca8950ad9a8beab1cb633d6f29862d1bd163d",
+        "name": "fontkit",
+        "version": "2.0.4",
+        "license": "MIT"
+      },
+      "treeApiUrl": "https://api.github.com/repos/foliojs/fontkit/git/trees/fbf3b9ef21eebd219eb73e666faed573af0fba09?recursive=1",
+      "treeTruncated": false,
+      "installedMetadata": {
+        "path": "frontend/node_modules/.pnpm/fontkit@2.0.4/node_modules/fontkit/package.json",
+        "sha256": "49c60605b92316a5d5fe57b9a3bca8950ad9a8beab1cb633d6f29862d1bd163d",
+        "name": "fontkit",
+        "version": "2.0.4",
+        "license": "MIT",
+        "gitHead": null
+      }
+    },
+    {
+      "name": "@cfcs/core",
+      "version": "0.0.6",
+      "repository": "naver/cfcs",
+      "tag": null,
+      "commit": "c70cd72d6378d162c2550bd98f9605d458ce719c",
+      "status": "No exact 0.0.6 tag found. Current pinned source package is 0.1.0, and bounded root/core package.json history does not establish 0.0.6. Current LICENSE/NOTICE exist but not copied or asserted for 0.0.6.",
+      "treeApiUrl": "https://api.github.com/repos/naver/cfcs/git/trees/c70cd72d6378d162c2550bd98f9605d458ce719c?recursive=1",
+      "treeTruncated": false,
+      "sourcePackageMetadata": {
+        "path": "packages/core/package.json",
+        "gitBlobSha1": "0fd1b49279b5fd8d749dcf9df2569c4b7192777e",
+        "name": "@cfcs/core",
+        "version": "0.1.0",
+        "license": "MIT"
+      },
+      "installedMetadata": {
+        "path": "frontend/node_modules/.pnpm/@cfcs+core@0.0.6/node_modules/@cfcs/core/package.json",
+        "sha256": "ffb455335e1e6c3c1478467bb06d0d93ba33b599d2ae36c5266f1bfd34942f73",
+        "name": "@cfcs/core",
+        "version": "0.0.6",
+        "license": "MIT",
+        "gitHead": null
+      }
+    },
+    {
+      "name": "brotli",
+      "version": "1.3.3",
+      "repository": "foliojs/brotli.js",
+      "tag": "v1.3.3",
+      "commit": "e36051345f6d27a56e5f39ea70d2f789b8574046",
+      "status": "Complete pinned release tree contains no standalone project LICENSE/NOTICE/COPYING/COPYRIGHT. README License section says MIT only; no original copyright/permission body recovered.",
+      "treeApiUrl": "https://api.github.com/repos/foliojs/brotli.js/git/trees/e36051345f6d27a56e5f39ea70d2f789b8574046?recursive=1",
+      "treeTruncated": false,
+      "readme": {
+        "path": "readme.md",
+        "gitBlobSha1": "a0920a008b6ed731083b1ed22231a345bf5e91ef",
+        "sha256": "8a8bac543fccf52a64708ff3315ca2be90e3e4c270634df1e4e4b51f0ee9c5d7"
+      },
+      "sourcePackageMetadata": {
+        "path": "package.json",
+        "gitBlobSha1": "0a1222ccc98ef7380b2bb7e0c24e550392747d66",
+        "sha256": "387b47d00ea96cab9b4c521629fbcdc7621053ac061812526f3c69700924cef5",
+        "name": "brotli",
+        "version": "1.3.3",
+        "license": "MIT"
+      },
+      "installedMetadata": {
+        "path": "frontend/node_modules/.pnpm/brotli@1.3.3/node_modules/brotli/package.json",
+        "sha256": "387b47d00ea96cab9b4c521629fbcdc7621053ac061812526f3c69700924cef5",
+        "name": "brotli",
+        "version": "1.3.3",
+        "license": "MIT",
+        "gitHead": null
+      }
+    },
+    {
+      "name": "dfa",
+      "version": "1.2.0",
+      "repository": "foliojs/dfa",
+      "tag": "v1.2.0",
+      "commit": "3f5e603e5082caedabefefdf53e8a6ca3111e966",
+      "status": "Complete pinned release tree contains no standalone project LICENSE/NOTICE/COPYING/COPYRIGHT. README License section says MIT only; no original copyright/permission body recovered.",
+      "treeApiUrl": "https://api.github.com/repos/foliojs/dfa/git/trees/3f5e603e5082caedabefefdf53e8a6ca3111e966?recursive=1",
+      "treeTruncated": false,
+      "readme": {
+        "path": "README.md",
+        "gitBlobSha1": "5e4338f93d1ea5a9dfd02c4c34284614270ac057",
+        "sha256": "30bd445925aa53205ff7f9afa6a43e21358fab656e471df6e028431aefc426c7"
+      },
+      "sourcePackageMetadata": {
+        "path": "package.json",
+        "gitBlobSha1": "a9b6b10884fe1519fb3001ed12f2f114ed9bba52",
+        "sha256": "96c0ce3cc17b34aabd58fd442157766d9e244cba735e54ee4fe10d7841f0460c",
+        "name": "dfa",
+        "version": "1.2.0",
+        "license": "MIT"
+      },
+      "installedMetadata": {
+        "path": "frontend/node_modules/.pnpm/dfa@1.2.0/node_modules/dfa/package.json",
+        "sha256": "96c0ce3cc17b34aabd58fd442157766d9e244cba735e54ee4fe10d7841f0460c",
+        "name": "dfa",
+        "version": "1.2.0",
+        "license": "MIT",
+        "gitHead": null
+      }
+    },
+    {
+      "name": "keycon",
+      "version": "1.4.0",
+      "repository": "daybrush/keycon",
+      "tag": "keycon@1.4.0",
+      "commit": "e7343fbcf6a7c21c01458ab760896d2c6c8a4112",
+      "status": "Complete pinned release tree has no root or packages/keycon LICENSE/NOTICE; only packages/vue2-keycon/LICENSE exists. Do not substitute sibling wrapper attribution for keycon core without evidence. Root README has no full license body.",
+      "treeApiUrl": "https://api.github.com/repos/daybrush/keycon/git/trees/e7343fbcf6a7c21c01458ab760896d2c6c8a4112?recursive=1",
+      "treeTruncated": false,
+      "readme": {
+        "path": "README.md",
+        "gitBlobSha1": "4bf4587e8ef1899e530bd1120192b1e4965fa331",
+        "sha256": "b671710bd20c73c1e6843aeb2df1c8cb9e1d0fb0ae579f4c45f9206db54a1e1e"
+      },
+      "sourcePackageMetadata": {
+        "path": "packages/keycon/package.json",
+        "gitBlobSha1": "a6a5cad8f77d52c66398fc438f3980cdb29fd333",
+        "sha256": "6e06256be2cea5bc5f586e76db0dab3cfa8d0ed7521003b1dbd27f5130183bf2",
+        "name": "keycon",
+        "version": "1.4.0",
+        "license": "MIT"
+      },
+      "installedMetadata": {
+        "path": "frontend/node_modules/.pnpm/keycon@1.4.0/node_modules/keycon/package.json",
+        "sha256": "6e06256be2cea5bc5f586e76db0dab3cfa8d0ed7521003b1dbd27f5130183bf2",
+        "name": "keycon",
+        "version": "1.4.0",
+        "license": "MIT",
+        "gitHead": null
+      }
+    }
+  ],
+  "fontProvenance": {
+    "scope": "pdfme bundled Roboto only; not an application bundle/tree-shaking or commercial-use clearance",
+    "installedCommonVersion": "6.2.5",
+    "runtimeFile": "frontend/node_modules/@pdfme/common/dist/index.js",
+    "runtimeSha256": "770ab94239252c1ce65d69b25cc5bdc3556730c8f2a749bf134c3dd110716a43",
+    "sourceMapFile": "frontend/node_modules/@pdfme/common/dist/index.js.map",
+    "sourceMapSha256": "399265e96a874d56f948a62b5e7c3f775b07eb2092455be5e3e06a2db4f9d03a",
+    "fontDataPresentInRuntime": true,
+    "inlineFont": {
+      "bytes": 129584,
+      "sha256": "7277cfb805def6410f317129b8e1f78bdd47d1a4e24c233077d06e88a36e57ae",
+      "gitBlobSha1": "3033308a695ab4efa60441c23f2c18aaa94c568f",
+      "familyName": "Roboto",
+      "postscriptName": "Roboto-Regular",
+      "fullName": "Roboto",
+      "version": "Version 2.137; 2017",
+      "copyright": "Copyright 2011 Google Inc. All Rights Reserved.",
+      "nameRecords": {
+        "copyright": {
+          "en": "Copyright 2011 Google Inc. All Rights Reserved."
+        },
+        "fontFamily": {
+          "en": "Roboto"
+        },
+        "fontSubfamily": {
+          "en": "Regular"
+        },
+        "uniqueSubfamily": {
+          "en": "Roboto"
+        },
+        "fullName": {
+          "en": "Roboto"
+        },
+        "version": {
+          "en": "Version 2.137; 2017"
+        },
+        "postscriptName": {
+          "en": "Roboto-Regular"
+        },
+        "licenseURL": {
+          "en": "http://www.apache.org/licenses/LICENSE-2.0"
+        }
+      }
+    },
+    "pdfmeSource": {
+      "repository": "pdfme/pdfme",
+      "releaseTag": "6.2.5",
+      "commit": "4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796",
+      "path": "packages/common/src/constants.ts",
+      "gitBlobSha1": "803023e4f803a7d077db94620dfa49aad27c9bca",
+      "sha256": "f4f938cce3e5e65b70d57efc813f24f982c38c4af69608c79d92a94120359bf0",
+      "sourceMapSourceEqualsPinnedSource": true
+    },
+    "licenseProvenance": {
+      "repository": "google/fonts",
+      "commit": "724bf98e9f5cb98a1d3d5044f45a2e286b817401",
+      "commitMessage": "roboto: v2.137 added. (#727)\n\nBlack weights now have their fsSelection and fsType not set to Bold",
+      "directory": "apache/roboto",
+      "copyrightMatchesInlineFont": true,
+      "inlineNameTableLicenseUrl": "http://www.apache.org/licenses/LICENSE-2.0",
+      "files": [
+        "roboto-2.137/LICENSE.txt",
+        "roboto-2.137/COPYRIGHT.txt"
+      ],
+      "upstreamFont": {
+        "path": "apache/roboto/Roboto-Regular.ttf",
+        "bytes": 171676,
+        "gitBlobSha1": "2c97eeadffe1a34bd67d3ff1c3887fd53e22c2ca"
+      },
+      "binaryIdentity": "Not an exact binary match: upstream source-directory TTF is 171676 bytes; installed inline TTF is 129584 bytes. No claim that upstream TTF equals or fully explains the inline build. No upstream NOTICE file in this pinned font directory and no NOTICE invented."
+    }
+  },
+  "ocrGap": {
+    "status": "Unresolved: original upstream terms attributable to these exact OCR-A/B binaries were not recovered. No public-domain, MIT, GPL, OFL, or commercial-clearance conclusion.",
+    "evidence": [
+      {
+        "file": "fonts/OCRA7.ttf",
+        "package": "bwip-js@4.11.4",
+        "bytes": 13284,
+        "sha256": "615a92c335edcec20f761586097765d5f814d38ebadfd1c23eb316b5be15e35d",
+        "gitBlobSha1": "56eacbb2b1ce60af5100215efe30632c07cb5c75",
+        "nameRecords": {
+          "copyright": {
+            "en": "Matthew Skala (2011-12); based on code by Richard B. Wales (1988-89) and Tor Lillqvist"
+          },
+          "fontFamily": {
+            "en": "OCRA"
+          },
+          "fontSubfamily": {
+            "en": "Regular"
+          },
+          "uniqueSubfamily": {
+            "en": "FontForge 2.0 : OCR A : 27-9-2012"
+          },
+          "fullName": {
+            "en": "OCR A"
+          },
+          "version": {
+            "en": "Version 2 "
+          },
+          "postscriptName": {
+            "en": "OCRA"
+          }
+        }
+      },
+      {
+        "file": "fonts/OCRB7.ttf",
+        "package": "bwip-js@4.11.4",
+        "bytes": 14768,
+        "sha256": "44677e33d4ab52cbd9673d540d0fe7cafb2f729b4a39a69e9b6ec079cc24a990",
+        "gitBlobSha1": "693690ca7954a1c54c64d7bd4366c76f12e19114",
+        "nameRecords": {
+          "copyright": {
+            "en": "Matthew Skala (2011); based on code by Norbert Schwarz (1986, 2011)"
+          },
+          "fontFamily": {
+            "en": "OCRB"
+          },
+          "fontSubfamily": {
+            "en": "Regular"
+          },
+          "uniqueSubfamily": {
+            "en": "FontForge 2.0 : OCR B Regular : 27-9-2012"
+          },
+          "fullName": {
+            "en": "OCR B Regular"
+          },
+          "version": {
+            "en": "Version 2 "
+          },
+          "postscriptName": {
+            "en": "OCRB"
+          }
+        }
+      }
+    ],
+    "upstreamLeads": "Font metadata identifies Matthew Skala and predecessor authors but contains no license description/URL. Only a separate 2025 derivative OCR-Bitcoin repository surfaced in the bounded GitHub search; its MIT text is not accepted as a license for bwip-js OCRA7/OCRB7. No derivative notice copied.",
+    "owner": "Parent release review to bind original terms and required attribution to distributed barcode font bytes."
+  },
+  "inconsolataEvidence": {
+    "file": "frontend/node_modules/.pnpm/bwip-js@4.11.4/node_modules/bwip-js/fonts/Inconsolata.otf",
+    "bytes": 58464,
+    "sha256": "1561e616c414a1b82d6e6dfbd18e5726fd65028913ade191e5fa38b6ec375a1a",
+    "copyright": "Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.",
+    "licenseNameRecords": null,
+    "licenseURL": null,
+    "existingNotice": "bwip-js4.11.4-LICENSE.INCONSOLATA",
+    "caution": "Full OFL already retained by parent, but placeholder attribution in that file is not the actual font copyright. Preserve actual embedded copyright above; no font binary copied or changed."
+  },
+  "readOnlyChecks": {
+    "parentManifestByteIdentical": true,
+    "parentManifestSha256": "fe84e33d66aad9cbf361cf339236fa23f3a85ba09d911af686a888baea504606",
+    "originalNoticeFilesVerified": 250,
+    "originalNoticeHashFailures": [],
+    "installedMetadataChecks": [
+      {
+        "package": "@pdfme/common@6.2.5",
+        "ok": true
+      },
+      {
+        "package": "@pdfme/converter@6.2.5",
+        "ok": true
+      },
+      {
+        "package": "@pdfme/generator@6.2.5",
+        "ok": true
+      },
+      {
+        "package": "@pdfme/schemas@6.2.5",
+        "ok": true
+      },
+      {
+        "package": "@pdfme/ui@6.2.5",
+        "ok": true
+      },
+      {
+        "package": "air-datepicker@3.6.0",
+        "ok": true
+      },
+      {
+        "package": "@ant-design/icons-svg@4.6.0",
+        "ok": true
+      },
+      {
+        "package": "css-styled@1.0.8",
+        "ok": true
+      },
+      {
+        "package": "@egjs/component@3.0.5",
+        "ok": true
+      },
+      {
+        "package": "is-mobile@5.0.0",
+        "ok": true
+      }
+    ],
+    "ignoredHandoffVerifiedBy": "rtk proxy git check-ignore -v -- temp/reuse-license-handoff.md => .gitignore:45:temp/"
+  },
+  "fontReviewDocument": "docs/product/新增PDF依赖字体许可核查.md",
+  "scopeExclusions": [
+    "No parent MANIFEST, packaged notice, package metadata, dependencies, lockfile, application source, fonts, DB, credentials or service modified.",
+    "No commit, push, git staging/index modification, dependency install, subdelegation or legal certification.",
+    "No invented MIT permission body for fontkit/brotli/dfa/keycon; no sibling package, unmerged proposal, or unrelated product license substituted.",
+    "No Noto/OFL license substituted for Roboto; no OCR public-domain/other licensing assumption.",
+    "Parent retains responsibility for final application bundle/font inclusion and notice integration; manifest metadataOnly values intentionally untouched."
+  ],
+  "apiRequestLog": [
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/matching-refs/tags/6.2.5",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/fontkit/git/tags/880e666374848e431ebb078ec94b872cdeda6911",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/trees/4c48a60cd0f33d67b81c07b0ac1c0bf61ac6a796?recursive=1",
+      "status": 200,
+      "remaining": "55"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/fontkit/git/trees/fbf3b9ef21eebd219eb73e666faed573af0fba09?recursive=1",
+      "status": 200,
+      "remaining": "54"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/06cb86eba75360e09a97c1359bbf79a3e3fa5218",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/fontkit/git/blobs/027b61ce4e1f2e3aa97474c028dcec821475b769",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/64056ee4db196dcb935d852c9f00432c97819229",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/releases/tags/6.2.5",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/b6d51e79d46b0dc533e6f84849b60dfd3a463216",
+      "status": 200,
+      "remaining": "55"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/f1c91afef2e4138b45b3e5401723d943ec9c06e4",
+      "status": 200,
+      "remaining": "54"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/e8372d096497949d340b038bdab6730c527b99dc",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/32388372d6c527fe3c962cd83cd1c74fd98564cd",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/fc57882099ceb031b38a5da2f05fc83436df85c8",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/4a2f7d5ff62415c962d0754d29617f735477d21b",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/ant-design/ant-design-icons/tags?per_page=100",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/cfcs/tags?per_page=100",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/egjs-component/tags?per_page=100",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/t1m0n/air-datepicker/tags?per_page=100",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/devongovett/brotli.js/tags?per_page=100",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/css-styled/tags?per_page=100",
+      "status": 200,
+      "remaining": "54"
+    },
+    {
+      "url": "https://api.github.com/repos/devongovett/dfa/tags?per_page=100",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/juliangruber/is-mobile/tags?per_page=100",
+      "status": 200,
+      "remaining": "52"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/keycon/tags?per_page=100",
+      "status": 200,
+      "remaining": "51"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/egjs-component/git/trees/231c6f945714222a3bda1b85545eabe6eb677804?recursive=1",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/t1m0n/air-datepicker/git/trees/7031158c6c89b8c95b229748d913aa82639e74e8?recursive=1",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/brotli.js/git/trees/e36051345f6d27a56e5f39ea70d2f789b8574046?recursive=1",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/dfa/git/trees/3f5e603e5082caedabefefdf53e8a6ca3111e966?recursive=1",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/juliangruber/is-mobile/git/trees/2708dd8f07d91f354a46b8dff3053abb6b840067?recursive=1",
+      "status": 200,
+      "remaining": "55"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/keycon/git/trees/e7343fbcf6a7c21c01458ab760896d2c6c8a4112?recursive=1",
+      "status": 200,
+      "remaining": "54"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/egjs-component/git/blobs/5abd61a52a2bc3a9e0d7e83b5806f8ad51e30ef5",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/brotli.js/git/blobs/a0920a008b6ed731083b1ed22231a345bf5e91ef",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/dfa/git/blobs/5e4338f93d1ea5a9dfd02c4c34284614270ac057",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/juliangruber/is-mobile/git/blobs/74b3b263d598ae96df0bce9cbc477cdd99fb8acd",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/keycon/git/blobs/4bf4587e8ef1899e530bd1120192b1e4965fa331",
+      "status": 200,
+      "remaining": "55"
+    },
+    {
+      "url": "https://api.github.com/repos/t1m0n/air-datepicker/git/blobs/0ef579a54dcf4aa6ce425c10b7467b21f7e323e5",
+      "status": 200,
+      "remaining": "54"
+    },
+    {
+      "url": "https://api.github.com/repos/t1m0n/air-datepicker/git/blobs/b0eb7025d9dff0fe96a72ec905708f9725488c70",
+      "status": 200,
+      "remaining": "53"
+    },
+    {
+      "url": "https://api.github.com/repos/ant-design/ant-design-icons/commits/HEAD",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/ant-design/ant-design-icons/git/trees/7f2516ac91226d2b41f93b35cb5197c8d94f7189?recursive=1",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/cfcs/commits/HEAD",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/cfcs/git/trees/c70cd72d6378d162c2550bd98f9605d458ce719c?recursive=1",
+      "status": 200,
+      "remaining": "55"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/css-styled/commits/HEAD",
+      "status": 200,
+      "remaining": "54"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/css-styled/git/trees/51fb10e66da6c8e2ca3c121b614a54e527617f08?recursive=1",
+      "status": 200,
+      "remaining": "53"
+    },
+    {
+      "url": "https://api.github.com/repos/ant-design/ant-design-icons/git/blobs/c94669dc6c6653159cefece9188b409c7b9b81ab",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/cfcs/git/blobs/0fd1b49279b5fd8d749dcf9df2569c4b7192777e",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/css-styled/git/blobs/96eb873d243b726962fbf4d67f218ee495a805d9",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/cfcs/commits?path=packages/core/package.json&per_page=30",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/google/fonts/commits?path=apache/roboto/Roboto-Regular.ttf&until=2017-06-01T00:00:00Z&per_page=1",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/cfcs/commits?path=package.json&per_page=25",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/google/fonts/git/trees/724bf98e9f5cb98a1d3d5044f45a2e286b817401?recursive=1",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/ant-design/ant-design-icons/git/blobs/dfe5c2183e82554ef991024afb81baac82c7e10a",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/css-styled/git/blobs/ba63dfff1a73df120bb652aa8dc695c3323cc13a",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/naver/egjs-component/git/blobs/b32dae618f8cefa561061180ab0e1334782803b2",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/juliangruber/is-mobile/git/blobs/217e0663671bae59ed8e4e499059be3251b46a55",
+      "status": 200,
+      "remaining": "56"
+    },
+    {
+      "url": "https://api.github.com/repos/google/fonts/git/blobs/d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "status": 200,
+      "remaining": "53"
+    },
+    {
+      "url": "https://api.github.com/repos/google/fonts/git/blobs/a7ef69930cbf0443dadde55288eff550c7929925",
+      "status": 200,
+      "remaining": "52"
+    },
+    {
+      "url": "https://api.github.com/repos/pdfme/pdfme/git/blobs/803023e4f803a7d077db94620dfa49aad27c9bca",
+      "status": 200,
+      "remaining": "51"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/fontkit/git/blobs/dff6f0f847f299c3be576644b4339d2220a31885",
+      "status": 200,
+      "remaining": "59"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/brotli.js/git/blobs/0a1222ccc98ef7380b2bb7e0c24e550392747d66",
+      "status": 200,
+      "remaining": "58"
+    },
+    {
+      "url": "https://api.github.com/repos/foliojs/dfa/git/blobs/a9b6b10884fe1519fb3001ed12f2f114ed9bba52",
+      "status": 200,
+      "remaining": "57"
+    },
+    {
+      "url": "https://api.github.com/repos/daybrush/keycon/git/blobs/a6a5cad8f77d52c66398fc438f3980cdb29fd333",
+      "status": 200,
+      "remaining": "56"
+    }
+  ]
+}

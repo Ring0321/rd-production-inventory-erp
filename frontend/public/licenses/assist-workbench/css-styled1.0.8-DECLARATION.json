@@ -1,0 +1,11 @@
+{
+  "name": "css-styled",
+  "version": "1.0.8",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daybrush/css-styled.git"
+  },
+  "author": "Daybrush",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}

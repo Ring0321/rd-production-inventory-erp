@@ -1,1 +1,4 @@
 deploy/trial/*.sh text eol=lf
+frontend/public/licenses/assist-workbench/** -text
+frontend/public/licenses/assist-fonts/** -text
+frontend/public/fonts/assist/*.ttf binary

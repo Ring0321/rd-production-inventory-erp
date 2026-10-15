@@ -5,6 +5,7 @@ import qs from 'qs'
 import { config } from '@/config/axios/config'
 import { getAccessToken, getRefreshToken, removeToken, setToken } from '@/utils/auth'
 import errorCode from './errorCode'
+import { isNonReplayableOperation } from './nonReplayable'
 
 import { resetRouter } from '@/router'
 import { deleteUserCache } from '@/hooks/web/useCache'
@@ -137,6 +138,14 @@ service.interceptors.response.use(
       // 如果是忽略的错误码，直接返回 msg 异常
       return Promise.reject(msg)
     } else if (code === 401) {
+      // An uncertain audit/config submission must be reconciled, not automatically sent again.
+      if (isNonReplayableOperation(config.method, config.url)) {
+        return Promise.reject(
+          Object.assign(new Error('登录状态失效，操作未自动重发；请核对原记录后重新登录'), {
+            businessCode: 401
+          })
+        )
+      }
       // 如果未认证，并且未进行刷新令牌，说明可能是访问令牌过期了
       if (!isRefreshToken) {
         isRefreshToken = true

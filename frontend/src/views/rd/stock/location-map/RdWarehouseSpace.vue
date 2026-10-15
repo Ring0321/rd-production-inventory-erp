@@ -47,6 +47,23 @@
             :value="warehouse.code"
           />
         </el-select>
+        <div v-if="canReadLayout" class="published-layout-controls">
+          <el-switch
+            v-model="usePublished"
+            :disabled="!warehouseCode"
+            active-text="发布布局"
+            aria-label="使用发布布局"
+          />
+          <span v-if="layoutVersion">v{{ layoutVersion }}</span>
+          <el-button
+            v-if="hasPermission(['rd:warehouse-location:update'])"
+            text
+            @click="
+              router.push({ path: '/operations-assist', query: { tool: 'layout', warehouseCode } })
+            "
+            ><Icon icon="ep:edit" class="mr-5px" />编辑布局</el-button
+          >
+        </div>
         <nav class="business-links" aria-label="仓储业务入口">
           <el-button
             v-if="hasPermission(['rd:putaway-task:query'])"
@@ -83,6 +100,7 @@
       </nav>
       <el-alert v-if="error" :title="error + '，请刷新后核对'" type="warning" :closable="false" />
       <el-alert v-if="fullscreenError" :title="fullscreenError" type="warning" :closable="false" />
+      <el-alert v-if="layoutError" :title="layoutError" type="warning" :closable="false" />
       <el-alert
         v-if="invalidCount"
         :title="`${invalidCount} 条库位身份待核，未计入总览`"
@@ -103,6 +121,7 @@
         :locations="visibleLocations"
         :snapshot-version="snapshotVersion"
         :selected-id="linkedLocation.state === 'FOUND' ? linkedLocation.id : undefined"
+        :configured-layout="configuredLayout"
         overview
         showcase
         retain-selection-on-refresh
@@ -126,6 +145,8 @@ import { warehouseScopes, OVERVIEW_KEY } from './warehouseOverview'
 import { useUserStore } from '@/store/modules/user'
 import { canViewWarehouseSpace } from './warehouseSpaceAccess'
 import { resolveWarehouseSpaceLink } from './warehouseSpaceLink'
+import { getVisualDocument } from '@/api/rd/assist/visualDocument'
+import { applyPublishedLayout, type PublishedWarehouseLayout } from './publishedLayout'
 
 defineProps<{ embedded?: boolean }>()
 defineOptions({ name: 'RdWarehouseSpace' })
@@ -137,7 +158,73 @@ const { locations, busy, updatedAt, snapshotVersion, contextValid, error, refres
   useWarehouseSpace()
 const spaceHost = ref<HTMLElement>()
 const mapView = ref<InstanceType<typeof RdSpatialLocationMap>>()
-const warehouseCode = ref('')
+const warehouseCode = ref(
+  typeof route.query.warehouseCode === 'string' ? route.query.warehouseCode : ''
+)
+const usePublished = ref(route.query.layout === 'published')
+const configuredLayout = ref<PublishedWarehouseLayout>()
+const layoutVersion = ref(0)
+const layoutError = ref('')
+const canReadLayout = computed(
+  () => allowed.value && hasPermission(['rd:warehouse-location:query'])
+)
+let layoutSequence = 0
+watch([warehouseCode, usePublished, updatedAt, contextValid], async () => {
+  const sequence = ++layoutSequence
+  if (
+    !usePublished.value ||
+    !canReadLayout.value ||
+    !contextValid.value ||
+    configuredLayout.value?.warehouseCode !== warehouseCode.value
+  ) {
+    configuredLayout.value = undefined
+    layoutVersion.value = 0
+  }
+  layoutError.value = ''
+  if (
+    !usePublished.value ||
+    !warehouseCode.value ||
+    !canReadLayout.value ||
+    !contextValid.value ||
+    !updatedAt.value
+  )
+    return
+  const code = warehouseCode.value
+  try {
+    const value = await getVisualDocument('LAYOUT', code)
+    if (
+      sequence !== layoutSequence ||
+      !contextValid.value ||
+      !canReadLayout.value ||
+      warehouseCode.value !== code
+    )
+      return
+    if (!value.published || !value.publishedVersion) {
+      configuredLayout.value = undefined
+      layoutVersion.value = 0
+      layoutError.value = '此仓库尚无发布布局，当前显示自建示意'
+      return
+    }
+    const doc = value.published as PublishedWarehouseLayout
+    if (value.scopeId !== code || doc.warehouseCode !== code)
+      throw new Error('发布布局仓库范围待核')
+    applyPublishedLayout(
+      buildSpatialLayout(
+        locations.value.filter((l) => l.warehouseCode === code),
+        'schematic'
+      ),
+      doc
+    )
+    configuredLayout.value = doc
+    layoutVersion.value = value.publishedVersion
+  } catch {
+    if (sequence === layoutSequence && contextValid.value) {
+      configuredLayout.value = undefined
+      layoutVersion.value = 0
+      layoutError.value = '发布布局未取得，当前显示自建示意'
+    }
+  }
+})
 const scope = ref(OVERVIEW_KEY)
 const validLocations = computed(() =>
   locations.value.filter((l) => isLocationIdentityValid(locations.value, l.id))
@@ -206,6 +293,10 @@ const toggleFullscreen = async () => {
 }
 onMounted(() => document.addEventListener('fullscreenchange', fullscreenChange))
 onBeforeUnmount(() => document.removeEventListener('fullscreenchange', fullscreenChange))
+onBeforeUnmount(() => {
+  layoutSequence++
+  configuredLayout.value = undefined
+})
 </script>
 <style scoped lang="scss">
 .warehouse-space {
@@ -227,6 +318,13 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', fullscree
   align-items: center;
   gap: 12px;
   min-width: 0;
+}
+
+.published-layout-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
 }
 
 .space-heading {

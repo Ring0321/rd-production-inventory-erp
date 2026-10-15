@@ -37,6 +37,7 @@ import RdInventoryDashboard from '@/views/rd/dashboard/index.vue'
 import RdWarehouseSpace from '@/views/rd/stock/location-map/RdWarehouseSpace.vue'
 import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
 import { canViewBusinessFlow } from '@/views/rd/flow/flowFacts'
+import { canViewAssist } from '@/views/rd/assist/assistAccess'
 
 defineOptions({ name: 'Index' })
 
@@ -49,6 +50,13 @@ const canViewFlow = computed(() =>
   canViewBusinessFlow(userStore.getRoles, userStore.getPermissions)
 )
 const shortcuts = [
+  {
+    label: '作业智助',
+    description: '配吨、回放、识别与配置',
+    icon: 'ep:operation',
+    path: '/operations-assist',
+    permission: 'rd:package-unit:query'
+  },
   {
     label: '业务全景',
     description: '生产到发运的包件与记录',
@@ -109,11 +117,13 @@ const shortcuts = [
 
 const visibleShortcuts = computed(() =>
   shortcuts.filter((item) =>
-    item.path === '/warehouse-space'
-      ? canViewSpace.value
-      : item.path === '/business-flow'
-        ? canViewFlow.value
-        : checkPermi([item.permission])
+    item.path === '/operations-assist'
+      ? canViewAssist(userStore.getRoles, userStore.getPermissions)
+      : item.path === '/warehouse-space'
+        ? canViewSpace.value
+        : item.path === '/business-flow'
+          ? canViewFlow.value
+          : checkPermi([item.permission])
   )
 )
 </script>

@@ -299,8 +299,11 @@
           />
         </aside>
       </div>
-      <details v-if="mode === 'recorded' && scopedUnplaced.length" class="unplaced-list"
-        ><summary>位置待核库位（{{ scopedUnplaced.length }}）</summary
+      <details v-if="mode !== 'list' && scopedUnplaced.length" class="unplaced-list"
+        ><summary
+          >{{
+            configuredLayout && mode === 'schematic' ? '未配置发布位置库位' : '位置待核库位'
+          }}（{{ scopedUnplaced.length }}）</summary
         ><button
           v-for="(entry, index) in scopedUnplaced"
           :key="index"
@@ -313,17 +316,21 @@
               ? '行列重复'
               : entry.reason === 'IDENTITY_INVALID'
                 ? '身份待核'
-                : '行列未登记'
+                : configuredLayout && mode === 'schematic'
+                  ? '未配置发布位置'
+                  : '行列未登记'
           }}</button
         ></details
       >
       <footer class="map-note"
         ><span>{{
-          overview && groupKey === OVERVIEW_KEY
-            ? '全仓自建示意，库区间距非实测，不写回库位'
-            : mode === 'recorded'
-              ? '已登记行列示意，非实测比例或自动定位'
-              : '自建示意：图上排布不是现场位置，不写回ERP行列'
+          configuredLayout && mode === 'schematic'
+            ? '已发布布局示意，非实测位置或比例，不写回ERP行列'
+            : overview && groupKey === OVERVIEW_KEY
+              ? '全仓自建示意，库区间距非实测，不写回库位'
+              : mode === 'recorded'
+                ? '已登记行列示意，非实测比例或自动定位'
+                : '自建示意：图上排布不是现场位置，不写回ERP行列'
         }}</span
         ><span v-if="dimension === '3d' && mode !== 'list'">吨袋为占用图示，非实物数量或堆高</span>
         <a
@@ -382,7 +389,12 @@ import RdSpatialLocation3D from './RdSpatialLocation3D.vue'
 import { LOCATION_STATES, locationLook as status } from './locationLook'
 import { matchesLocationFilter, summarizeLocations, type LocationFilter } from './warehouseMapQuery'
 import { useMapPackageLookup } from './useMapPackageLookup'
-import { buildWarehouseOverview, OVERVIEW_KEY } from './warehouseOverview'
+import { OVERVIEW_KEY } from './warehouseOverview'
+import {
+  applyPublishedLayout,
+  buildLayoutOverview,
+  type PublishedWarehouseLayout
+} from './publishedLayout'
 const props = withDefaults(
   defineProps<{
     locations: RdPutawayLocationMapVO[]
@@ -396,6 +408,7 @@ const props = withDefaults(
     initialDimension?: '2d' | '3d'
     snapshotVersion?: number
     retainSelectionOnRefresh?: boolean
+    configuredLayout?: PublishedWarehouseLayout
   }>(),
   { highlightedIds: () => [], highlightedCodes: () => [], canSelect: false }
 )
@@ -419,12 +432,21 @@ const contextValid = ref(!!getAccessToken())
 const ownerRevision = getAuthContextRevision()
 const mapHost = ref<HTMLElement>()
 const mapError = ref('')
-const layout = computed(() =>
-  buildSpatialLayout(props.locations, mode.value === 'recorded' ? 'recorded' : 'schematic')
-)
+const layout = computed(() => {
+  const generated = buildSpatialLayout(
+    props.locations,
+    mode.value === 'recorded' ? 'recorded' : 'schematic'
+  )
+  return props.configuredLayout && mode.value === 'schematic'
+    ? applyPublishedLayout(generated, props.configuredLayout)
+    : generated
+})
 const group = computed(() =>
   props.overview && groupKey.value === OVERVIEW_KEY
-    ? buildWarehouseOverview(layout.value.groups)
+    ? buildLayoutOverview(
+        layout.value.groups,
+        mode.value === 'schematic' ? props.configuredLayout : undefined
+      )
     : layout.value.groups.find((g) => g.key === groupKey.value)
 )
 const validLocations = computed(() =>
@@ -509,7 +531,12 @@ const focusLocation = async (id: number, guard: () => boolean = valid) => {
     mode.value = 'schematic'
   await nextTick()
   if (!valid() || !guard() || version !== focusSequence) return
-  const target = layout.value.groups.find((g) => g.nodes.some((n) => n.location.id === id))
+  const pending = layout.value.unplaced.find((entry) => entry.location.id === id)
+  const target = layout.value.groups.find(
+    (g) =>
+      g.nodes.some((n) => n.location.id === id) ||
+      (pending && g.key === spatialGroupKey(pending.location))
+  )
   if (!target) return
   groupKey.value = target.key
   await nextTick()
@@ -731,7 +758,7 @@ watch(dimension, async () => {
   fit()
 })
 watch(
-  () => props.locations,
+  [() => props.locations, () => props.configuredLayout],
   async () => {
     if (!props.retainSelectionOnRefresh || !matchingIds.value.includes(activeId.value || 0))
       activeId.value = undefined

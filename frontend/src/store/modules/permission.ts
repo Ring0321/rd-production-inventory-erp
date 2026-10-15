@@ -7,6 +7,7 @@ import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { useUserStore } from './user'
 import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
 import { canViewBusinessFlow } from '@/views/rd/flow/flowFacts'
+import { canViewAssist } from '@/views/rd/assist/assistAccess'
 
 const { wsCache } = useCache()
 
@@ -29,6 +30,8 @@ export const usePermissionStore = defineStore('permission', {
       const user = useUserStore()
       return this.routers.filter(
         (route) =>
+          (route.name !== 'OperationsAssistRoot' ||
+            canViewAssist(user.getRoles, user.getPermissions)) &&
           (route.name !== 'WarehouseSpaceRoot' ||
             canViewWarehouseSpace(user.getRoles, user.getPermissions)) &&
           (route.name !== 'BusinessFlowRoot' ||
@@ -42,6 +45,8 @@ export const usePermissionStore = defineStore('permission', {
       const user = useUserStore()
       return this.menuTabRouters.filter(
         (route) =>
+          (route.name !== 'RdOperationsAssist' ||
+            canViewAssist(user.getRoles, user.getPermissions)) &&
           (route.name !== 'RdWarehouseSpace' ||
             canViewWarehouseSpace(user.getRoles, user.getPermissions)) &&
           (route.name !== 'RdBusinessFlow' ||

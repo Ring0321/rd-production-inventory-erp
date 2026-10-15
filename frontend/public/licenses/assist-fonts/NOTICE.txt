@@ -1,0 +1,18 @@
+Warehouse Assist SC Regular - derived from official Noto Sans SC
+
+© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+
+License: SIL Open Font License 1.1 (OFL-1.1).
+The complete, byte-identical upstream license is in OFL.txt.
+
+Modification: pinned the sole variable axis wght to 400 using fontTools;
+no glyph subsetting; renamed the derivative's internal family to Warehouse
+Assist SC and its PostScript name to WarehouseAssistSC-Regular.
+The filename NotoSansSC-Regular.ttf is an application compatibility alias,
+not a claim that the modified binary is an original upstream release.
+Original copyright, trademark, author and license name records are retained.
+No endorsement by Google, Adobe or the Noto project is claimed.
+
+Redistribute this font under OFL-1.1 with this notice and OFL.txt. Do not
+sell it by itself. OFL does not require PDFs created with it to be OFL.
+No proprietary OS font is used; runtime loading is local only.

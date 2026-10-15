@@ -1,0 +1,11 @@
+{
+  "name": "keycon",
+  "version": "1.4.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daybrush/keycon.git"
+  },
+  "author": "Daybrush",
+  "notice": "Published metadata declares this license but ships no separate notice. Retained as provenance, not a legal compliance certification."
+}
