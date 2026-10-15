@@ -52,7 +52,7 @@ for(const pkg of oldManifest.packages) for(const notice of pkg.licenses) {
 const oldIcons=JSON.parse(git(['show',prefix+oldBase+'Lucide-source-declaration.json']).toString('utf8'))
 assert.equal(hash(git(['show',prefix+'frontend/src/plugins/svgIcon/qr-workbench-icons.json'])),oldIcons.selectedIconsSha256)
 assert.equal(hash(fs.readFileSync(path.join(root,'frontend/dist-prod/assets/zxing_reader-DUHi_9Vq.wasm'))),oldManifest.reader.sha256)
-const result={mode:head?'HEAD':'INDEX',result:'PASS',changedFiles:names.length,newPackages:manifest.packages.length,newNoticeFiles:newNotices,originalNoticesUnchanged:originalNotices,originalIconsAndWasmUnchanged:true,fontHashVerified:true,protectedCredentialMatches:0,commercialLicenseClearance:false}
+const result={mode:head?'HEAD':'INDEX',verifiedCommit:head?git(['rev-parse','HEAD']).toString('utf8').trim():null,result:'PASS',changedFiles:names.length,newPackages:manifest.packages.length,newNoticeFiles:newNotices,originalNoticesUnchanged:originalNotices,originalIconsAndWasmUnchanged:true,fontHashVerified:true,protectedCredentialMatches:0,commercialLicenseClearance:false}
 if(process.argv.includes('--record')) {
   const folder=path.join(root,'temp/reuse-verification');fs.mkdirSync(folder,{recursive:true})
   fs.writeFileSync(path.join(folder,head?'source-head-result.json':'source-index-result.json'),JSON.stringify(result,null,2))
