@@ -10,6 +10,7 @@ import { useUserStoreWithOut } from '@/store/modules/user'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { parseRouteLocation } from '@/utils/routeParams'
 import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
+import { canViewBusinessFlow } from '@/views/rd/flow/flowFacts'
 
 const { start, done } = useNProgress()
 
@@ -59,6 +60,13 @@ router.beforeEach(async (to, from, next) => {
           next('/403')
           return
         }
+        if (
+          to.name === 'RdBusinessFlow' &&
+          !canViewBusinessFlow(userStore.getRoles, userStore.getPermissions)
+        ) {
+          next('/403')
+          return
+        }
         const redirectPath = from.query.redirect
         // 修复跳转时不带参数的问题
         const redirect = typeof redirectPath === 'string' ? redirectPath : to.fullPath
@@ -70,6 +78,13 @@ router.beforeEach(async (to, from, next) => {
         if (
           to.name === 'RdWarehouseSpace' &&
           !canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)
+        ) {
+          next('/403')
+          return
+        }
+        if (
+          to.name === 'RdBusinessFlow' &&
+          !canViewBusinessFlow(userStore.getRoles, userStore.getPermissions)
         ) {
           next('/403')
           return

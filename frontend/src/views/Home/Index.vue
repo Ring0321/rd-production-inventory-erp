@@ -36,6 +36,7 @@ import { useUserStore } from '@/store/modules/user'
 import RdInventoryDashboard from '@/views/rd/dashboard/index.vue'
 import RdWarehouseSpace from '@/views/rd/stock/location-map/RdWarehouseSpace.vue'
 import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
+import { canViewBusinessFlow } from '@/views/rd/flow/flowFacts'
 
 defineOptions({ name: 'Index' })
 
@@ -44,7 +45,17 @@ const userStore = useUserStore()
 const canViewSpace = computed(() =>
   canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)
 )
+const canViewFlow = computed(() =>
+  canViewBusinessFlow(userStore.getRoles, userStore.getPermissions)
+)
 const shortcuts = [
+  {
+    label: '业务全景',
+    description: '生产到发运的包件与记录',
+    icon: 'lucide:workflow',
+    path: '/business-flow',
+    permission: 'rd:package-unit:query'
+  },
   {
     label: '仓储空间',
     description: '全仓库存与库区',
@@ -98,7 +109,11 @@ const shortcuts = [
 
 const visibleShortcuts = computed(() =>
   shortcuts.filter((item) =>
-    item.path === '/warehouse-space' ? canViewSpace.value : checkPermi([item.permission])
+    item.path === '/warehouse-space'
+      ? canViewSpace.value
+      : item.path === '/business-flow'
+        ? canViewFlow.value
+        : checkPermi([item.permission])
   )
 )
 </script>

@@ -6,6 +6,7 @@ import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { useUserStore } from './user'
 import { canViewWarehouseSpace } from '@/views/rd/stock/location-map/warehouseSpaceAccess'
+import { canViewBusinessFlow } from '@/views/rd/flow/flowFacts'
 
 const { wsCache } = useCache()
 
@@ -28,8 +29,10 @@ export const usePermissionStore = defineStore('permission', {
       const user = useUserStore()
       return this.routers.filter(
         (route) =>
-          route.name !== 'WarehouseSpaceRoot' ||
-          canViewWarehouseSpace(user.getRoles, user.getPermissions)
+          (route.name !== 'WarehouseSpaceRoot' ||
+            canViewWarehouseSpace(user.getRoles, user.getPermissions)) &&
+          (route.name !== 'BusinessFlowRoot' ||
+            canViewBusinessFlow(user.getRoles, user.getPermissions))
       )
     },
     getAddRouters(): AppRouteRecordRaw[] {
@@ -39,8 +42,10 @@ export const usePermissionStore = defineStore('permission', {
       const user = useUserStore()
       return this.menuTabRouters.filter(
         (route) =>
-          route.name !== 'RdWarehouseSpace' ||
-          canViewWarehouseSpace(user.getRoles, user.getPermissions)
+          (route.name !== 'RdWarehouseSpace' ||
+            canViewWarehouseSpace(user.getRoles, user.getPermissions)) &&
+          (route.name !== 'RdBusinessFlow' ||
+            canViewBusinessFlow(user.getRoles, user.getPermissions))
       )
     },
     getMenuRootPath(): string {

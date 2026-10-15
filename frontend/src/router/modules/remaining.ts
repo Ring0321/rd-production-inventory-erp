@@ -38,6 +38,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/business-flow',
+    component: Layout,
+    name: 'BusinessFlowRoot',
+    meta: { title: '业务全景', icon: 'lucide:workflow' },
+    children: [
+      {
+        path: '',
+        name: 'RdBusinessFlow',
+        component: () => import('@/views/rd/flow/index.vue'),
+        meta: { title: '业务全景', icon: 'lucide:workflow', canTo: true, noCache: true }
+      }
+    ]
+  },
+  {
     path: '/warehouse-space',
     component: Layout,
     name: 'WarehouseSpaceRoot',

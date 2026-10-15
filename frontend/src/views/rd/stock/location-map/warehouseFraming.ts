@@ -26,5 +26,5 @@ export const warehouseFrameDistance = (
           corner.z + Math.abs(corner.y) / vertical
         )
       }
-  return distance * 1.12
+  return distance * (aspect < 1 ? 1.06 : 1.12)
 }

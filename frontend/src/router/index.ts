@@ -37,6 +37,8 @@ export const resetRouter = (): void => {
     'PackageTrace',
     'WarehouseSpaceRoot',
     'RdWarehouseSpace',
+    'BusinessFlowRoot',
+    'RdBusinessFlow',
     'NoAccess',
     'NoFound',
     'Home',
