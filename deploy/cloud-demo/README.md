@@ -72,6 +72,8 @@ GLM 真调用关闭；原一包一码、仓管扫码与位置维护、司机仅�
 
 恢复连接并完成现有依赖风险复核后：
 
+2026-10-18 已完成生产依赖补强，本地产物的生产审计为 0，实际登录/3D/标签回归通过；全量开发工具链告警和既有样式问题仍保留，见 `docs/acceptance/演示上线前依赖安全复核记录-20261018.md`。待上传包已改为 `frontend-security-admin-entry-20261018.tar.gz`，SHA-256 为 `7d436a16e76328d4114533ec54b12c6e563cd70349b7212607a40befd6979c84`。这是本地发行包，不表示云端已更新；不要再使用前次旧依赖包，也不要开放本机开发工具端口。
+
 1. 备份 ERP 自有库及原网关配置；将最新 `frontend/dist-prod` 的内容归档为前端包，计算 SHA-256。
 2. 将前端归档和本目录脚本上传到 ERP 专属 `incoming/`，与客户端摘要核对。
 3. 执行 `sudo python3 /srv/apps/duoxu-erp-demo/incoming/configure_demo_login.py --frontend /srv/apps/duoxu-erp-demo/incoming/<frontend.tar.gz> --sha256 <SHA256>`。不要重跑空库初始化或覆盖原完整 current 发行版。

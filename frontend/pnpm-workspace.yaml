@@ -3,3 +3,13 @@ allowBuilds:
   core-js-pure: true
   es5-ext: true
   esbuild: true
+
+# Security fixes stay within each installed major version.
+overrides:
+  'defu@>=6.0.0 <6.1.5': 6.1.5
+  'dompurify@>=3.0.0 <3.4.16': 3.4.16
+  'form-data@>=4.0.0 <4.0.6': 4.0.6
+  'nanoid@>=3.0.0 <3.3.18': 3.3.18
+  'picomatch@>=4.0.0 <4.0.4': 4.0.4
+  'postcss@>=8.0.0 <8.5.23': ^8.5.23
+  'source-map-js@>=1.0.0 <1.2.2': 1.2.2
