@@ -63,3 +63,21 @@ GLM 真调用关闭；原一包一码、仓管扫码与位置维护、司机仅�
 硬件实扫、打印机、厂区网络与岗位签字、正式容量和完整商业许可审查仍属原计划未完成项。云端演示不替代现场验收，也不把企事通/智行导引方案文件记作已接入的功能。
 
 来源：[Let's Encrypt IP certificate](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability)、[lego](https://go-acme.github.io/lego/)、[uv](https://github.com/astral-sh/uv)、[Redis](https://github.com/redis/redis)。固定发布 URL 和 SHA-256 记录在 `prepare_host.py` 及服务器自身 provenance 文件中。
+
+## 固定 admin 演示入口增量更新（待云端执行）
+
+`configure_demo_login.py` 仅适用于已完成上述部署、明确标记为合成演示的实例，不是生产初始化工具。2026-10-18 本轮因 SSH 22 连接超时尚未执行，云端当前账号和页面未变化。
+
+前端从同源 `demo-login.json` 获取专门的公开账号配置，未部署此文件时正常登录不变。不要把私有管理凭据放进前端环境变量或此公开文件。
+
+恢复连接并完成现有依赖风险复核后：
+
+1. 备份 ERP 自有库及原网关配置；将最新 `frontend/dist-prod` 的内容归档为前端包，计算 SHA-256。
+2. 将前端归档和本目录脚本上传到 ERP 专属 `incoming/`，与客户端摘要核对。
+3. 执行 `sudo python3 /srv/apps/duoxu-erp-demo/incoming/configure_demo_login.py --frontend /srv/apps/duoxu-erp-demo/incoming/<frontend.tar.gz> --sha256 <SHA256>`。不要重跑空库初始化或覆盖原完整 current 发行版。
+4. 脚本通过原 RBAC API 创建独立业务演示账号与角色；原 id=1 管理员改名 `erpmaintadmin`，密码不变；新账号 admin 不含系统/基础设施维护权限。不改变原业务数据或本人/双人复核边界。
+5. 网关读取 root 控制的公开配置，仅切换本应用的前端 root，并禁止公网自助改密；私有管理员仍通过原权限控制的密码重置接口管理账号。
+6. 立即使用 `export_access.py` 重新导出本机受限登录资料并更新交付文件，验证新私有账号名后再继续。不要在终端/聊天打印该输出。`verify_cloud.py` 将通过更新后的文件使用私有维护账号。
+7. 验证公网一键登录、业务动作、系统管理拒绝、改密路径变体拒绝、退出和刷新；回归原二维码/地图/岗位，确认原三个受保护服务及关键文件未变后记录完成。
+
+新增 `test_demo_login.py` 覆盖权限筛选、私有管理员保留、公开密码隔离、重复执行、意外越权拒绝、归档摘要/路径/链接校验及网关配置失败回滚。它是模拟边界测试，不替代真实服务器验收。

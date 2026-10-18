@@ -10,15 +10,44 @@
   >
     <div class="login-heading">
       <LoginFormTitle />
-      <span>一期开发环境</span>
+      <span>{{ demoLogin ? '在线演示' : '一期开发环境' }}</span>
     </div>
 
+    <section v-if="demoLogin" class="demo-access" aria-label="admin 演示账号">
+      <div class="demo-heading">
+        <Icon icon="ep:user-filled" />
+        <strong>admin 演示账号</strong>
+        <span>业务体验</span>
+      </div>
+      <dl class="demo-credentials">
+        <dt>账号</dt><dd>{{ demoLogin.username }}</dd> <dt>密码</dt
+        ><dd>{{ demoLogin.password }}</dd>
+      </dl>
+      <el-button
+        :loading="loginLoading"
+        :disabled="loginLoading || !authReady"
+        class="demo-button"
+        type="primary"
+        plain
+        @click="enterDemo"
+      >
+        <Icon icon="ep:right" /> 一键进入演示
+      </el-button>
+      <p>共享演示数据，可操作业务；系统维护权限独立保留。</p>
+    </section>
+
     <el-form-item prop="username">
-      <el-input v-model="loginForm.username" placeholder="账号" :prefix-icon="iconAvatar" />
+      <el-input
+        v-model="loginForm.username"
+        aria-label="账号"
+        placeholder="账号"
+        :prefix-icon="iconAvatar"
+      />
     </el-form-item>
     <el-form-item prop="password">
       <el-input
         v-model="loginForm.password"
+        aria-label="密码"
         placeholder="密码"
         :prefix-icon="iconLock"
         show-password
@@ -60,7 +89,11 @@
         :key="provider"
         :content="socialProviderName(provider)"
       >
-        <el-button circle :aria-label="socialProviderName(provider)" @click="doSocialLogin(provider)">
+        <el-button
+          circle
+          :aria-label="socialProviderName(provider)"
+          @click="doSocialLogin(provider)"
+        >
           <Icon :icon="socialProviderIcon(provider)" />
         </el-button>
       </el-tooltip>
@@ -78,6 +111,8 @@ import * as LoginApi from '@/api/login'
 import type { AuthCapabilitiesVO } from '@/api/login'
 import LoginFormTitle from './LoginFormTitle.vue'
 import { LoginStateEnum, useFormValid, useLoginState } from './useLogin'
+import { loadPublicDemoLogin } from './demoLogin'
+import type { PublicDemoLogin } from './demoLogin'
 
 defineOptions({ name: 'LoginForm' })
 
@@ -90,6 +125,8 @@ const { currentRoute, push } = useRouter()
 const permissionStore = usePermissionStore()
 const redirect = ref('')
 const loginLoading = ref(false)
+const demoLogin = ref<PublicDemoLogin | null>(null)
+const authReady = ref(false)
 const verify = ref()
 const captchaType = ref('blockPuzzle')
 const getShow = computed(() => unref(getLoginState) === LoginStateEnum.LOGIN)
@@ -112,8 +149,16 @@ const loginForm = reactive({
 })
 
 const getCode = async () => {
+  if (loginLoading.value) return
   if (capabilities.captcha) verify.value?.show()
   else await handleLogin({})
+}
+
+const enterDemo = async () => {
+  if (!demoLogin.value || loginLoading.value) return
+  loginForm.username = demoLogin.value.username
+  loginForm.password = demoLogin.value.password
+  await getCode()
 }
 
 const handleLogin = async (params: { captchaVerification?: string }) => {
@@ -169,19 +214,23 @@ const doSocialLogin = async (type: number) => {
 watch(
   () => currentRoute.value,
   (route: RouteLocationNormalizedLoaded) => {
-    redirect.value = route.query.redirect as string || ''
+    redirect.value = (route.query.redirect as string) || ''
   },
   { immediate: true }
 )
 
 onMounted(async () => {
   authUtil.setTenantId(1)
+  void loadPublicDemoLogin(import.meta.env.BASE_URL).then((config) => {
+    demoLogin.value = config
+  })
   const cached = authUtil.getLoginForm()
   if (cached) {
     loginForm.username = cached.username || ''
     loginForm.rememberMe = cached.rememberMe
   }
   Object.assign(capabilities, await LoginApi.getAuthCapabilities())
+  authReady.value = true
 })
 </script>
 
@@ -225,6 +274,56 @@ onMounted(async () => {
 .login-button {
   width: 100%;
   margin-top: 10px;
+}
+
+.demo-access {
+  padding-bottom: 20px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #e2e7ec;
+}
+
+.demo-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.demo-heading span {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: #607079;
+}
+
+.demo-credentials {
+  display: grid;
+  margin: 14px 0;
+  font-size: 14px;
+  line-height: 1.7;
+  gap: 4px 16px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.demo-credentials dt {
+  color: #607079;
+}
+
+.demo-credentials dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: Consolas, monospace;
+}
+
+.demo-button {
+  width: 100%;
+}
+
+.demo-access p {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #68747b;
 }
 
 .alternate-login {
