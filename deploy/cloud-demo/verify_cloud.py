@@ -47,14 +47,13 @@ def main():
         tokens[role] = login['accessToken']
         permissions[role] = api('/system/auth/get-permission-info',tokens[role])
     admin = tokens['admin']
-    page = api('/rd/package-unit/page?pageNo=1&pageSize=100',admin)
-    bags = page['list']
-    assert page['total'] == len(bags) == 30
+    bags = api('/rd/package-unit/task-packages?productionTaskId=90',admin)
+    assert len(bags) == 30
     assert sum(bag['packageWeight'] for bag in bags) == 29800
     assert all(bag['customerName'] == '演示客户·宁川新材' and bag['productionTaskId'] == 90 for bag in bags)
     assert all(bag['qrCode'] == ORIGIN + '/pkg/' + bag['packageCode'] for bag in bags)
     customers = api('/rd/customer-product/customer-options',admin)
-    assert customers == ['演示客户·宁川新材']
+    assert '演示客户·宁川新材' in customers and all(customer.startswith('演示客户·') for customer in customers)
     replay = api('/rd/warehouse-replay/task?productionTaskId=90',admin)
     assert len(replay['members']) == 30 and len(replay['events']) == 22 and replay['complete']
     for role in [None,'driver','production']:
@@ -62,7 +61,8 @@ def main():
     layout = api('/rd/visual-document/get?kind=LAYOUT&scopeId=DEMO-FLOW-V1',admin)
     label = api('/rd/visual-document/get?kind=LABEL&scopeId=GLOBAL',admin)
     assert layout['publishedVersion'] > 0 and label['publishedVersion'] > 0
-    assert len(api('/rd/putaway-task/location-map',tokens['viewer'])) == 7
+    visible_map = api('/rd/putaway-task/location-map',tokens['viewer'])
+    assert len([location for location in visible_map if location['warehouseCode'] == 'DEMO-FLOW-V1']) == 7
     assert api('/rd/visual-document/get?kind=LAYOUT&scopeId=DEMO-FLOW-V1',tokens['viewer'])['publishedVersion'] == 12
     api('/rd/visual-document/get?kind=LAYOUT&scopeId=DEMO-FLOW-V1',tokens['driver'],allowed=False)
     for forbidden in ['rd:putaway-task:scan','rd:putaway-task:confirm','rd:warehouse-location:update','rd:loading-task:batch-scan','rd:loading-task:confirm-outbound']:

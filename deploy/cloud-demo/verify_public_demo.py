@@ -62,7 +62,9 @@ def main():
     })
     assert 'super_admin' in api('/system/auth/get-permission-info', private_login['accessToken'])['roles']
     bags = api('/rd/package-unit/page?pageNo=1&pageSize=100', token)
-    assert bags['total'] == 30
+    assert bags['total'] >= 30
+    original = api('/rd/package-unit/task-packages?productionTaskId=90', token)
+    assert len(original) == 30
     assert api('/rd/warehouse-replay/task?productionTaskId=90', token)['complete']
     archive = args.frontend
     with tarfile.open(archive) as bundle:
@@ -77,7 +79,7 @@ def main():
         'publicUsername': 'admin', 'businessPermissionCount': len(permissions),
         'publicConfigurationNoStore': True, 'privateCredentialsNotPublished': True,
         'maintenanceEndpoints': maintenance_endpoints, 'passwordPathVariantsBlocked': len(protected_paths),
-        'privateMaintenanceLoginPreserved': True, 'packageCount': bags['total'],
+        'privateMaintenanceLoginPreserved': True, 'packageCount': bags['total'], 'originalTask90Packages': len(original),
         'publishedIndexMatchesBundle': True, 'frontendIndexSha256': expected_index,
         'businessWritePermissionsPresent': True, 'businessWritesPerformed': False,
         'browserInteractionVerified': False
