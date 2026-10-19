@@ -4,7 +4,7 @@ import { locationLook } from './locationLook'
 export interface Warehouse3DBin {
   id: number
   code: string
-  center: { x: number; z: number }
+  center: { x: number; y?: number; z: number }
   size: { x: number; z: number }
   height: number
   glyph: 'EMPTY' | 'OCCUPIED' | 'UNKNOWN'
@@ -31,6 +31,12 @@ export const buildWarehouse3D = (nodes: SpatialNode[]) => {
         code: location.locationCode,
         center: {
           x: (node.box.x + node.box.width / 2) / 40,
+          y:
+            Number.isSafeInteger(node.displayTier) &&
+            node.displayTier! >= 0 &&
+            node.displayTier! < 8
+              ? node.displayTier! * 2.8
+              : 0,
           z: (-node.box.y + node.box.height / 2) / 40
         },
         size: { x: node.box.width / 40, z: node.box.height / 40 },

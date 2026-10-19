@@ -10,6 +10,7 @@ export const createWarehouseShell = (bounds: THREE.Box3) => {
   const depth = maxZ - minZ
   const centerX = (minX + maxX) / 2
   const centerZ = (minZ + maxZ) / 2
+  const frameHeight = Math.max(2.6, bounds.max.y + 0.8)
   const concrete = new THREE.MeshStandardMaterial({ color: '#e5e9e8', roughness: 0.95 })
   const edge = new THREE.MeshStandardMaterial({ color: '#bbc5c5', roughness: 0.9 })
   const steel = new THREE.MeshStandardMaterial({
@@ -44,18 +45,18 @@ export const createWarehouseShell = (bounds: THREE.Box3) => {
   group.add(frame)
   box(frame, [width, 1.25, 0.12], [centerX, 0.62, minZ], wall)
   box(frame, [0.12, 1.25, depth], [minX, 0.62, centerZ], wall)
-  box(frame, [width, 0.18, 0.2], [centerX, 2.55, minZ], steel)
-  box(frame, [0.2, 0.18, depth], [minX, 2.55, centerZ], steel)
+  box(frame, [width, 0.18, 0.2], [centerX, frameHeight - 0.05, minZ], steel)
+  box(frame, [0.2, 0.18, depth], [minX, frameHeight - 0.05, centerZ], steel)
   const rearPosts = Math.min(10, Math.max(2, Math.ceil(width / 4)))
   const sidePosts = Math.min(10, Math.max(2, Math.ceil(depth / 4)))
   for (let index = 0; index <= rearPosts; index++) {
     const x = minX + (index / rearPosts) * width
-    box(frame, [0.15, 2.6, 0.15], [x, 1.3, minZ], steel)
+    box(frame, [0.15, frameHeight, 0.15], [x, frameHeight / 2, minZ], steel)
     box(frame, [0.3, 0.42, 0.3], [x, 0.21, minZ], yellow)
   }
   for (let index = 1; index <= sidePosts; index++) {
     const z = minZ + (index / sidePosts) * depth
-    box(frame, [0.15, 2.6, 0.15], [minX, 1.3, z], steel)
+    box(frame, [0.15, frameHeight, 0.15], [minX, frameHeight / 2, z], steel)
     box(frame, [0.3, 0.42, 0.3], [minX, 0.21, z], yellow)
   }
   const markings = new THREE.Group()

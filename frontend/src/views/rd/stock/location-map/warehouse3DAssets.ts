@@ -83,8 +83,32 @@ export const createBinSymbol = (
   muted = false
 ) => {
   const group = new THREE.Group()
-  group.position.set(bin.center.x, 0, bin.center.z)
+  const elevation = bin.center.y || 0
+  group.position.set(bin.center.x, elevation, bin.center.z)
   group.userData.locationId = bin.id
+  if (elevation > 0) {
+    const steel = new THREE.MeshStandardMaterial({
+      color: '#526d7c',
+      roughness: 0.65,
+      metalness: 0.3
+    })
+    const rack = new THREE.Group()
+    rack.name = 'registered-tier-support'
+    for (const x of [-bin.size.x / 2 + 0.08, bin.size.x / 2 - 0.08]) {
+      for (const z of [-bin.size.z / 2 + 0.08, bin.size.z / 2 - 0.08]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, elevation + 0.2, 0.1), steel)
+        post.position.set(x, -elevation / 2 + 0.1, z)
+        post.castShadow = true
+        rack.add(post)
+      }
+    }
+    for (const z of [-bin.size.z / 2, bin.size.z / 2]) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(bin.size.x, 0.16, 0.12), steel)
+      beam.position.set(0, -0.08, z)
+      rack.add(beam)
+    }
+    group.add(rack)
+  }
   const pad = new THREE.Mesh(
     new THREE.BoxGeometry(bin.size.x, 0.14, bin.size.z),
     new THREE.MeshStandardMaterial({ color: bin.state.fill, roughness: 0.95 })

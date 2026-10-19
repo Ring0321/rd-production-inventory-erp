@@ -55,6 +55,15 @@ const setup = (locations, extra = {}) => {
       readFileSync(new URL('./warehouseOverview.ts', import.meta.url), 'utf8'),
       { './spatialLayout': model }
     ),
+    './warehouseTiers': evaluateSource(
+      readFileSync(new URL('./warehouseTiers.ts', import.meta.url), 'utf8'),
+      {
+        './warehouseOverview': evaluateSource(
+          readFileSync(new URL('./warehouseOverview.ts', import.meta.url), 'utf8'),
+          { './spatialLayout': model }
+        )
+      }
+    ),
     './locationLook': evaluateSource(
       readFileSync(new URL('./locationLook.ts', import.meta.url), 'utf8')
     ),
@@ -89,7 +98,7 @@ const setup = (locations, extra = {}) => {
   return {
     ...evaluateSource(
       source +
-        '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable, filter, matchingIds, focusLocation, selectLocation, summary, mode, scopedUnplaced, queryExpanded, toggleQuery };',
+        '\nexport { contextValid, dimension, fallbackToPlane, threeUnavailable, filter, matchingIds, focusLocation, selectLocation, summary, mode, scopedUnplaced, queryExpanded, toggleQuery, activeTier, tierView, threeNodes };',
       imports,
       globals
     ),
@@ -108,6 +117,30 @@ const location = (id, warehouseCode = 'W1') => ({
   enabled: true,
   frozen: false,
   displayStatus: 'EMPTY'
+})
+
+test('tier isolation updates the drawing and real range totals without changing input stock', async () => {
+  const input = [
+    {
+      ...location(1),
+      levelCode: '01',
+      columnCode: '01',
+      occupiedPackages: 3,
+      occupiedWeight: 3000
+    },
+    { ...location(2), levelCode: '02', columnCode: '01', occupiedPackages: 5, occupiedWeight: 5000 }
+  ]
+  const before = JSON.stringify(input)
+  const s = setup(input, { overview: true, initialDimension: '3d' })
+  assert.equal(s.threeNodes.value.length, 2)
+  assert.equal(s.threeNodes.value[1].displayTier, 1)
+  s.activeTier.value = '02'
+  await vue.nextTick()
+  assert.equal(s.threeNodes.value.length, 1)
+  assert.equal(s.summary.value.packages, 5)
+  s.tierView.value = 'spread'
+  assert.equal(s.threeNodes.value[0].displayTier, undefined)
+  assert.equal(JSON.stringify(input), before)
 })
 
 test('inspecting a manually selected group does not jump back to a task highlight', async () => {

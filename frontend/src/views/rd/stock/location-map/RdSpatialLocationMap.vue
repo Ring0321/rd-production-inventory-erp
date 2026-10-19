@@ -19,6 +19,33 @@
           <el-radio-button value="recorded">已登记行列</el-radio-button>
           <el-radio-button value="list">清单</el-radio-button>
         </el-radio-group>
+        <template v-if="dimension === '3d' && mode !== 'list' && tierOptions.length > 1">
+          <el-radio-group
+            v-if="overview && groupKey === OVERVIEW_KEY && !configuredLayout"
+            v-model="tierView"
+            size="small"
+            aria-label="层级展示方式"
+            @change="cancelLookup"
+          >
+            <el-radio-button value="stacked">上下叠层</el-radio-button>
+            <el-radio-button value="spread">分层平铺</el-radio-button>
+          </el-radio-group>
+          <el-select
+            v-model="activeTier"
+            class="tier-select"
+            aria-label="查看库位层级"
+            :empty-values="[null, undefined]"
+            @change="cancelLookup"
+          >
+            <el-option label="全部层级" value="" />
+            <el-option
+              v-for="tier in tierOptions"
+              :key="tier.value"
+              :label="tier.label"
+              :value="tier.value"
+            />
+          </el-select>
+        </template>
         <el-radio-group
           v-if="mode !== 'list'"
           v-model="dimension"
@@ -198,7 +225,7 @@
           <RdSpatialLocation3D
             v-if="mode !== 'list' && dimension === '3d'"
             ref="threeView"
-            :nodes="group?.nodes || []"
+            :nodes="threeNodes"
             :selected-id="activeId"
             :highlighted-ids="resolvedHighlights"
             :matching-ids="matchingIds"
@@ -390,6 +417,7 @@ import { LOCATION_STATES, locationLook as status } from './locationLook'
 import { matchesLocationFilter, summarizeLocations, type LocationFilter } from './warehouseMapQuery'
 import { useMapPackageLookup } from './useMapPackageLookup'
 import { OVERVIEW_KEY } from './warehouseOverview'
+import { buildTieredWarehouseOverview, warehouseTierOptions } from './warehouseTiers'
 import {
   applyPublishedLayout,
   buildLayoutOverview,
@@ -426,6 +454,8 @@ const threeUnavailable = ref(false)
 const threeView = ref<InstanceType<typeof RdSpatialLocation3D>>()
 const groupKey = ref(props.overview ? OVERVIEW_KEY : '')
 const filter = ref<LocationFilter>('ALL')
+const tierView = ref<'stacked' | 'spread'>('stacked')
+const activeTier = ref('')
 const queryExpanded = ref(!props.showcase)
 const activeId = ref<number>()
 const contextValid = ref(!!getAccessToken())
@@ -452,10 +482,30 @@ const group = computed(() =>
 const validLocations = computed(() =>
   props.locations.filter((l) => isLocationIdentityValid(props.locations, l.id))
 )
+const tierOptions = computed(() => warehouseTierOptions(validLocations.value))
+const threeNodes = computed(() => {
+  const nodes =
+    props.overview &&
+    groupKey.value === OVERVIEW_KEY &&
+    tierView.value === 'stacked' &&
+    !props.configuredLayout
+      ? buildTieredWarehouseOverview(layout.value.groups).nodes
+      : group.value?.nodes || []
+  return nodes.filter(
+    (node) => !activeTier.value || node.location.levelCode?.trim() === activeTier.value
+  )
+})
 const rangeLocations = computed(() =>
-  mode.value === 'list' || (props.overview && groupKey.value === OVERVIEW_KEY)
+  (mode.value === 'list' || (props.overview && groupKey.value === OVERVIEW_KEY)
     ? validLocations.value
     : validLocations.value.filter((l) => !!group.value && spatialGroupKey(l) === group.value.key)
+  ).filter(
+    (location) =>
+      dimension.value !== '3d' ||
+      mode.value === 'list' ||
+      !activeTier.value ||
+      location.levelCode?.trim() === activeTier.value
+  )
 )
 const matchingLocations = computed(() =>
   rangeLocations.value.filter((l) => matchesLocationFilter(l, filter.value))
@@ -527,6 +577,7 @@ const focusLocation = async (id: number, guard: () => boolean = valid) => {
   const version = ++focusSequence
   if (!valid() || !guard() || !isLocationIdentityValid(props.locations, id)) return
   filter.value = 'ALL'
+  activeTier.value = ''
   if (!layout.value.groups.some((g) => g.nodes.some((n) => n.location.id === id)))
     mode.value = 'schematic'
   await nextTick()
@@ -745,6 +796,7 @@ watch(
   { immediate: true }
 )
 watch([groupKey, mode], async () => {
+  activeTier.value = ''
   if (props.overview) emit('scope', groupKey.value)
   activeId.value = undefined
   destroy()
@@ -789,6 +841,13 @@ watch(activeId, () => {
 watch(filter, () => {
   activeId.value = undefined
   void paint()
+})
+watch(activeTier, () => {
+  activeId.value = undefined
+})
+watch(tierOptions, (options) => {
+  if (activeTier.value && !options.some((option) => option.value === activeTier.value))
+    activeTier.value = ''
 })
 const invalidateContext = () => {
   cancelLookup()
@@ -860,6 +919,11 @@ defineExpose({
 
 .group-select {
   width: 300px;
+  max-width: 100%;
+}
+
+.tier-select {
+  width: 150px;
   max-width: 100%;
 }
 

@@ -100,15 +100,19 @@ export const createWarehouseScene = (
       const projections = bins.map((bin) => {
         const anchor = new THREE.Vector3(
           bin.center.x,
-          0.2,
+          (bin.center.y || 0) + 0.2,
           bin.center.z + bin.size.z / 2 - 0.1
         ).project(camera)
-        const left = new THREE.Vector3(bin.center.x - bin.size.x / 2, 0.2, bin.center.z).project(
-          camera
-        )
-        const right = new THREE.Vector3(bin.center.x + bin.size.x / 2, 0.2, bin.center.z).project(
-          camera
-        )
+        const left = new THREE.Vector3(
+          bin.center.x - bin.size.x / 2,
+          (bin.center.y || 0) + 0.2,
+          bin.center.z
+        ).project(camera)
+        const right = new THREE.Vector3(
+          bin.center.x + bin.size.x / 2,
+          (bin.center.y || 0) + 0.2,
+          bin.center.z
+        ).project(camera)
         const screenWidth = Math.hypot(
           ((right.x - left.x) * width) / 2,
           ((right.y - left.y) * height) / 2
@@ -160,7 +164,7 @@ export const createWarehouseScene = (
         box.expandByPoint(
           new THREE.Vector3(
             bin.center.x + bin.size.x / 2 + 0.4,
-            bin.height,
+            (bin.center.y || 0) + bin.height,
             bin.center.z + bin.size.z / 2 + 0.4
           )
         )
@@ -266,6 +270,7 @@ export const createWarehouseScene = (
             values.map((bin) => [
               bin.id,
               bin.center.x,
+              bin.center.y || 0,
               bin.center.z,
               bin.size.x,
               bin.size.z,

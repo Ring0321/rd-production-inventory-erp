@@ -5,6 +5,7 @@ export interface SpatialNode {
   location: RdPutawayLocationMapVO
   box: { x: number; y: number; width: number; height: number }
   positionBasis: 'RECORDED_ROW_COLUMN' | 'SCHEMATIC_ORDER'
+  displayTier?: number
 }
 export interface SpatialGroup {
   key: string

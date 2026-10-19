@@ -139,6 +139,9 @@ const setupView = () => {
         './spatialLayout': spatial,
         './publishedLayout': f,
         './warehouseOverview': overview,
+        './warehouseTiers': evaluateSource(read('./warehouseTiers.ts'), {
+          './warehouseOverview': overview
+        }),
         './locationLook': look,
         './warehouseMapQuery': evaluateSource(read('./warehouseMapQuery.ts'), {
           './spatialLayout': spatial,
