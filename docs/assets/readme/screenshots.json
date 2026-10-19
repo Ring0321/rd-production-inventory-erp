@@ -1,0 +1,42 @@
+{
+  "capturedOn": "2026-10-20",
+  "timezone": "Asia/Shanghai",
+  "origin": "https://101.42.182.117",
+  "syntheticDemoOnly": true,
+  "originalScreenshotBytesPreserved": true,
+  "acceptanceRecord": "docs/acceptance/云端演示扩容与双层库位验收记录-20261020.md",
+  "images": [
+    {
+      "file": "warehouse-overview.png",
+      "sourceScreenshot": "12-fullscreen-double-tier.png",
+      "sha256": "5eabb2cc488ff9ee13727fbeddc78e752a407f8e7be51d3b87611b2bc2bce762",
+      "bytes": 167869,
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "warehouse-detail.png",
+      "sourceScreenshot": "04-upper-tier-details.png",
+      "sha256": "77043c399acc8b303d0b34b37b30c69f46a3ef8e4df9b0ef20038a19fbe332a4",
+      "bytes": 165049,
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "product-master.png",
+      "sourceScreenshot": "11-product-master.png",
+      "sha256": "513701748919e9d75a1b136cea973655f44df1a2195a7e9e77ceaac2d08bb74e",
+      "bytes": 117870,
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "warehouse-mobile.png",
+      "sourceScreenshot": "08-mobile-double-tier.png",
+      "sha256": "aff30f0921786079c8cdcc52a5a78fd8c2a167d0b4bc53fba04cbc24a1b28ca2",
+      "bytes": 67723,
+      "width": 390,
+      "height": 844
+    }
+  ]
+}
