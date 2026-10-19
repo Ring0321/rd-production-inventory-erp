@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElButton, ElMessageBox, ElTooltip } from 'element-plus'
-import { ArrowLeft, House, SwitchButton } from '@element-plus/icons-vue'
+import { ArrowLeft, Monitor, SwitchButton } from '@element-plus/icons-vue'
 import { productBrand } from '@/config/brand'
 import { useUserStore } from '@/store/modules/user'
 import { useTagsViewStore } from '@/store/modules/tagsView'
@@ -23,6 +23,7 @@ const logoutPending = ref(false)
 const logoutError = ref('')
 
 const goHome = () => router.push({ name: 'PdaWorkspace' })
+const goToErp = () => router.push({ name: 'Index' })
 const goBack = () => {
   const back = router.options.history.state.back
   if (typeof back === 'string' && /^\/pda(?:[/?#]|$)/u.test(back)) router.back()
@@ -74,8 +75,15 @@ watch(
           <ElTooltip content="返回">
             <ElButton :icon="ArrowLeft" :disabled="atHome" aria-label="返回" @click="goBack" />
           </ElTooltip>
-          <ElTooltip content="岗位首页">
-            <ElButton :icon="House" :disabled="atHome" aria-label="岗位首页" @click="goHome" />
+          <ElTooltip content="返回电脑端 ERP">
+            <ElButton
+              class="erp-entry"
+              :icon="Monitor"
+              aria-label="返回 ERP 工作台"
+              @click="goToErp"
+            >
+              ERP
+            </ElButton>
           </ElTooltip>
           <ElTooltip content="退出登录">
             <ElButton
@@ -174,6 +182,12 @@ watch(
   height: 40px;
   padding: 0;
   margin-left: 0;
+}
+
+.shell-actions :deep(.erp-entry) {
+  width: auto;
+  min-width: 72px;
+  padding: 0 10px;
 }
 
 .user-row {

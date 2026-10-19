@@ -1,13 +1,18 @@
 """Read-only acceptance for the public business demo login and deployed assets."""
+import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+from pathlib import Path
 import tarfile
 
 from verify_cloud import ORIGIN, OUT, api, request
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--frontend', type=Path, default=OUT / 'frontend-security-admin-entry-20261018.tar.gz')
+    args = parser.parse_args()
     status, headers, raw = request('/demo-login.json')
     assert status == 200 and 'application/json' in headers['Content-Type']
     assert 'no-store' in headers['Cache-Control']
@@ -59,7 +64,7 @@ def main():
     bags = api('/rd/package-unit/page?pageNo=1&pageSize=100', token)
     assert bags['total'] == 30
     assert api('/rd/warehouse-replay/task?productionTaskId=90', token)['complete']
-    archive = OUT / 'frontend-security-admin-entry-20261018.tar.gz'
+    archive = args.frontend
     with tarfile.open(archive) as bundle:
         member = next(item for item in bundle.getmembers() if item.name in ['index.html', './index.html'])
         with bundle.extractfile(member) as stream:

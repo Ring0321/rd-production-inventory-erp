@@ -266,7 +266,7 @@ const shellHarness = (confirm = async () => true, loginOut = async () => true) =
     vue,
     'vue-router': { RouterView: {}, useRoute: () => route, useRouter: () => router },
     'element-plus': { ElButton: {}, ElTooltip: {}, ElMessageBox: { confirm } },
-    '@element-plus/icons-vue': { ArrowLeft: {}, House: {}, SwitchButton: {} },
+    '@element-plus/icons-vue': { ArrowLeft: {}, Monitor: {}, SwitchButton: {} },
     '@/config/brand': {
       productBrand: { name: '垛序 ERP', shortName: '垛序', logoUrl: '/duoxu-mark.png' }
     },
@@ -283,7 +283,7 @@ const shellHarness = (confirm = async () => true, loginOut = async () => true) =
   const scope = vue.effectScope()
   const component = evaluate('./layout.vue', imports).default
   const bindings = scope.run(() => component.setup({}, { expose: () => {} }))
-  return { calls, route, history, bindings, scope }
+  return { calls, route, history, user, bindings, scope }
 }
 
 test('shell back uses PDA history only, otherwise returns to the canonical home', async () => {
@@ -299,6 +299,25 @@ test('shell back uses PDA history only, otherwise returns to the canonical home'
   h.route.name = 'PdaWorkspace'
   assert.equal(h.bindings.atHome.value, true)
   h.scope.stop()
+})
+
+test('return to ERP is available at PDA home and child pages without signing out or changing roles', async () => {
+  for (const [name, path] of [
+    ['PdaWorkspace', '/pda'],
+    ['PdaDriverLoading', '/pda/driver-loading']
+  ]) {
+    const h = shellHarness()
+    h.route.name = name
+    h.route.path = path
+    const roles = [...h.user.getRoles]
+    await h.bindings.goToErp()
+    assert.equal(h.calls.length, 1)
+    assert.equal(h.calls[0][0], 'push')
+    assert.equal(h.calls[0][1].name, 'Index')
+    assert.equal(h.user.getIsSetUser, true)
+    assert.deepEqual([...h.user.getRoles], roles)
+    h.scope.stop()
+  }
 })
 
 test('successful logout uses the existing stores and preserves the exact PDA return target', async () => {
