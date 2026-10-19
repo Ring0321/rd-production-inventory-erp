@@ -38,7 +38,18 @@ class DemoLoginBoundaryTest(unittest.TestCase):
                 {'id': 900001, 'permission': 'infra:config:update'}]
         self.assertEqual([600000, 600100], self.module.business_menu_ids(rows))
 
-    def bootstrap_model(self, forbidden_permission=False):
+    def test_empty_directory_permission_does_not_allow_privileged_permissions(self):
+        self.assertEqual(['rd:fixture:create'], self.module.business_permissions(['', 'rd:fixture:create']))
+        for permissions in [[], [''], ['rd:fixture:create', '*:*:*'],
+                            ['rd:fixture:create', 'rd:*'], ['rd:fixture:create', 'rd:fixture:*'],
+                            ['rd:fixture:create', 'system:user:create'],
+                            ['rd:fixture:create', 'infra:config:update'],
+                            ['rd:fixture:create', None], ['rd:fixture:create', ' ']]:
+            with self.subTest(permissions=permissions):
+                with self.assertRaises(AssertionError):
+                    self.module.business_permissions(permissions)
+
+    def bootstrap_model(self, forbidden_permission=False, empty_permission=False):
         secret = self.base / 'config/secrets.json'
         secret.parent.mkdir()
         secret.write_text(json.dumps({'admin': 'private-fixture-password', 'roles': {}}))
@@ -57,7 +68,8 @@ class DemoLoginBoundaryTest(unittest.TestCase):
             if path == '/system/auth/get-permission-info':
                 if token == 'private-token': return {'roles': ['super_admin']}
                 return {'user': {'id': 235}, 'roles': ['rd_public_demo'],
-                        'permissions': ['*:*:*'] if forbidden_permission else ['rd:production-output:create']}
+                        'permissions': ['*:*:*'] if forbidden_permission else
+                        ['rd:production-output:create'] + ([''] if empty_permission else [])}
             if path == '/system/user/create':
                 users[235] = {'id': 235, **body}
                 return 235
@@ -95,6 +107,12 @@ class DemoLoginBoundaryTest(unittest.TestCase):
         with self.assertRaises(AssertionError): self.module.bootstrap_public_account()
         self.assertFalse((self.base / 'config/public-demo-login.json').exists())
 
+    def test_empty_directory_permission_does_not_block_business_demo_publication(self):
+        self.bootstrap_model(empty_permission=True)
+        result = self.module.bootstrap_public_account()
+        self.assertEqual(1, result['permissionCount'])
+        self.assertTrue((self.base / 'config/public-demo-login.json').exists())
+
     def archive(self, entry='index.html', link=False):
         incoming = self.base / 'incoming'
         incoming.mkdir(exist_ok=True)
@@ -129,11 +147,15 @@ class DemoLoginBoundaryTest(unittest.TestCase):
         config.parent.mkdir()
         original = '# DUOXU-CLOUD-DEMO-V1\nserver_name 101.42.182.117;\nroot ' + str(self.base / 'current/frontend') + ';\n    location /admin-api/ {\n}\n'
         config.write_text(original)
-        with patch.object(self.module.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'nginx')), \
+        with patch.object(self.module.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'nginx')) as run, \
                 patch.object(self.module.os, 'kill', create=True) as kill:
             with self.assertRaises(subprocess.CalledProcessError): self.module.deploy_frontend(path, digest)
         self.assertEqual(original, config.read_text())
         kill.assert_not_called()
+        run.assert_called_once_with([
+            '/usr/sbin/nginx', '-t', '-g', 'user duoxu-erp;',
+            '-p', str(self.base / 'data/web') + '/', '-c', str(config)
+        ], check=True)
 
 
 if __name__ == '__main__':

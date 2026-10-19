@@ -33,6 +33,15 @@ def business_menu_ids(rows):
             and (not row.get('permission') or row['permission'].startswith('rd:'))]
 
 
+def business_permissions(rows):
+    assert isinstance(rows, list)
+    assert all(isinstance(permission, str) for permission in rows)
+    # Directory nodes have no permission code; every nonempty code must stay business-only.
+    permissions = [permission for permission in rows if permission != '']
+    assert permissions and all(permission.startswith('rd:') and '*' not in permission for permission in permissions)
+    return permissions
+
+
 def bootstrap_public_account():
     secret_path = BASE / 'config/secrets.json'
     values = json.loads(secret_path.read_text())
@@ -95,8 +104,8 @@ def bootstrap_public_account():
     info = api('/system/auth/get-permission-info', demo_token)
     assert int(info['user']['id']) == user_id
     assert 'super_admin' not in info['roles'] and 'rd_forklift_driver' not in info['roles']
-    assert info['permissions'] and all(p.startswith('rd:') for p in info['permissions'])
-    assert any(p.endswith(':create') for p in info['permissions'])
+    permissions = business_permissions(info['permissions'])
+    assert any(p.endswith(':create') for p in permissions)
     assert api('/system/auth/login', body={
         'username': PRIVATE_USERNAME, 'password': values['admin']
     })['accessToken']
@@ -104,7 +113,7 @@ def bootstrap_public_account():
         'enabled': True, 'syntheticDemoOnly': True, 'username': 'admin', 'password': public['password']
     }), 0o640)
     return {'publicUserId': user_id, 'publicRoleId': public['roleId'],
-            'permissionCount': len(info['permissions']), 'maintenanceLoginPreserved': True}
+            'permissionCount': len(permissions), 'maintenanceLoginPreserved': True}
 
 
 def deploy_frontend(archive, expected_sha):
@@ -159,7 +168,9 @@ def deploy_frontend(archive, expected_sha):
         write(backup, original, 0o600)
     write(config_path, updated)
     try:
-        subprocess.run(['/usr/sbin/nginx', '-t', '-p', str(BASE / 'data/web') + '/', '-c', str(config_path)], check=True)
+        # Match the service worker identity without losing access to privileged port 443.
+        subprocess.run(['/usr/sbin/nginx', '-t', '-g', 'user duoxu-erp;',
+                        '-p', str(BASE / 'data/web') + '/', '-c', str(config_path)], check=True)
     except BaseException:
         write(config_path, original)
         raise
