@@ -98,10 +98,31 @@ GLM 真调用关闭；原一包一码、仓管扫码与位置维护、司机仅�
 
 已完成一次追加和一次真实重跑：96 库位、480 新包、逐包 QR、状态/重量、原主键范围记录均通过核对，重跑前后六张关键业务表全字段指纹一致。新增包件中在库 352、待入库 32、已出库 24、质检合格待入库 24、待检 24、不合格 24。4 个装车中场景的包件仍在库并保持锁定，不能重复计入已出库。
 
-当前前端 `frontend-warehouse-tiers-20261020.tar.gz`，SHA-256 `26acba42740aa3b3a4ce1c67a2176716f046ba7cd7ff331a3ef079a3335ae407`，发布根目录 `/srv/apps/duoxu-erp-demo/releases/login-26acba42740a/frontend`。仅本应用网关 HUP，原 nginx/mysql/Cross Studio 的 PID、启动时间与关键文件未变。原发行包、独立备份继续保留。
+该次前端为 `frontend-warehouse-tiers-20261020.tar.gz`，SHA-256 `26acba42740aa3b3a4ce1c67a2176716f046ba7cd7ff331a3ef079a3335ae407`，历史发布根目录 `/srv/apps/duoxu-erp-demo/releases/login-26acba42740a/frontend`。当前新版见后文智能小垛记录。仅本应用网关 HUP，原 nginx/mysql/Cross Studio 的 PID、启动时间与关键文件未变。原发行包、独立备份继续保留。
 
 入口 `https://101.42.182.117/warehouse-space?warehouseCode=DEMO-SPACE-V2`。新增叠层、平铺及指定层筛选；仅已登记且无冲突的行列/层级叠放，其他保留原图。已发布画布不擅自重排。库位层级不从炉层或包数推断，显示不写库存。
 
 用户授权后以独立 Edge/Playwright 会话验证了 1440×1000、390×844、320×760 的实际 WebGL 像素、旋转、上下层、点击详情、二维/三维及全屏；15 张截图和结果归档。一键登录、刷新、PDA 返回 ERP、退出重登及未登录地图跳转通过。没有浏览器业务写入或外站请求。此前 10 月 19 日的浏览器阻塞仅作为历史记录，本次已补齐网页范围，不含实体相机或硬件实扫。
 
 复验：`node scripts/verification/Verify-CloudWarehouseTiers.mjs <bundled-node-modules>`，`verify_public_demo.py --frontend <本次归档>`，`verify_cloud.py`。原任务包件核对必须走 `task-packages?productionTaskId=90`，不能给只接受分页参数的 `/page` 附加未实现的任务筛选。503 前端、17 部署单测及七类岗位 HTTPS 回归通过。完整证据见 `docs/acceptance/云端演示扩容与双层库位验收记录-20261020.md`。
+
+## 智能小垛（2026-10-20 已发布）
+
+小垛首发前端 `frontend-xiaoduo-assistant-20261020-r2.tar.gz`，SHA-256 `e4919bbf9615adccc4fdfdd19438e963356d8d02577146d912ef053f99fafb05`，为保留的历史发行包，当前见下节 DeepSeek 发行。库存、库位、二维码和原业务数据没有重置。助手从当前角色菜单找入口，以本地知识及原鉴权 GET 回答；只读，不自动提交或过账，不持久保存聊天。
+
+532 项前端测试、本地/云端各 15 图、四类岗位及最终前端原双层仓库 15 图通过。原三服务/四文件及六张业务表指纹未变。复验 `Verify-XiaoduoAssistant.mjs <bundled-node-modules> <origin>` 和 `Verify-XiaoduoRoles.mjs <bundled-node-modules>`；截图和验收记录见 `docs/acceptance/智能小垛悬浮助手云端验收记录-20261020.md`。
+
+用户随后确认的 DeepSeek 凭据由 `configure_private_model_key.py --install-from-stdin --verify-models` 经 SSH 标准输入暂存到 ERP 专属 `config/deepseek-private.pending.json`，root-owned `0600`。此工具本身不改 `backend.env`、不重启服务、不调用聊天，只对固定官方 `https://api.deepseek.com/models` 做 GET 鉴权且拒绝重定向。不要在命令参数、前端、日志、Git 或公开演示配置放密钥；不要归档此私密文件。待配置文件不是当前启用状态来源，后续运行状态以私密后端环境和脱敏 `DEEPSEEK_RELEASE.json` 为准。
+
+## DeepSeek 受控分析（2026-10-20 已发布）
+
+用户确认普通模型和 20 元/月后，仅在本 ERP 运行 `configure_deepseek_release.py`，固定 `deepseek-flash`、非思考、输出 512 tokens，启用共享月预算（每次预留 0.10 元、每月最多 200 次），每天 30 次、每人每分钟 2 次。价格有效期到 2026-11-19，过期停调。预留不是实际账单，同一密钥在其他系统的花费不受此 ERP 限制。GLM 关闭；凭据不在前端或公开配置。
+
+- 当前前端：`frontend-deepseek-assistant-20261020-r2.tar.gz`，SHA-256 `61e9c5829a7ff6fba4a271131e599be2c9a8cc63a550f7ddc0c9b75d53061773`，根目录 `/srv/apps/duoxu-erp-demo/releases/login-61e9c5829a7f/frontend`。
+- 当前后端 SHA-256：`ee40570db6d81210d0e4baa1816f3f2e1ff684e6a04f632eb5ac9610fc6de141`，根目录 `/srv/apps/duoxu-erp-demo/releases/deepseek-ee40570db6d81210/rd-erp-server.jar`。
+- 线上 HTML SHA-256：`22bed2a5e93371d23fc3d82a2f524ebcc66e3280fdfe0c9e8d83e02f8a38b8cf`。67 个实际 Lucide 图标本地注册，包件页无外部图标请求。
+- 模型真实调用一次、252 tokens；后续原请求核对、刷新及重启 ERP Redis 后恢复均为 GET，预算仍为 1 次/0.10 元。保留成功回执，不自动重试不明调用。
+- 小垛仍是本地知识/ERP 实查。真实模型入口：内部包件页 → 包码问答 → 请求整理；原问句仅本地识别为受控枚举，模型只收到状态和汇总，只能排序可信提示键。
+- 534 项前端、库存 544 项（6 原有跳过、0 失败/错误）、25 项部署测试，最终小垛/岗位/原双层图及七角色 HTTPS 回归通过。自有 Redis 重启后恢复通过，原三服务/四文件和六业务表指纹不变。
+
+发布器只接受已知本 ERP 原 unit 的精确 JAR 参数，私密回滚目录含凭据，禁止归档。当前已换成 DeepSeek JAR，不能不审查新基线就原样重跑发布器；回滚也不得重置月预算。证据见 `docs/acceptance/DeepSeek云端受控接入验收记录-20261020.md`。平台账单、跨设备新 UUID 协调、硬件/现场和商业许可仍按原门槛。
