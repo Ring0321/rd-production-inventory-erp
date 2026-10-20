@@ -22,6 +22,8 @@ import java.util.concurrent.Flow;
 @Component
 public class RdGlmClient {
     static final URI ENDPOINT = URI.create("https://open.bigmodel.cn/api/paas/v4/chat/completions");
+    static final URI DEEPSEEK_ENDPOINT = URI.create("https://api.deepseek.com/chat/completions");
+    static final int MAX_REQUEST_BYTES = 16000;
     static final int MAX_RESPONSE_BYTES = 32768;
     private final RdAiProperties config;
     private final ObjectMapper json = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
@@ -41,7 +43,7 @@ public class RdGlmClient {
     public record Result(List<String> points, Integer totalTokens) { }
     public static class Failure extends RuntimeException {
         private final String state;
-        public Failure(String state) { super("GLM request did not produce a verified answer"); this.state = state; }
+        public Failure(String state) { super("Model request did not produce a verified answer"); this.state = state; }
         public String state() { return state; }
     }
 
@@ -49,9 +51,9 @@ public class RdGlmClient {
         try {
             String context = json.writeValueAsString(input);
             if (context.length() > 12000) throw new IllegalArgumentException("Context limit exceeded");
-            return json.writeValueAsString(Map.of("model", config.getModel(), "stream", false,
+            Map<String, Object> body = new LinkedHashMap<>(Map.of("model", config.getModel(), "stream", false,
                     "max_tokens", config.getMaxOutputTokens(), "thinking", Map.of("type", "disabled"),
-                    "response_format", Map.of("type", "json_object"), "request_id", UUID.randomUUID().toString(),
+                    "response_format", Map.of("type", "json_object"),
                     "messages", List.of(Map.of("role", "system", "content",
                             "Order the most relevant allowedPoints for the question using the given ERP states and recorded source aggregates. "
                             + "RISK_REVIEW prioritizes diagnostic gaps and quality/state checks; HANDOVER prioritizes source progress and next responsible checks. "
@@ -60,13 +62,20 @@ public class RdGlmClient {
                             + "No text, numbers, decisions, tools, or new keys. IN_STOCK is not available stock. "
                             + "Recorded weights are not scale measurements. Pending quality is not failure."),
                             Map.of("role", "user", "content", context))));
+            if (!config.deepSeek()) body.put("request_id", UUID.randomUUID().toString());
+            String serialized = json.writeValueAsString(body);
+            if (serialized.getBytes(StandardCharsets.UTF_8).length > MAX_REQUEST_BYTES) throw new IllegalArgumentException();
+            return serialized;
         } catch (Exception e) { throw new Failure("INVALID_OUTPUT"); }
     }
 
+    // The historical class name is retained for existing integrations; destinations are fixed, never caller URLs.
+    URI endpoint() { return config.deepSeek() ? DEEPSEEK_ENDPOINT : ENDPOINT; }
+
     public Result ask(Input input) {
         if (!"READY".equals(config.state())) throw new Failure(config.state());
-        HttpRequest request = HttpRequest.newBuilder(ENDPOINT).timeout(Duration.ofSeconds(20))
-                .header("Authorization", "Bearer " + config.getApiKey()).header("Content-Type", "application/json")
+        HttpRequest request = HttpRequest.newBuilder(endpoint()).timeout(Duration.ofSeconds(20))
+                .header("Authorization", "Bearer " + config.activeApiKey()).header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(payload(input), StandardCharsets.UTF_8)).build();
         CompletableFuture<HttpResponse<byte[]>> pending = http.sendAsync(request, ignored -> new LimitedBody());
         try {

@@ -71,6 +71,8 @@ const providerLabels = {
   UNCONFIGURED: '未配置',
   COST_NOT_APPROVED: '费用未确认',
   LIMIT_NOT_SET: '额度未设置',
+  BUDGET_NOT_SET: '预算未设置',
+  PRICE_REVIEW_REQUIRED: '价格待复核',
   READY: '可请求'
 }
 const terminalStates = new Set([
@@ -81,7 +83,11 @@ const terminalStates = new Set([
   'UNCONFIGURED',
   'COST_NOT_APPROVED',
   'LIMIT_NOT_SET',
-  'LIMIT_REACHED'
+  'LIMIT_REACHED',
+  'BUDGET_NOT_SET',
+  'PRICE_REVIEW_REQUIRED',
+  'BUDGET_REACHED',
+  'BUDGET_UNAVAILABLE'
 ])
 const unresolvedStates = new Set([
   'PENDING',
@@ -484,6 +490,10 @@ export const usePackageAi = (props: { packageCode: string; factsRevision: string
       COST_NOT_APPROVED: '费用未确认',
       LIMIT_NOT_SET: '额度未设置',
       LIMIT_REACHED: '调用次数已达上限',
+      BUDGET_NOT_SET: '预算未设置',
+      PRICE_REVIEW_REQUIRED: '价格待复核',
+      BUDGET_REACHED: '月度预算已达上限',
+      BUDGET_UNAVAILABLE: '预算保护不可用',
       STALE: '原请求依据已变化，已停止新请求，请核对原业务记录',
       RECEIPT_MISSING: '原请求回执已过期或缺失，已停止新请求，请联系系统负责人',
       GUARD_UNAVAILABLE: '调用保护不可用，原请求仍待核'

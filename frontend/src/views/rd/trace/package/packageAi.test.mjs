@@ -120,7 +120,14 @@ test('anonymous and unpermitted sales/driver pages do not call either endpoint',
 })
 
 test('each provider gate shows its local state and prevents billable requests', async () => {
-  for (const providerState of ['DISABLED', 'UNCONFIGURED', 'COST_NOT_APPROVED', 'LIMIT_NOT_SET']) {
+  for (const providerState of [
+    'DISABLED',
+    'UNCONFIGURED',
+    'COST_NOT_APPROVED',
+    'LIMIT_NOT_SET',
+    'BUDGET_NOT_SET',
+    'PRICE_REVIEW_REQUIRED'
+  ]) {
     const h = setup({ contextExtra: { providerState } })
     await flush()
     assert.equal(h.work.context.value.providerState, providerState)
@@ -374,7 +381,16 @@ test('PENDING, unfamiliar states and wrong answer identities never unlock repeat
 })
 
 test('known FAILED and INVALID_OUTPUT require an explicit new question and never display AI success', async () => {
-  for (const state of ['FAILED', 'INVALID_OUTPUT', 'COST_NOT_APPROVED', 'LIMIT_REACHED']) {
+  for (const state of [
+    'FAILED',
+    'INVALID_OUTPUT',
+    'COST_NOT_APPROVED',
+    'LIMIT_REACHED',
+    'BUDGET_REACHED',
+    'BUDGET_UNAVAILABLE',
+    'PRICE_REVIEW_REQUIRED',
+    'BUDGET_NOT_SET'
+  ]) {
     const h = setup()
     await flush()
     const asking = h.work.ask()
@@ -858,6 +874,30 @@ test('the actual panel renders AI notes only after validated SUCCESS, never serv
   h.props.factsRevision++
   await flush()
   assert.ok(!(await renderPanel(h)).includes('AI整理要点'))
+  h.dispose()
+})
+
+test('DeepSeek metadata displays its ordinary model and budget without creating a paid request', async () => {
+  const h = setup({
+    contextExtra: {
+      provider: {
+        name: 'DeepSeek',
+        model: 'deepseek-flash',
+        monthlyBudgetCny: 20,
+        reservationPerCallCny: 0.1,
+        priceValidUntil: '2026-11-19'
+      }
+    }
+  })
+  await flush()
+  const html = await renderPanel(h)
+  assert.match(html, /DeepSeek/)
+  assert.match(html, /普通对话/)
+  assert.match(html, /deepseek-flash/)
+  assert.match(html, /ERP 月预算 20 元/)
+  assert.match(html, /失败不退回预留/)
+  assert.equal(h.asks.length, 0)
+  assert.equal(h.work.canAsk.value, true)
   h.dispose()
 })
 

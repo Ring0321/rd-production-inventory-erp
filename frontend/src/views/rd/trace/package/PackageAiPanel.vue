@@ -57,6 +57,11 @@
         <span>事实时间：{{ context.factsAt }}</span>
       </p>
       <p class="package-ai-boundary">来源登记值不代表可用库存或订单履约量。</p>
+      <p v-if="context.provider?.name === 'DeepSeek'" class="package-ai-meta">
+        <span>DeepSeek · 普通对话 · {{ context.provider.model }}</span>
+        <span>ERP 月预算 {{ context.provider.monthlyBudgetCny }} 元</span>
+        <span>每次预留 {{ context.provider.reservationPerCallCny }} 元，失败不退回预留</span>
+      </p>
       <ul v-if="baseNotices.length" class="package-ai-notices">
         <li v-for="notice in baseNotices" :key="notice.key">{{ notice.text }}</li>
       </ul>

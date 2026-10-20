@@ -17,14 +17,19 @@ public class RdPackageAiService {
     @Resource private RdPackageAiFactsService facts;
     @Resource private RdAiProperties config;
     @Resource private RdAiCallGuard guard;
+    @Resource private RdAiBudgetGuard budget;
     @Resource private RdGlmClient client;
     private final ObjectMapper json = new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final Map<String, String> MESSAGES = Map.ofEntries(
-            Map.entry("SUCCESS", "已取得GLM整理要点；数值与结论以ERP原记录为准。"),
+            Map.entry("SUCCESS", "已取得模型整理要点；数值与结论以ERP原记录为准。"),
             Map.entry("DISABLED", "AI真实调用未启用，ERP事实查询正常。"),
-            Map.entry("UNCONFIGURED", "GLM密钥或模型尚未在服务器配置。"),
-            Map.entry("COST_NOT_APPROVED", "GLM模型和费用尚未确认，未发送业务数据。"),
+            Map.entry("UNCONFIGURED", "模型密钥、服务商或模型尚未在服务器正确配置。"),
+            Map.entry("COST_NOT_APPROVED", "模型和费用尚未确认，未发送业务数据。"),
             Map.entry("LIMIT_NOT_SET", "调用次数或输出上限未正确设置，未发送业务数据。"),
+            Map.entry("BUDGET_NOT_SET", "月度费用上限未正确设置，未发送业务数据。"),
+            Map.entry("PRICE_REVIEW_REQUIRED", "模型价格核验已到期或未完成，请维护人员复核后启用。"),
+            Map.entry("BUDGET_REACHED", "本ERP月度预算预留已达上限，本次未请求模型。"),
+            Map.entry("BUDGET_UNAVAILABLE", "月度预算保护不可用，本次未请求模型。"),
             Map.entry("LIMIT_REACHED", "已达公司日调用或个人分钟限额，本次未请求模型。"),
             Map.entry("GUARD_UNAVAILABLE", "调用保护不可用，未发起新模型请求；原请求请保持待核。"),
             Map.entry("STALE", "原请求所依据的ERP记录已变化，请核对当前事实，不重发原请求。"),
@@ -42,7 +47,7 @@ public class RdPackageAiService {
         RdAiCallGuard.Reservation receipt;
         try {
             receipt = guard.lookup(TenantContextHolder.getRequiredTenantId(), user, request.getRequestId(),
-                    snapshot.digest() + ":" + request.getQuestion().name());
+                    requestDigest(snapshot, request));
         } catch (Exception e) { return answer(request, "GUARD_UNAVAILABLE", snapshot.context(), null); }
         var current = facts.read(request.getPackageCode(), user);
         if (!snapshot.digest().equals(current.digest())) return answer(request, "STALE", current.context(), null);
@@ -58,7 +63,7 @@ public class RdPackageAiService {
         RdAiCallGuard.Reservation reserved;
         try {
             reserved = guard.reserve(TenantContextHolder.getRequiredTenantId(), user, request.getRequestId(),
-                    snapshot.digest() + ":" + request.getQuestion().name(), config);
+                    requestDigest(snapshot, request), config);
         } catch (Exception e) { return answer(request, "GUARD_UNAVAILABLE", context, null); }
         if (!"NEW".equals(reserved.state())) {
             return replay(request, reserved, context);
@@ -66,6 +71,10 @@ public class RdPackageAiService {
         String state = "UNKNOWN";
         Stored stored = null;
         try {
+            if (config.deepSeek()) {
+                String budgetState = budget.reserve(reserved, config);
+                if (!"RESERVED".equals(budgetState)) throw new RdGlmClient.Failure(budgetState);
+            }
             var result = client.ask(facts.export(snapshot, request.getQuestion().name()));
             // Validate again at the integration boundary, independent of transport implementation.
             if (result.points().isEmpty() || result.points().size() > 5
@@ -83,6 +92,11 @@ public class RdPackageAiService {
         var current = facts.read(request.getPackageCode(), user);
         if (!snapshot.digest().equals(current.digest())) return answer(request, "STALE", current.context(), null);
         return answer(request, state, current.context(), stored);
+    }
+
+    private String requestDigest(RdPackageAiFactsService.Snapshot snapshot, RdPackageAiAskReqVO request) {
+        String digest = snapshot.digest() + ":" + request.getQuestion().name();
+        return config.deepSeek() ? digest + ":DEEPSEEK:" + config.getModel() : digest;
     }
 
     private RdPackageAiAnswer replay(RdPackageAiAskReqVO request, RdAiCallGuard.Reservation receipt, RdPackageAiContext context) {

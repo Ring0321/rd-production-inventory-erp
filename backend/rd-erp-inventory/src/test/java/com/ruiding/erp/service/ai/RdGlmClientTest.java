@@ -41,6 +41,77 @@ class RdGlmClientTest {
         assertTrue(body.getBody().toCompletableFuture().isCompletedExceptionally());
     }
 
+    @Test void deepSeekNeedsBudgetAndFreshPriceAndUsesOnlyOrdinaryOfficialProtocol() throws Exception {
+        ready();
+        config.setProvider("DEEPSEEK"); config.setModel("deepseek-flash");
+        assertEquals("UNCONFIGURED", config.state());
+        config.setDeepseekApiKey("deepseek-local-protocol-fixture");
+        assertNotEquals(config.getApiKey(), config.activeApiKey());
+        assertEquals("BUDGET_NOT_SET", config.state());
+        config.setMonthlyBudgetCny(new java.math.BigDecimal("20"));
+        assertEquals("PRICE_REVIEW_REQUIRED", config.state());
+        config.setPriceValidUntil(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1).toString());
+        assertEquals("READY", config.state());
+        assertEquals(200, config.monthlyReservationLimit());
+        assertEquals("https://api.deepseek.com/chat/completions", client.endpoint().toString());
+        var input = new RdGlmClient.Input("IN_STOCK", "PASS", 2, new java.math.BigDecimal("2000"),
+                Map.of("IN_STOCK", 2), "STATUS", List.of("READ_ONLY_AI"));
+        var body = new ObjectMapper().readTree(client.payload(input));
+        assertEquals("disabled", body.path("thinking").path("type").asText());
+        assertEquals("deepseek-flash", body.path("model").asText());
+        assertFalse(body.has("request_id")); assertFalse(body.has("tools"));
+        config.setModel("deepseek-v4-pro");
+        assertEquals("UNCONFIGURED", config.state());
+        config.setModel("deepseek-flash"); config.setProvider("OTHER");
+        assertEquals("UNCONFIGURED", config.state());
+    }
+
+    @Test void deepSeekBudgetHasCentPrecisionAndExpiryFailsClosed() {
+        ready(); config.setProvider("DEEPSEEK"); config.setModel("deepseek-flash");
+        config.setDeepseekApiKey("deepseek-local-protocol-fixture");
+        config.setPriceValidUntil(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1).toString());
+        for (String amount : List.of("0", "-1", "0.09", "20.001", "1001")) {
+            config.setMonthlyBudgetCny(new java.math.BigDecimal(amount));
+            assertEquals("BUDGET_NOT_SET", config.state());
+        }
+        config.setMonthlyBudgetCny(new java.math.BigDecimal("20"));
+        config.setPriceValidUntil("2020-01-01");
+        assertEquals("PRICE_REVIEW_REQUIRED", config.state());
+        config.setPriceValidUntil("invalid");
+        assertEquals("PRICE_REVIEW_REQUIRED", config.state());
+        assertThrows(RdGlmClient.Failure.class, () -> client.ask(null));
+    }
+
+    @Test void boundedRequestRejectsBeforeOpeningTransport() {
+        ready(); var transport = mock(HttpClient.class);
+        var adapter = new RdGlmClient(config, transport);
+        var input = new RdGlmClient.Input("x".repeat(16000), "UNKNOWN", null, null, Map.of(),
+                "STATUS", List.of("READ_ONLY_AI"));
+        assertThrows(RdGlmClient.Failure.class, () -> adapter.ask(input));
+        verifyNoInteractions(transport);
+    }
+
+    @Test void deepSeekTransportCannotUseGlmCredentialOrDestination() {
+        ready(); config.setProvider("DEEPSEEK"); config.setModel("deepseek-flash");
+        config.setDeepseekApiKey("deepseek-local-protocol-fixture");
+        config.setMonthlyBudgetCny(new java.math.BigDecimal("20"));
+        config.setPriceValidUntil(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1).toString());
+        var transport = mock(HttpClient.class);
+        var response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(200);
+        when(response.headers()).thenReturn(HttpHeaders.of(Map.of("Content-Type", List.of("application/json")), (a, b) -> true));
+        when(response.body()).thenReturn(response("{\"points\":[\"QUALITY_PENDING\"]}", "stop", "").getBytes(StandardCharsets.UTF_8));
+        when(transport.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(CompletableFuture.completedFuture(response));
+        var adapter = new RdGlmClient(config, transport);
+        adapter.ask(new RdGlmClient.Input("QC_PENDING", "SUBMITTED", 2, new java.math.BigDecimal("2000"),
+                Map.of("QC_PENDING", 2), "STATUS", List.of("QUALITY_PENDING")));
+        verify(transport, times(1)).sendAsync(argThat((HttpRequest request) ->
+                request.uri().equals(RdGlmClient.DEEPSEEK_ENDPOINT)
+                    && request.headers().firstValue("Authorization").orElseThrow().equals("Bearer deepseek-local-protocol-fixture")),
+                any(HttpResponse.BodyHandler.class));
+    }
+
     @Test void validUsageIsReturnedButNegativeAndFabricatedUsageIsRejected() {
         var base = response("{\"points\":[\"QUALITY_PENDING\"]}", "stop", "");
         var used = base.substring(0, base.length() - 1) + ",\"usage\":{\"total_tokens\":123}}";

@@ -87,7 +87,9 @@ public class RdPackageAiFactsService {
             add(notices, finding.key(), finding.title() + "：" + finding.detail() + " 核对岗位：" + owner
                     + "；影响包数：" + (finding.affectedCount() == null ? "未知" : finding.affectedCount()) + "。");
         }
-        var context = new RdPackageAiContext(code, status, quality, source, Instant.now().toString(), config.state(), List.copyOf(notices), diagnosis);
+        var provider = config.deepSeek() ? new RdPackageAiContext.Provider("DeepSeek", config.getModel(),
+                config.getMonthlyBudgetCny(), new BigDecimal("0.10"), config.getPriceValidUntil()) : null;
+        var context = new RdPackageAiContext(code, status, quality, source, Instant.now().toString(), config.state(), List.copyOf(notices), diagnosis, provider);
         try {
             // Private identities remain local, including in the snapshot fingerprint; no raw value is cached.
             var serialized = new ObjectMapper().findAndRegisterModules().writeValueAsBytes(Arrays.asList("AI_DIAG_V1", trace, members));

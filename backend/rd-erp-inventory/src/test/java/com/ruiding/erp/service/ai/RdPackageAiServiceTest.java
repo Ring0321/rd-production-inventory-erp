@@ -15,6 +15,7 @@ class RdPackageAiServiceTest {
     @Mock RdPackageAiFactsService facts;
     @Mock RdAiCallGuard guard;
     @Mock RdGlmClient client;
+    @Mock RdAiBudgetGuard budget;
     @Spy RdAiProperties config = new RdAiProperties();
     @InjectMocks RdPackageAiService service;
     final RdPackageAiAskReqVO req = new RdPackageAiAskReqVO();
@@ -108,6 +109,43 @@ class RdPackageAiServiceTest {
         assertEquals("RECEIPT_MISSING", service.result(req, 1L).state());
         verifyNoInteractions(client);
         verify(guard, never()).reserve(any(), any(), any(), any(), any());
+    }
+
+    @Test void deepSeekMonthlyCeilingAndGuardFailureNeverOpenTransport() {
+        deepSeekReady();
+        var reservation = new RdAiCallGuard.Reservation("local-key", "NEW", null, "nonce", "digest");
+        when(guard.reserve(any(), any(), any(), any(), any())).thenReturn(reservation);
+        for (String state : List.of("BUDGET_REACHED", "BUDGET_UNAVAILABLE")) {
+            when(budget.reserve(reservation, config)).thenReturn(state);
+            assertEquals(state, service.ask(req, 1L).state());
+        }
+        verifyNoInteractions(client);
+        verify(guard).finish(reservation, "BUDGET_REACHED", "");
+        verify(guard).finish(reservation, "BUDGET_UNAVAILABLE", "");
+    }
+
+    @Test void deepSeekReservesBeforeOneModelCallAndDoesNotReserveForReceiptReplay() {
+        deepSeekReady(); reserveNew();
+        when(budget.reserve(any(), same(config))).thenReturn("RESERVED");
+        when(client.ask(any())).thenReturn(new RdGlmClient.Result(List.of("READ_ONLY_AI"), 90));
+        assertEquals("SUCCESS", service.ask(req, 1L).state());
+        verify(guard).reserve(eq(1L), eq(1L), eq(req.getRequestId()),
+                eq("fingerprint:STATUS:DEEPSEEK:deepseek-flash"), same(config));
+        var sequence = inOrder(budget, client);
+        sequence.verify(budget).reserve(any(), same(config));
+        sequence.verify(client).ask(any());
+        when(guard.reserve(any(), any(), any(), any(), any()))
+                .thenReturn(new RdAiCallGuard.Reservation("local-key", "PENDING", null));
+        assertEquals("PENDING", service.ask(req, 1L).state());
+        verify(budget, times(1)).reserve(any(), any());
+        verify(client, times(1)).ask(any());
+    }
+
+    private void deepSeekReady() {
+        config.setProvider("DEEPSEEK"); config.setModel("deepseek-flash");
+        config.setDeepseekApiKey("deepseek-local-protocol-fixture");
+        config.setMonthlyBudgetCny(new java.math.BigDecimal("20"));
+        config.setPriceValidUntil(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1).toString());
     }
 
     private void reserveNew() {

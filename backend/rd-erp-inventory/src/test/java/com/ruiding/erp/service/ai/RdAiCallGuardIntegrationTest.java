@@ -19,6 +19,8 @@ class RdAiCallGuardIntegrationTest {
     private RdAiCallGuard guard;
     private RdAiProperties config;
     private Long tenant;
+    private String budgetPrefix;
+    private RdAiBudgetGuard budget;
 
     @BeforeEach void setup() {
         var settings = new Config();
@@ -29,11 +31,16 @@ class RdAiCallGuardIntegrationTest {
         guard = new RdAiCallGuard(); ReflectionTestUtils.setField(guard, "redis", redis);
         config = new RdAiProperties(); config.setDailyCallLimit(2); config.setPerUserMinuteLimit(2);
         tenant = 800_000_000L + java.util.concurrent.ThreadLocalRandom.current().nextInt(100_000_000);
+        budgetPrefix = "rd:ai-budget:{test-" + tenant + "}:";
+        budget = new RdAiBudgetGuard(); ReflectionTestUtils.setField(budget, "redis", redis);
+        ReflectionTestUtils.setField(budget, "prefix", budgetPrefix);
     }
     @AfterEach void cleanup() {
         if (redis != null && tenant != null) {
             Set<String> keys = redis.keys("rd:ai:{" + tenant + "}:*");
             if (keys != null && !keys.isEmpty()) redis.delete(keys);
+            Set<String> monthly = redis.keys(budgetPrefix + "*");
+            if (monthly != null && !monthly.isEmpty()) redis.delete(monthly);
         }
         if (connection != null) connection.shutdown();
     }
@@ -90,5 +97,67 @@ class RdAiCallGuardIntegrationTest {
         assertEquals("STALE", guard.lookup(tenant, 1L, id, "facts-old").state());
         guard.finish(newer, "SUCCESS", "new receipt");
         assertEquals("new receipt", guard.lookup(tenant, 1L, id, "facts-new").result());
+    }
+
+    @Test void monthlyBudgetIsAtomicAcrossTenantsAndSurvivesNewServiceInstances() throws Exception {
+        deepSeekReady(); config.setMonthlyBudgetCny(new java.math.BigDecimal("0.20"));
+        var pool = Executors.newFixedThreadPool(5);
+        try {
+            var gate = new CountDownLatch(1);
+            var tasks = new ArrayList<Future<String>>();
+            for (int i = 0; i < 5; i++) {
+                int identity = i;
+                tasks.add(pool.submit(() -> { gate.await(); return budget.reserve(reservation(identity), config); }));
+            }
+            gate.countDown(); var results = new ArrayList<String>();
+            for (var task : tasks) results.add(task.get(5, TimeUnit.SECONDS));
+            assertEquals(2, results.stream().filter("RESERVED"::equals).count());
+            assertEquals(3, results.stream().filter("BUDGET_REACHED"::equals).count());
+            var restarted = new RdAiBudgetGuard();
+            ReflectionTestUtils.setField(restarted, "redis", redis);
+            ReflectionTestUtils.setField(restarted, "prefix", budgetPrefix);
+            assertEquals("BUDGET_REACHED", restarted.reserve(reservation(99), config));
+            String month = budgetPrefix + java.time.YearMonth.now(java.time.ZoneId.of("Asia/Shanghai"));
+            assertEquals("2", redis.opsForValue().get(month));
+            assertTrue(redis.getExpire(month) > 5_000_000);
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test void monthlyGuardRefusesDuplicateReservationAndCorruptCounters() {
+        deepSeekReady(); var receipt = reservation(1);
+        assertEquals("RESERVED", budget.reserve(receipt, config));
+        assertEquals("BUDGET_UNAVAILABLE", budget.reserve(receipt, config));
+        String month = budgetPrefix + java.time.YearMonth.now(java.time.ZoneId.of("Asia/Shanghai"));
+        assertEquals("1", redis.opsForValue().get(month));
+        for (String bad : List.of("-1", "not-a-counter", "1.5")) {
+            redis.opsForValue().set(month, bad);
+            assertEquals("BUDGET_UNAVAILABLE", budget.reserve(reservation(2), config));
+            assertEquals(bad, redis.opsForValue().get(month));
+        }
+    }
+
+    @Test void monthlyPeriodFollowsShanghaiCalendarNotUtcOrUserIdentity() {
+        deepSeekReady(); config.setMonthlyBudgetCny(new java.math.BigDecimal("0.10"));
+        var zone = java.time.ZoneId.of("Asia/Shanghai");
+        ReflectionTestUtils.setField(budget, "clock", java.time.Clock.fixed(java.time.Instant.parse("2026-10-31T15:59:59Z"), zone));
+        assertEquals("RESERVED", budget.reserve(reservation(1), config));
+        assertEquals("BUDGET_REACHED", budget.reserve(reservation(2), config));
+        ReflectionTestUtils.setField(budget, "clock", java.time.Clock.fixed(java.time.Instant.parse("2026-10-31T16:00:00Z"), zone));
+        assertEquals("RESERVED", budget.reserve(reservation(3), config));
+        assertEquals("1", redis.opsForValue().get(budgetPrefix + "2026-10"));
+        assertEquals("1", redis.opsForValue().get(budgetPrefix + "2026-11"));
+    }
+
+    private void deepSeekReady() {
+        config.setEnabled(true); config.setProvider("DEEPSEEK"); config.setModel("deepseek-flash");
+        config.setApiKey("not-a-real-credential"); config.setCostApproved(true);
+        config.setDeepseekApiKey("deepseek-local-protocol-fixture");
+        config.setMonthlyBudgetCny(new java.math.BigDecimal("20"));
+        config.setPriceValidUntil(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1).toString());
+    }
+
+    private RdAiCallGuard.Reservation reservation(int identity) {
+        return new RdAiCallGuard.Reservation("test-tenant-" + identity + ":" + UUID.randomUUID(),
+                "NEW", null, UUID.randomUUID().toString(), "digest");
     }
 }

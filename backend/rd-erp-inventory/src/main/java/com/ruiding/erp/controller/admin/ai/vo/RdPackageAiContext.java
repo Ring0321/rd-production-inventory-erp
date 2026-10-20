@@ -5,12 +5,19 @@ import java.util.List;
 import java.util.Map;
 
 public record RdPackageAiContext(String packageCode, String status, String qualityStage, Source source,
-                                 String factsAt, String providerState, List<Notice> notices, Diagnosis diagnosis) {
+                                 String factsAt, String providerState, List<Notice> notices, Diagnosis diagnosis,
+                                 Provider provider) {
+    public RdPackageAiContext(String packageCode, String status, String qualityStage, Source source,
+                             String factsAt, String providerState, List<Notice> notices, Diagnosis diagnosis) {
+        this(packageCode, status, qualityStage, source, factsAt, providerState, notices, diagnosis, null);
+    }
     public RdPackageAiContext(String packageCode, String status, String qualityStage, Source source,
                              String factsAt, String providerState, List<Notice> notices) {
         this(packageCode, status, qualityStage, source, factsAt, providerState, notices, null);
     }
     public record Source(String state, Integer packageCount, BigDecimal recordedWeight, Map<String, Integer> counts) { }
+    public record Provider(String name, String model, BigDecimal monthlyBudgetCny,
+                           BigDecimal reservationPerCallCny, String priceValidUntil) { }
     public record Notice(String key, String text) { }
     public record Diagnosis(String scope, String state, Integer inspectedPackages, List<Finding> findings) { }
     public record Finding(String key, String severity, String owner, String title, String detail,

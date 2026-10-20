@@ -82,7 +82,11 @@ rd:
     ai:
       enabled: ${RD_AI_ENABLED:false}
       api-key: ${RD_AI_GLM_API_KEY:}
-      model: ${RD_AI_GLM_MODEL:}
+      deepseek-api-key: ${RD_AI_DEEPSEEK_API_KEY:}
+      model: ${RD_AI_MODEL:${RD_AI_GLM_MODEL:}}
+      provider: ${RD_AI_PROVIDER:GLM}
+      monthly-budget-cny: ${RD_AI_MONTHLY_BUDGET_CNY:0}
+      price-valid-until: ${RD_AI_PRICE_VALID_UNTIL:}
       cost-approved: ${RD_AI_COST_APPROVED:false}
       daily-call-limit: ${RD_AI_DAILY_CALL_LIMIT:0}
       per-user-minute-limit: ${RD_AI_USER_MINUTE_LIMIT:2}

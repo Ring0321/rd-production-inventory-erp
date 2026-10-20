@@ -11,6 +11,8 @@ export type PackageAiProviderState =
   | 'UNCONFIGURED'
   | 'COST_NOT_APPROVED'
   | 'LIMIT_NOT_SET'
+  | 'BUDGET_NOT_SET'
+  | 'PRICE_REVIEW_REQUIRED'
   | 'READY'
 
 export interface PackageAiContext {
@@ -25,6 +27,13 @@ export interface PackageAiContext {
   }
   factsAt: string
   providerState: PackageAiProviderState
+  provider?: {
+    name: 'DeepSeek'
+    model: string
+    monthlyBudgetCny: number
+    reservationPerCallCny: number
+    priceValidUntil: string
+  } | null
   notices: Array<{ key: string; text: string }>
   diagnosis?: PackageAiDiagnosis
 }
