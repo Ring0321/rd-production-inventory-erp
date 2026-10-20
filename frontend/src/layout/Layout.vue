@@ -6,6 +6,7 @@ import { Setting } from '@/layout/components/Setting'
 import { useRenderLayout } from './components/useRenderLayout'
 import { useDesign } from '@/hooks/web/useDesign'
 import { getLayoutRenderMode } from '@/utils/layout'
+import DuoxuAssistant from '@/components/DuoxuAssistant/DuoxuAssistant.vue'
 
 const { getPrefixCls } = useDesign()
 
@@ -68,6 +69,8 @@ export default defineComponent({
         <Backtop></Backtop>
 
         <Setting></Setting>
+
+        <DuoxuAssistant />
       </section>
     )
   }

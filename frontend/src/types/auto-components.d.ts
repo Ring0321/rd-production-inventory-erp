@@ -12,6 +12,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AssistantReply: typeof import('./../components/DuoxuAssistant/AssistantReply.vue')['default']
     Backtop: typeof import('./../components/Backtop/src/Backtop.vue')['default']
     CardTitle: typeof import('./../components/Card/src/CardTitle.vue')['default']
     ColorInput: typeof import('./../components/ColorInput/index.vue')['default']
@@ -28,6 +29,7 @@ declare module 'vue' {
     Dialog: typeof import('./../components/Dialog/src/Dialog.vue')['default']
     DictTag: typeof import('./../components/DictTag/src/DictTag.vue')['default']
     Draggable: typeof import('./../components/Draggable/index.vue')['default']
+    DuoxuAssistant: typeof import('./../components/DuoxuAssistant/DuoxuAssistant.vue')['default']
     Echart: typeof import('./../components/Echart/src/Echart.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
@@ -120,6 +122,7 @@ declare module 'vue' {
 
 // For TSX support
 declare global {
+  const AssistantReply: typeof import('./../components/DuoxuAssistant/AssistantReply.vue')['default']
   const Backtop: typeof import('./../components/Backtop/src/Backtop.vue')['default']
   const CardTitle: typeof import('./../components/Card/src/CardTitle.vue')['default']
   const ColorInput: typeof import('./../components/ColorInput/index.vue')['default']
@@ -136,6 +139,7 @@ declare global {
   const Dialog: typeof import('./../components/Dialog/src/Dialog.vue')['default']
   const DictTag: typeof import('./../components/DictTag/src/DictTag.vue')['default']
   const Draggable: typeof import('./../components/Draggable/index.vue')['default']
+  const DuoxuAssistant: typeof import('./../components/DuoxuAssistant/DuoxuAssistant.vue')['default']
   const Echart: typeof import('./../components/Echart/src/Echart.vue')['default']
   const ElAlert: typeof import('element-plus/es')['ElAlert']
   const ElAvatar: typeof import('element-plus/es')['ElAvatar']

@@ -1,0 +1,334 @@
+.xiaoduo-root {
+  font-family: inherit;
+  letter-spacing: 0;
+  color: var(--el-text-color-primary);
+  button {
+    font-family: inherit;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: 2px;
+  }
+}
+.xiaoduo-launcher {
+  position: fixed;
+  z-index: 1800;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 16px;
+  display: flex;
+  width: 154px;
+  height: 48px;
+  padding: 5px 10px 5px 5px;
+  color: var(--el-text-color-primary);
+  cursor: pointer;
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-color-primary-light-5);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px #142b271f;
+  align-items: center;
+  gap: 9px;
+  strong {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  &:hover {
+    border-color: var(--el-color-primary);
+  }
+}
+.launcher-avatar,
+.header-avatar {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  color: #fff;
+  background: #087f72;
+  border-radius: 6px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+.launcher-ai {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+}
+.xiaoduo-panel {
+  position: fixed;
+  z-index: 1801;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  left: 16px;
+  display: flex;
+  width: min(400px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 96px - env(safe-area-inset-bottom)));
+  overflow: hidden;
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px #142b2729;
+  flex-direction: column;
+  &.is-expanded {
+    width: min(660px, calc(100vw - 32px));
+    height: min(760px, calc(100dvh - 96px - env(safe-area-inset-bottom)));
+  }
+}
+.xiaoduo-header {
+  display: flex;
+  padding: 13px 12px;
+  color: #fff;
+  background: #08695f;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  .header-avatar {
+    background: #168577;
+  }
+}
+.header-title {
+  min-width: 0;
+  flex: 1;
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 23px;
+  }
+  span {
+    display: block;
+    font-size: 11px;
+    line-height: 17px;
+    color: #e0f2ec;
+  }
+}
+.header-actions {
+  display: flex;
+  gap: 2px;
+  button {
+    display: flex;
+    width: 30px;
+    height: 32px;
+    padding: 0;
+    color: #fff;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    align-items: center;
+    justify-content: center;
+  }
+  button:hover {
+    background: #168577;
+  }
+  button:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+  button:focus-visible {
+    outline-color: #fff;
+  }
+}
+.xiaoduo-context {
+  display: flex;
+  min-height: 38px;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  small {
+    font-size: 11px;
+    color: var(--el-color-primary);
+    white-space: nowrap;
+  }
+}
+.xiaoduo-feed {
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+  flex: 1;
+  overscroll-behavior: contain;
+}
+.xiaoduo-welcome {
+  padding-top: 12px;
+  h3 {
+    margin: 15px 0 6px;
+    font-size: 20px;
+    line-height: 28px;
+  }
+  > p {
+    margin: 0 0 22px;
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+  }
+}
+.quick-questions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  button {
+    display: flex;
+    min-width: 0;
+    min-height: 42px;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--el-text-color-primary);
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid var(--el-border-color);
+    border-radius: 4px;
+    align-items: center;
+    gap: 7px;
+  }
+  span {
+    flex: 1;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  .el-icon:first-child {
+    color: var(--el-color-primary);
+    flex-shrink: 0;
+  }
+  button:hover {
+    background: var(--el-color-primary-light-9);
+    border-color: var(--el-color-primary-light-5);
+  }
+}
+.xiaoduo-turn {
+  margin-bottom: 22px;
+}
+.user-question {
+  display: flex;
+  margin-bottom: 16px;
+  justify-content: flex-end;
+  span {
+    max-width: 90%;
+    padding: 9px 12px;
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--el-color-primary-light-9);
+    border-radius: 6px;
+  }
+}
+.xiaoduo-pending {
+  display: flex;
+  min-height: 36px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  align-items: center;
+  gap: 8px;
+  .el-icon {
+    animation: xiaoduo-spin 1.2s linear infinite;
+  }
+}
+.xiaoduo-composer {
+  padding: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+}
+.composer-input {
+  display: flex;
+  padding: 8px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  align-items: flex-end;
+  gap: 8px;
+  &:focus-within {
+    border-color: var(--el-color-primary);
+  }
+  textarea {
+    width: 100%;
+    min-width: 0;
+    height: 50px;
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.75;
+    color: var(--el-text-color-primary);
+    resize: none;
+    background: transparent;
+    border: 0;
+    outline: none;
+  }
+  textarea::placeholder {
+    color: var(--el-text-color-placeholder);
+  }
+
+  textarea:focus-visible {
+    outline: none;
+  }
+}
+.send-button {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: #fff;
+  cursor: pointer;
+  background: var(--el-color-primary);
+  border: 0;
+  border-radius: 4px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  &:disabled {
+    color: var(--el-text-color-disabled);
+    cursor: default;
+    background: var(--el-fill-color);
+  }
+}
+.composer-status {
+  display: flex;
+  margin-top: 8px;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--el-text-color-regular);
+  justify-content: space-between;
+  gap: 8px;
+  span:first-child {
+    overflow-wrap: anywhere;
+  }
+  span:last-child {
+    flex-shrink: 0;
+  }
+}
+@keyframes xiaoduo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xiaoduo-pending .el-icon {
+    animation: none;
+  }
+}
+@media (width <= 480px) {
+  .xiaoduo-launcher {
+    left: 12px;
+  }
+  .xiaoduo-panel,
+  .xiaoduo-panel.is-expanded {
+    left: 12px;
+    width: calc(100vw - 24px);
+    height: min(620px, calc(100dvh - 92px - env(safe-area-inset-bottom)));
+  }
+  .xiaoduo-header {
+    gap: 8px;
+    padding: 10px;
+  }
+  .header-actions button {
+    width: 28px;
+  }
+  .xiaoduo-feed {
+    padding: 14px;
+  }
+}

@@ -7,6 +7,7 @@ import faSolidIcons from '@iconify/json/json/fa-solid.json'
 import warehouseIcons from './warehouse-icons.json'
 import qrWorkbenchIcons from './qr-workbench-icons.json'
 import assistIcons from './assist-icons.json'
+import xiaoduoIcons from './xiaoduo-icons.json'
 
 addCollection(epIcons)
 addCollection(faIcons)
@@ -14,3 +15,4 @@ addCollection(faSolidIcons)
 addCollection(warehouseIcons)
 addCollection(qrWorkbenchIcons)
 addCollection(assistIcons)
+addCollection(xiaoduoIcons)

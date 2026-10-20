@@ -26,7 +26,7 @@
       </nav>
     </ContentWrap>
 
-    <RdInventoryDashboard />
+    <RdInventoryDashboard v-if="canViewDashboard" />
   </div>
 </template>
 
@@ -43,6 +43,9 @@ defineOptions({ name: 'Index' })
 
 const router = useRouter()
 const userStore = useUserStore()
+const canViewDashboard = computed(
+  () => !userStore.getRoles.includes('rd_forklift_driver') && checkPermi(['rd:dashboard:query'])
+)
 const canViewSpace = computed(() =>
   canViewWarehouseSpace(userStore.getRoles, userStore.getPermissions)
 )
