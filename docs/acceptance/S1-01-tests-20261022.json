@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "checkpoint": "S1-01",
+  "baseCommit": "762a4f10c4e0ef16e5a1c9839b77fd381c3f5758",
+  "status": "PASS",
+  "evidenceSource": "Surefire suite attributes from the selected local regression run",
+  "suites": [
+    { "name": "RdWorkQueryContractTest", "tests": 43, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdWorkQueryAccessPolicyTest", "tests": 33, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdInventoryDashboardServiceImplTest", "tests": 1, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdDailyStockSummaryCalculatorTest", "tests": 4, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdQualityInspectionServiceImplTest", "tests": 4, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdQualityInspectionBatchTest", "tests": 49, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdPutawayTaskServiceImplTest", "tests": 17, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdLoadingDispatchServiceImplTest", "tests": 12, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdPackageAiFactsServiceTest", "tests": 10, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdPackageAiServiceTest", "tests": 12, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdPackageAiDiagnosticsTest", "tests": 14, "failures": 0, "errors": 0, "skipped": 0 },
+    { "name": "RdWeightAssistantServiceTest", "tests": 14, "failures": 0, "errors": 0, "skipped": 0 }
+  ],
+  "totals": { "tests": 213, "failures": 0, "errors": 0, "skipped": 0 },
+  "newContractAndPolicyTests": 76,
+  "existingRegressionTests": 137,
+  "serverPackage": { "status": "PASS", "testExecutionSkippedInPackageCommand": true },
+  "cloudAccessed": false,
+  "providerApiCalls": 0,
+  "databaseMigrations": 0,
+  "newHttpEndpoints": 0,
+  "browserTestsExecuted": false,
+  "credentialsRecorded": false,
+  "doesNotCertify": ["S1-02 through S1-19", "live database readers", "cloud deployment", "browser flows", "hardware acceptance", "provider billing"]
+}
