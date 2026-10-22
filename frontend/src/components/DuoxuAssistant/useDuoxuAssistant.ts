@@ -16,6 +16,7 @@ import { RdInventoryDashboardApi } from '@/api/rd/dashboard'
 import { RdPutawayTaskApi } from '@/api/rd/stock/putaway'
 import { RdPackageUnitApi } from '@/api/rd/stock/package'
 import { RdPackageAiApi } from '@/api/rd/ai'
+import { RdWorkQueryApi } from '@/api/rd/workassistant'
 import {
   canOpenAssistantLink,
   collectAssistantPages,
@@ -80,6 +81,15 @@ export const useDuoxuAssistant = () => {
   )
   const quickQuestions = computed(() =>
     [
+      ...(allowed('rd:package-unit:query')
+        ? [
+            { label: '查待检', question: '待检包件有多少', icon: 'ep:search' },
+            { label: '待入库', question: '合格待入库的货物', icon: 'ep:download' }
+          ]
+        : []),
+      ...(allowed('rd:quality-inspection:query')
+        ? [{ label: '待复核', question: '质检待复核', icon: 'ep:checked' }]
+        : []),
       ...(pages.value.some((page) => page.title.includes('产品'))
         ? [{ label: '找产品', question: '产品资料在哪里', icon: 'ep:search' }]
         : []),
@@ -92,7 +102,7 @@ export const useDuoxuAssistant = () => {
       { label: '入库流程', question: '入库怎么操作', icon: 'ep:download' },
       { label: '出库流程', question: '出库怎么操作', icon: 'ep:van' },
       { label: '当前页面', question: '这个页面怎么用', icon: 'ep:help' }
-    ].slice(0, 6)
+    ].slice(0, 9)
   )
 
   const cancel = () => {
@@ -167,7 +177,8 @@ export const useDuoxuAssistant = () => {
       ),
     locations: () => RdPutawayTaskApi.getLocationMap(),
     trace: (code: string) => RdPackageUnitApi.getTraceDetail(code),
-    packageContext: (code: string) => RdPackageAiApi.getContext(code)
+    packageContext: (code: string) => RdPackageAiApi.getContext(code),
+    workQuery: RdWorkQueryApi.query
   }
   const ask = async (value = input.value) => {
     const question = value.trim()
@@ -218,7 +229,11 @@ export const useDuoxuAssistant = () => {
       return false
     cancel()
     void router.push(
-      link.packageCode ? { path: link.path, query: { internal: '1' } } : { path: link.path }
+      link.packageCode
+        ? { path: link.path, query: { internal: '1' } }
+        : link.inspectionId
+          ? { path: link.path, query: { inspectionId: link.inspectionId } }
+          : { path: link.path }
     )
     return true
   }

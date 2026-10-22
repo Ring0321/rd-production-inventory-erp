@@ -126,3 +126,11 @@ GLM 真调用关闭；原一包一码、仓管扫码与位置维护、司机仅�
 - 534 项前端、库存 544 项（6 原有跳过、0 失败/错误）、25 项部署测试，最终小垛/岗位/原双层图及七角色 HTTPS 回归通过。自有 Redis 重启后恢复通过，原三服务/四文件和六业务表指纹不变。
 
 发布器只接受已知本 ERP 原 unit 的精确 JAR 参数，私密回滚目录含凭据，禁止归档。当前已换成 DeepSeek JAR，不能不审查新基线就原样重跑发布器；回滚也不得重置月预算。证据见 `docs/acceptance/DeepSeek云端受控接入验收记录-20261020.md`。平台账单、跨设备新 UUID 协调、硬件/现场和商业许可仍按原门槛。
+
+## 业务问数 S1-02（2026-10-22 已发布）
+
+上文的旧发行摘要作为历史保留，当前运行后端为 `releases/work-query-210b641ab39b0424/rd-erp-server.jar`，SHA-256 `210b641ab39b0424c3da1a60bb964ddcafcde06b4e03a4cff44918e73c84f67a`；当前前端根 `releases/login-50f509ffa680/frontend`，归档摘要 `50f509ffa68096532ed59a1a7d2352d0c908e49616e59b6ce6c05030a7d643b1`。不重置业务数据、用户、DeepSeek 密钥/20 元预算或 Redis 回执。
+
+`publish_work_queries.py --inspect` 可检查原 JAR 摘要及 Q03/Q04/Q05 原表数量。发布要求固定新旧摘要、精确 ERP 路径、最新备份恢复通过、JAR 内实际查询类/预算类完整；只更换 ERP backend unit 的 JAR 和独立网关前端 root。失败恢复旧 ERP 配置，不操作原 nginx/mysql/Cross Studio，不重跑 `configure_demo_login.py` 主程序或 `configure_deepseek_release.py`。
+
+新增 HTTPS 复验 `verify_work_queries.py` 和 `Verify-WorkQueriesCloud.mjs`；本轮 223 后端、551 前端、31 部署测试、云端八组权限及三宽度 9 图、原双层 15 图和原二维码/追溯/OCR 回归通过。原三服务/四文件、八业务表指纹、四项私密配置和预算未变，新增付费模型调用为 0。详见 `docs/acceptance/智能化第一轮S1-02业务问数云端验收记录-20261022.md`。S1-03 及后续提醒/三维异常联动仍未完成。

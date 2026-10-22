@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Read-only work-query boundary; no reader or public endpoint is enabled here. */
+/** Fixed read-only work-query boundary shared by authorized source readers. */
 public final class RdWorkQueryContract {
     public static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
@@ -184,7 +184,9 @@ public final class RdWorkQueryContract {
     }
 
     /** T is a query-specific read DTO, never a raw database entity or model-authored object. */
-    public record Result<T>(Request request, DataScope scope, Instant asOf, LocalDate businessDate, Quality quality,
+    public record Result<T>(Request request, DataScope scope,
+                            @JsonFormat(shape = JsonFormat.Shape.STRING) Instant asOf,
+                            @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate businessDate, Quality quality,
                             Map<MetricKey, Metric> metrics, List<T> items, Long total,
                             List<SourceStamp> sources, List<String> notices) {
         public Result {

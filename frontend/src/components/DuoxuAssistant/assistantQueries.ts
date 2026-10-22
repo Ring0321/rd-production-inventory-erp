@@ -5,6 +5,7 @@ import {
   type AssistantReply
 } from './assistantModel'
 import { answerAssistantKnowledge } from './assistantKnowledge'
+import { answerWorkQuery, type WorkQueryKind } from './assistantWorkQueries'
 
 export interface AssistantContext {
   pages: AssistantPage[]
@@ -19,6 +20,7 @@ export interface AssistantReaders {
   locations: () => Promise<unknown>
   trace: (code: string) => Promise<unknown>
   packageContext: (code: string) => Promise<unknown>
+  workQuery: (queryType: WorkQueryKind) => Promise<unknown>
 }
 
 const record = (value: unknown): Record<string, unknown> =>
@@ -60,6 +62,21 @@ export const answerAssistantQuestion = async (
 ): Promise<AssistantReply> => {
   assertCurrent(context)
   const intent = interpretAssistantQuestion(question)
+  if (intent.kind === 'WORK_QUERY' && intent.queryType) {
+    const permission =
+      intent.queryType === 'Q04' ? 'rd:quality-inspection:query' : 'rd:package-unit:query'
+    if (!context.allowed(permission))
+      return notice('当前账号无查询权限', '请使用当前岗位的任务入口，或联系相应业务岗位核对。')
+    const result = await readers.workQuery(intent.queryType)
+    assertCurrent(context)
+    if (!context.allowed(permission)) throw Error('ASSISTANT_CONTEXT_CHANGED')
+    return answerWorkQuery(
+      intent.queryType,
+      result,
+      context.pages,
+      context.allowed('rd:package-unit:query')
+    )
+  }
   const permissions: Record<string, string> = {
     INVENTORY: 'rd:dashboard:query',
     MOVEMENT: 'rd:dashboard:query',
@@ -81,7 +98,7 @@ export const answerAssistantQuestion = async (
   if (intent.kind === 'CLARIFY')
     return notice(
       '请明确本次查询范围',
-      '可以查当前库存、今天出入库、登记库位，或一次核对一个完整包码。历史区间请在原报表选择日期；不会把当前汇总当作历史结果。'
+      '可分别查询待检包件、质检待复核、合格待入库，以及当前库存、今日出入库和完整包码。首批状态问数为授权的全部仓库；指定仓库或历史区间请进入原报表核对。'
     )
   if (intent.kind === 'GREETING')
     return {

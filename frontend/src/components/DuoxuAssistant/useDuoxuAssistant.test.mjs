@@ -7,9 +7,13 @@ import { evaluateSource, deferred } from '../../views/rd/trace/package/testHelpe
 const source = (name) => readFileSync(new URL(name, import.meta.url), 'utf8')
 const model = evaluateSource(source('./assistantModel.ts'))
 const knowledge = evaluateSource(source('./assistantKnowledge.ts'), { './assistantModel': model })
+const workQueries = evaluateSource(source('./assistantWorkQueries.ts'), {
+  './assistantModel': model
+})
 const query = evaluateSource(source('./assistantQueries.ts'), {
   './assistantModel': model,
-  './assistantKnowledge': knowledge
+  './assistantKnowledge': knowledge,
+  './assistantWorkQueries': workQueries
 })
 const setup = (options = {}) => {
   const identity = vue.reactive({
@@ -112,6 +116,9 @@ const setup = (options = {}) => {
       },
       '@/api/rd/ai': {
         RdPackageAiApi: { getContext: () => assert.fail('unexpected package context read') }
+      },
+      '@/api/rd/workassistant': {
+        RdWorkQueryApi: { query: options.workQuery || (() => assert.fail('unexpected work query')) }
       },
       './assistantModel': model,
       './assistantQueries': query

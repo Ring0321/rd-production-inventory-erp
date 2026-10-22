@@ -6,9 +6,13 @@ import { evaluateSource } from '../../views/rd/trace/package/testHelpers.mjs'
 const source = (file) => readFileSync(new URL(file, import.meta.url), 'utf8')
 const model = evaluateSource(source('./assistantModel.ts'))
 const knowledge = evaluateSource(source('./assistantKnowledge.ts'), { './assistantModel': model })
+const workQueries = evaluateSource(source('./assistantWorkQueries.ts'), {
+  './assistantModel': model
+})
 const subject = evaluateSource(source('./assistantQueries.ts'), {
   './assistantModel': model,
-  './assistantKnowledge': knowledge
+  './assistantKnowledge': knowledge,
+  './assistantWorkQueries': workQueries
 })
 const pages = model.collectAssistantPages([
   { path: '/warehouse-space', meta: { title: '仓储空间总览' } },
@@ -29,6 +33,7 @@ const readers = (extra = {}) => ({
   locations: () => assert.fail('unexpected locations read'),
   trace: () => assert.fail('unexpected trace read'),
   packageContext: () => assert.fail('unexpected AI context read'),
+  workQuery: () => assert.fail('unexpected work query'),
   ...extra
 })
 

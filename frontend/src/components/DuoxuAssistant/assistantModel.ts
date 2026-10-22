@@ -9,6 +9,7 @@ export interface AssistantLink {
   title: string
   breadcrumb?: string
   packageCode?: string
+  inspectionId?: string
 }
 
 export interface AssistantPage extends AssistantLink {
@@ -131,7 +132,9 @@ export type AssistantIntent = {
     | 'GREETING'
     | 'READ_ONLY'
     | 'CLARIFY'
+    | 'WORK_QUERY'
   packageCode?: string
+  queryType?: 'Q03' | 'Q04' | 'Q05'
 }
 
 export const interpretAssistantQuestion = (question: string): AssistantIntent => {
@@ -152,6 +155,17 @@ export const interpretAssistantQuestion = (question: string): AssistantIntent =>
   if (/(?:这个|当前|本)(?:页|页面)/.test(text)) return { kind: 'CURRENT_PAGE' }
   if (/^(?:你好|您好|嗨|hello|hi)[，, !！\s]*(?:小垛)?$/i.test(text)) return { kind: 'GREETING' }
   if (/打开|找|在哪|入口|页面|进入|跳转/.test(text)) return { kind: 'NAVIGATE' }
+  const workQueries: Array<'Q03' | 'Q04' | 'Q05'> = []
+  if (/待检(?:包件|货物)?|(?:哪些|多少).*(?:未|没).*(?:质检|检验)/.test(text))
+    workQueries.push('Q03')
+  if (/待复核|(?:已提交|已经提交).*(?:未|没).*复核|(?:质检|检验).*待审核/.test(text))
+    workQueries.push('Q04')
+  if (/合格.*(?:未|没|待).*入库|待入库(?:包件|货物)?/.test(text)) workQueries.push('Q05')
+  if (workQueries.length) {
+    if (workQueries.length > 1 || /仓库|库区|库位|[上下\d一二]层/.test(text))
+      return { kind: 'CLARIFY' }
+    return { kind: 'WORK_QUERY', queryType: workQueries[0] }
+  }
   if (/今天|今日|本日/.test(text) && /出库|入库|出入库/.test(text)) return { kind: 'MOVEMENT' }
   if (/库位|货位|仓库/.test(text) && /多少|数量|统计|占用/.test(text)) return { kind: 'LOCATIONS' }
   if (/库存|在库/.test(text) && /多少|汇总|总量|重量|包数|统计|查/.test(text))
@@ -174,4 +188,9 @@ export const canOpenAssistantLink = (
     ? packageAllowed &&
       bagPattern.test(link.packageCode) &&
       link.path === `/pkg/${link.packageCode}`
-    : internalPath(link.path) && pages.some((page) => page.path === link.path)
+    : internalPath(link.path) &&
+      pages.some((page) => page.path === link.path) &&
+      (link.inspectionId === undefined ||
+        (link.path === '/rd/quality/inspection' &&
+          /^[1-9]\d{0,15}$/.test(link.inspectionId) &&
+          Number.isSafeInteger(Number(link.inspectionId))))
